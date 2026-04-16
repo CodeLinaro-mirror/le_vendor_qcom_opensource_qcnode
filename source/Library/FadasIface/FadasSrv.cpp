@@ -228,7 +228,7 @@ QCStatus_e FadasSrv::InitDSP( QCProcessorType_e processor, uint32_t coreId )
         char *endptr;
         errno = 0;
         s_client = strtol( envValue, &endptr, 10 );
-        if ( 0 != errno )
+        if ( (0 != errno) || ( endptr == envValue ) || ( '\0' != *endptr ) )
         {
             QC_INFO( "Invalid client reset to 1!" );
             s_client = 1;

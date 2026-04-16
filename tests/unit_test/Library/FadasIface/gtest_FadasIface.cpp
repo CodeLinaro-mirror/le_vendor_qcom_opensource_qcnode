@@ -192,7 +192,7 @@ TEST_F( FadasIfaceTest, CreateMapFromMap_NullMapPtr )
     AEEResult ret = FadasIface_FadasRemap_CreateMapFromMap(
         1, nullptr, 640, 480, 640, 480, 1, 2, 640*4,
         FADAS_REMAP_PIPELINE_UYVY_TO_RGB888_NSP, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, CreateMapFromMap_CRCVerifyFail )
@@ -245,7 +245,7 @@ TEST_F( FadasIfaceTest, CreateMapNoUndistortion_NullMapPtr )
 {
     AEEResult ret = FadasIface_FadasRemap_CreateMapNoUndistortion(
         1, nullptr, 640, 480, 640, 480, FADAS_REMAP_PIPELINE_UYVY_TO_RGB888_NSP, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, CreateMapNoUndistortion_CRCVerifyFail )
@@ -316,7 +316,7 @@ TEST_F( FadasIfaceTest, CreateWorkers_NullWorkerPtr )
 {
     AEEResult ret = FadasIface_FadasRemap_CreateWorkers(
         1, nullptr, 4, FADAS_REMAP_PIPELINE_UYVY_TO_RGB888_NSP );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, CreateWorkers_CRCVerifyFail )
@@ -369,7 +369,7 @@ TEST_F( FadasIfaceTest, RunMT_CRCGenFail )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
         nullptr, 0, 0, 0, nullptr, nullptr, 0, nullptr, 0 );
-    EXPECT_EQ( AEE_EFAILED, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, RunMT_SafeFail )
@@ -379,7 +379,7 @@ TEST_F( FadasIfaceTest, RunMT_SafeFail )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
         nullptr, 0, 0, 0, nullptr, nullptr, 0, nullptr, 0 );
-    EXPECT_EQ( AEE_EFAILED, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, RunMT_WithAllNonNullPtrs )
@@ -408,7 +408,7 @@ TEST_F( FadasIfaceTest, RunMT_NullWorkerPtrs )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, nullptr, 0, &mPtr, 1, &srcFd, 1, &offset, 1,
         &srcProp, 1, 2, 640*480*3, &dstProp, &roi, 1, nullptr, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, RunMT_NullMapPtrs )
@@ -422,7 +422,7 @@ TEST_F( FadasIfaceTest, RunMT_NullMapPtrs )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, &wPtr, 1, nullptr, 0, &srcFd, 1, &offset, 1,
         &srcProp, 1, 2, 640*480*3, &dstProp, &roi, 1, nullptr, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, RunMT_NullSrcFds )
@@ -431,7 +431,7 @@ TEST_F( FadasIfaceTest, RunMT_NullSrcFds )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
         nullptr, 0, 2, 640*480*3, &dstProp, nullptr, 0, nullptr, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, RunMT_NullOffsets )
@@ -441,7 +441,7 @@ TEST_F( FadasIfaceTest, RunMT_NullOffsets )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, nullptr, 0, nullptr, 0, &srcFd, 0, nullptr, 0,
         nullptr, 0, 2, 640*480*3, &dstProp, nullptr, 0, nullptr, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, RunMT_NullSrcProps )
@@ -450,7 +450,7 @@ TEST_F( FadasIfaceTest, RunMT_NullSrcProps )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
         nullptr, 0, 2, 640*480*3, &dstProp, nullptr, 0, nullptr, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, RunMT_NullDstProps )
@@ -458,7 +458,7 @@ TEST_F( FadasIfaceTest, RunMT_NullDstProps )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
         nullptr, 0, 0, 0, nullptr, nullptr, 0, nullptr, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceTest, RunMT_NullDstROIs )
@@ -467,7 +467,7 @@ TEST_F( FadasIfaceTest, RunMT_NullDstROIs )
     AEEResult ret = FadasIface_FadasRemap_RunMT(
         1, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
         nullptr, 0, 2, 640*480*3, &dstProp, nullptr, 0, nullptr, 0 );
-    EXPECT_EQ( AEE_SUCCESS, ret );
+    EXPECT_EQ( AEE_EBADPARM, ret );
 }
 
 /* ================================================================
@@ -562,14 +562,14 @@ TEST_F( FadasIfaceTest, PointPillarCreate_SafeFail )
 TEST_F( FadasIfaceTest, PointPillarCreate_NullPhPreProc )
 {
     FadasIface_Pt3D_t sz={1,1,1}, mn={0,0,0}, mx={10,10,10};
-    EXPECT_EQ( AEE_SUCCESS, FadasIface_PointPillarCreate(1,&sz,&mn,&mx,100,4,10,10,4,nullptr) );
+    EXPECT_EQ( AEE_EBADPARM, FadasIface_PointPillarCreate(1,&sz,&mn,&mx,100,4,10,10,4,nullptr) );
 }
 
 TEST_F( FadasIfaceTest, PointPillarCreate_NullPPlrSize )
 {
     FadasIface_Pt3D_t mn={0,0,0}, mx={10,10,10};
     uint64_t ph = 0;
-    EXPECT_EQ( AEE_SUCCESS, FadasIface_PointPillarCreate(1,nullptr,&mn,&mx,100,4,10,10,4,&ph) );
+    EXPECT_EQ( AEE_EBADPARM, FadasIface_PointPillarCreate(1,nullptr,&mn,&mx,100,4,10,10,4,&ph) );
     if (ph) free((void*)(uintptr_t)ph);
 }
 
@@ -577,7 +577,7 @@ TEST_F( FadasIfaceTest, PointPillarCreate_NullPMinRange )
 {
     FadasIface_Pt3D_t sz={1,1,1}, mx={10,10,10};
     uint64_t ph = 0;
-    EXPECT_EQ( AEE_SUCCESS, FadasIface_PointPillarCreate(1,&sz,nullptr,&mx,100,4,10,10,4,&ph) );
+    EXPECT_EQ( AEE_EBADPARM, FadasIface_PointPillarCreate(1,&sz,nullptr,&mx,100,4,10,10,4,&ph) );
     if (ph) free((void*)(uintptr_t)ph);
 }
 
@@ -585,7 +585,7 @@ TEST_F( FadasIfaceTest, PointPillarCreate_NullPMaxRange )
 {
     FadasIface_Pt3D_t sz={1,1,1}, mn={0,0,0};
     uint64_t ph = 0;
-    EXPECT_EQ( AEE_SUCCESS, FadasIface_PointPillarCreate(1,&sz,&mn,nullptr,100,4,10,10,4,&ph) );
+    EXPECT_EQ( AEE_EBADPARM, FadasIface_PointPillarCreate(1,&sz,&mn,nullptr,100,4,10,10,4,&ph) );
     if (ph) free((void*)(uintptr_t)ph);
 }
 
@@ -685,7 +685,7 @@ TEST_F( FadasIfaceTest, ExtractBBoxCreate_SafeFail )
 TEST_F( FadasIfaceTest, ExtractBBoxCreate_NullPGrid )
 {
     uint64_t ph = 0;
-    EXPECT_EQ( AEE_SUCCESS,
+    EXPECT_EQ( AEE_EBADPARM,
         FadasIface_ExtractBBoxCreate(1,100,4,10,1,nullptr,0.5f,0.5f,0,0,0,10,10,10,nullptr,0,0,&ph) );
     if (ph) free((void*)(uintptr_t)ph);
 }
@@ -693,7 +693,7 @@ TEST_F( FadasIfaceTest, ExtractBBoxCreate_NullPGrid )
 TEST_F( FadasIfaceTest, ExtractBBoxCreate_NullPhPostProc )
 {
     FadasIface_Grid2D_t grid = {0};
-    EXPECT_EQ( AEE_SUCCESS,
+    EXPECT_EQ( AEE_EBADPARM,
         FadasIface_ExtractBBoxCreate(1,100,4,10,1,&grid,0.5f,0.5f,0,0,0,10,10,10,nullptr,0,0,nullptr) );
 }
 
@@ -3065,7 +3065,7 @@ TEST_F( FadasIfaceTest, FadasRegisterBufDSP_InOutType_RegBufFail_v3 )
     AEEResult fail = AEE_EFAILED;
     MockApi_Control( MOCK_API_FADAS_REG_BUF_SAFE, MOCK_CONTROL_RETURN, &fail );
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_INOUT );
-    EXPECT_EQ( 1, fd );
+    EXPECT_EQ( -1, fd );
     free( t.pBuf );
     srv.Deinit();
 }

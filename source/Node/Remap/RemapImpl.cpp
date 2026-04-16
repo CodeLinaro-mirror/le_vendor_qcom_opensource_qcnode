@@ -124,9 +124,9 @@ RemapImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorBase
                         QC_ERROR( "Create worker fail at inputId = %d", inputId );
                         break;
                     }
-
-                    TensorDescriptor_t *pMapXTensorDesc = nullptr;
-                    TensorDescriptor_t *pMapYTensorDesc = nullptr;
+                    TensorDescriptor_t dummyMapTensor{};
+                    TensorDescriptor_t *pMapXTensorDesc = &dummyMapTensor;
+                    TensorDescriptor_t *pMapYTensorDesc = &dummyMapTensor;
                     if ( true == m_config.params.bEnableUndistortion )
                     {
                         uint32_t mapXBufferId =
