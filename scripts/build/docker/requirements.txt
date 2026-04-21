@@ -5,7 +5,7 @@ decorator==5.1.1
 invoke==2.0.0
 joblib==1.2.0
 jsonschema==4.19.0
-lxml==4.6.5
+lxml==6.1.0
 Mako==1.1.0
 matplotlib==3.3.4
 mock==5.1.0
