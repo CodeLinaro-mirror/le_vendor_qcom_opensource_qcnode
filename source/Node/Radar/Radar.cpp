@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "QC/Node/Radar.hpp"
+#include "RadarImpl.hpp"
 #include <unistd.h>
 
 namespace QC
@@ -10,6 +11,10 @@ namespace Node
 {
 
 REGISTER_NODE( QC_NODE_TYPE_RADAR, Radar )
+
+Radar::Radar() : m_pImpl( std::make_unique<RadarImpl>() ), m_configIfs( m_logger ) {}
+
+Radar::~Radar() {}
 
 QCStatus_e RadarConfigIfs::VerifyStaticConfig( DataTree &dt, std::string &errors )
 {
@@ -186,7 +191,7 @@ QCStatus_e Radar::SetupGlobalBufferIdMap( const RadarConfig_t &cfg )
     else
     {
         // Create a default global buffer index map
-        m_globalBufferIdMap.resize( m_inputNum + m_outputNum );
+        m_globalBufferIdMap.resize( static_cast<size_t>( m_inputNum + m_outputNum ) );
         uint32_t globalBufferId = 0;
 
         // Input buffer
@@ -340,11 +345,11 @@ QCStatus_e Radar::Initialize( QCNodeInit_t &config )
 
     if ( QC_STATUS_OK == status )
     {
-        status = m_radarIface.Initialize( pConfig->params.serviceConfig.serviceName.c_str(),
-                                          pConfig->params.serviceConfig.timeoutMs );
+        status = m_pImpl->Initialize( pConfig->params.serviceConfig.serviceName.c_str(),
+                                      pConfig->params.serviceConfig.timeoutMs );
         if ( QC_STATUS_OK != status )
         {
-            QC_ERROR( "Failed to initialize RadarIface with device: %s",
+            QC_ERROR( "Failed to initialize RadarImpl with device: %s",
                       pConfig->params.serviceConfig.serviceName.c_str() );
         }
     }
@@ -360,7 +365,7 @@ QCStatus_e Radar::Initialize( QCNodeInit_t &config )
         // Error cleanup
         if ( bRadarInitDone )
         {
-            (void) m_radarIface.Deinitialize();
+            (void) m_pImpl->Deinitialize();
         }
         if ( bNodeBaseInitDone )
         {
@@ -382,11 +387,11 @@ QCStatus_e Radar::DeInitialize()
     // and Deinit should proceed in that case to allow reattempts
     if ( QC_OBJECT_STATE_READY == m_state || QC_OBJECT_STATE_ERROR == m_state )
     {
-        // Deinitialize RadarIface
-        QCStatus_e ret2 = m_radarIface.Deinitialize();
+        // Deinitialize RadarImpl
+        QCStatus_e ret2 = m_pImpl->Deinitialize();
         if ( QC_STATUS_OK != ret2 )
         {
-            QC_ERROR( "Failed to deinitialize RadarIface" );
+            QC_ERROR( "Failed to deinitialize RadarImpl" );
             ret = ret2;
         }
 
@@ -418,11 +423,11 @@ QCStatus_e Radar::Start()
     }
     else
     {
-        // Check if RadarIface is properly initialized
-        if ( !m_radarIface.IsInitialized() )
+        // Check if RadarImpl is properly initialized
+        if ( !m_pImpl->IsInitialized() )
         {
             ret = QC_STATUS_BAD_STATE;
-            QC_ERROR( "RadarIface not initialized" );
+            QC_ERROR( "RadarImpl not initialized" );
         }
         else
         {
@@ -471,10 +476,10 @@ QCStatus_e Radar::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDesc )
         status = QC_STATUS_BAD_ARGUMENTS;
         QC_ERROR( "Insufficient global buffer map entries: %zu", m_globalBufferIdMap.size() );
     }
-    else if ( !m_radarIface.IsInitialized() )
+    else if ( !m_pImpl->IsInitialized() )
     {
         status = QC_STATUS_BAD_STATE;
-        QC_ERROR( "RadarIface not initialized" );
+        QC_ERROR( "RadarImpl not initialized" );
     }
     else
     {
@@ -581,11 +586,11 @@ QCStatus_e Radar::Execute( const QCBufferDescriptorBase_t *pInput,
                 }
                 else
                 {
-                    // Check if RadarIface is properly initialized
-                    if ( !m_radarIface.IsInitialized() )
+                    // Check if RadarImpl is properly initialized
+                    if ( !m_pImpl->IsInitialized() )
                     {
                         ret = QC_STATUS_BAD_STATE;
-                        QC_ERROR( "RadarIface not initialized" );
+                        QC_ERROR( "RadarImpl not initialized" );
                     }
                     else
                     {
@@ -594,11 +599,10 @@ QCStatus_e Radar::Execute( const QCBufferDescriptorBase_t *pInput,
                         uint64_t inputHandle = pInput->dmaHandle;
                         uint64_t outputHandle = pOutput->dmaHandle;
 
-                        ret = m_radarIface.Execute( inputHandle, inputSize, outputHandle,
-                                                    outputSize );
+                        ret = m_pImpl->Execute( inputHandle, inputSize, outputHandle, outputSize );
                         if ( QC_STATUS_OK != ret )
                         {
-                            QC_ERROR( "RadarIface execution failed" );
+                            QC_ERROR( "RadarImpl execution failed" );
                         }
                         else
                         {
