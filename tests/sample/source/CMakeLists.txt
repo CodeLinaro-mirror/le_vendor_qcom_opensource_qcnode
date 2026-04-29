@@ -23,6 +23,8 @@ set( QCNODE_SAMPLE_SOURCES
     SampleGL2DFlex.cpp
     SampleTemporal.cpp
     SampleComputeLidarCoord.cpp
+    SampleConcatVision.cpp
+    SamplePreProcVisionEncoder.cpp
 )
 
 if ( ENABLE_EVA )

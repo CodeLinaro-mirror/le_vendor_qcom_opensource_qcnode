@@ -31,6 +31,8 @@
     - [2.27 QCNode ResMon Sample](#227-qcnode-resmon-sample)
     - [2.28 QCNode Genie Sample](#228-qcnode-genie-sample)
     - [2.29 QCNode ComputeLidarCoord Sample](#229-qcnode-computelidarcoord-sample)
+    - [2.30 QCNode PreProcVisionEncoder Sample](#230-qcnode-preprocvisionencoder-sample)
+    - [2.31 QCNode ConcatVision Sample](#231-qcnode-concatvision-sample)
   - [3. Typical QCNode Sample Application pipelines](#3-typical-qcnode-sample-application-pipelines)
     - [3.1 4 DataReader based QNN perception pipelines](#31-4-datareader-based-qnn-perception-pipelines)
     - [3.2 1 DataReader and 1 Camera AR231 based QNN perception pipelines](#32-1-datareader-and-1-camera-ar231-based-qnn-perception-pipelines)
@@ -1050,6 +1052,140 @@ The command line template example:
   -k cols -v 1000 -k blocks -v 100 \
   -k input_topic -v /sensor/lidar/LIDAR0/input \
   -k output_topic -v /sensor/lidar/LIDAR1/output \
+```
+
+### 2.30 QCNode PreProcVisionEncoder Sample
+
+The Sample PreProcVisionEncoder is a vision encoder pre-processor for multimodal AI pipelines (e.g., Qwen2.5-VL).
+It accepts an RGB888 image from an upstream CL2DFlex node, applies smart-resize, patch extraction,
+normalization, and quantization to produce a `ufixed_point16` pixel_values tensor suitable for a
+vision transformer (VIT) model.
+
+Both CPU and GPU (OpenCL) execution paths are supported, selected via the `processor` attribute.
+
+| attribute            | required | type      | default                    | comments |
+|----------------------|----------|-----------|----------------------------|----------|
+| processor            | false    | string    | cpu                        | The processor type, options from [cpu, gpu] |
+| target_width         | false    | int       | 644                        | The target image width before smart-resize |
+| target_height        | false    | int       | 644                        | The target image height before smart-resize |
+| patch_size           | false    | int       | 14                         | The patch size for patch extraction |
+| temporal_patch_size  | false    | int       | 2                          | The temporal patch size |
+| merge_size           | false    | int       | 2                          | The merge size; IMAGE_FACTOR = patch_size * merge_size |
+| image_mean_r         | false    | float     | 0.48145466                 | Normalization mean for R channel (OpenAI CLIP default) |
+| image_mean_g         | false    | float     | 0.4578275                  | Normalization mean for G channel |
+| image_mean_b         | false    | float     | 0.40821073                 | Normalization mean for B channel |
+| image_std_r          | false    | float     | 0.26862954                 | Normalization std for R channel |
+| image_std_g          | false    | float     | 0.26130258                 | Normalization std for G channel |
+| image_std_b          | false    | float     | 0.27577711                 | Normalization std for B channel |
+| pixel_values_scale   | false    | float     | 0.00006009246135363355     | Quantization scale for ufixed_point16 output |
+| pixel_values_offset  | false    | int       | -29825                     | Quantization offset for ufixed_point16 output |
+| min_pixels           | false    | int       | 3136 (4×28×28)             | Minimum pixel count for smart-resize |
+| max_pixels           | false    | int       | 12845056 (16384×28×28)     | Maximum pixel count for smart-resize |
+| pool_size            | false    | int       | 4                          | The output tensor memory pool size |
+| cache                | false    | bool      | true                       | Use cached memory or not |
+| input_topic          | true     | string    | -                          | The input topic name (RGB888 image) |
+| output_topic         | true     | string    | -                          | The output topic name (ufixed_point16 tensor) |
+
+The command line template example (CPU path):
+
+```sh
+  -n ImgPreproc -t PreProcVisionEncoder \
+    -k processor -v cpu \
+    -k target_width -v 644 -k target_height -v 644 \
+    -k input_topic -v /sensor/camera/CAM0/rgb \
+    -k output_topic -v /sensor/camera/VIT/pixel_values \
+```
+
+The command line template example (GPU/OpenCL path):
+
+```sh
+  -n ImgPreproc -t PreProcVisionEncoder \
+    -k processor -v gpu \
+    -k target_width -v 644 -k target_height -v 644 \
+    -k input_topic -v /sensor/camera/CAM0/rgb \
+    -k output_topic -v /sensor/camera/VIT/pixel_values \
+```
+
+### 2.31 QCNode ConcatVision Sample
+
+The Sample ConcatVision fuses VIT embeddings into the LLM input embedding sequence for multimodal
+AI pipelines (e.g., Qwen2.5-VL). It receives a float32 VIT output tensor directly, then replaces
+image-token positions in the pre-loaded `input_embeds` with the corresponding VIT embedding vectors.
+
+| attribute            | required | type      | default                    | comments |
+|----------------------|----------|-----------|----------------------------|----------|
+| input_ids_file       | true     | string    | -                          | Path to the binary file containing int64 token IDs |
+| input_embeds_file    | true     | string    | -                          | Path to the binary file containing float32 input embeddings |
+| image_token_index    | false    | int       | 151655                     | The token ID that marks image token positions |
+| vit_seq_len          | false    | int       | 529                        | The number of VIT output embedding vectors |
+| vit_hidden_dim       | false    | int       | 2048                       | The hidden dimension of VIT output embeddings |
+| pool_size            | false    | int       | 4                          | The output tensor memory pool size |
+| input_topic          | true     | string    | -                          | The input topic name (float32 VIT embeddings) |
+| output_topic         | true     | string    | -                          | The output topic name (float32 fused embeddings) |
+
+The command line template example:
+
+```sh
+  -n CAT_VIS -t ConcatVision \
+    -k input_topic -v /sensor/camera/VIT/embdeds \
+    -k input_ids_file -v /data/input_ids_cmd.raw \
+    -k input_embeds_file -v /data/inputs_embeds_before_replacement553x2048.bin \
+    -k vit_seq_len -v 529 \
+    -k vit_hidden_dim -v 2048 \
+    -k output_topic -v /sensor/genie/embeding/raw \
+```
+
+Typical usage in a Qwen2.5-VL pipeline:
+
+```sh
+./bin/qcrun ./bin/QCNodeSampleApp \
+  -n CAM0 -t Camera -k input_id -v 8 \
+      -k width -v 3840 -k height -v 2160 \
+      -k isp_use_case -v 65 -k request_mode -v true \
+      -k pool_size -v 8 \
+      -k stream_id -v 1 \
+      -k topic -v /sensor/camera/CAM0/raw \
+  -n CL2D -t CL2DFlex \
+      -k batch_size -v 1 \
+      -k work_mode0 -v resize_nearest \
+      -k input_width0 -v 3840 -k input_height0 -v 2160 -k input_format0 -v nv12 \
+      -k roi_x0 -v 0 -k roi_y0 -v 0 -k roi_width0 -v 3840 -k roi_height0 -v 2160 \
+      -k output_width -v 644 -k output_height -v 644 -k output_format -v rgb \
+      -k input_topic -v /sensor/camera/CAM0/raw \
+      -k output_topic -v /sensor/camera/CAM0/rgb \
+  -n ImgPreproc -t PreProcVisionEncoder \
+      -k target_width -v 644 -k target_height -v 644 \
+      -k input_topic -v /sensor/camera/CAM0/rgb \
+      -k output_topic -v /sensor/camera/VIT/pixel_values \
+  -n VIT_INPUT_AUX -t DataReader -k number -v 4 -k fps -v 1 \
+      -k type0 -v tensor -k tensor_type0 -v ufixed_point16 -k dims0 -v "1,46,46,40" \
+      -k data_path0 -v /data/mingdaic/qwen25input/data_uint16_vitScaleOffset/position_ids_cos \
+      -k type1 -v tensor -k tensor_type1 -v ufixed_point16 -k dims1 -v "1,46,46,40" \
+      -k data_path1 -v /data/mingdaic/qwen25input/data_uint16_vitScaleOffset/position_ids_sin \
+      -k type2 -v tensor -k tensor_type2 -v ufixed_point16 -k dims2 -v "1,46,46,2116" \
+      -k data_path2 -v /data/mingdaic/qwen25input/data_uint16_vitScaleOffset/window_attention_mask \
+      -k type3 -v tensor -k tensor_type3 -v ufixed_point16 -k dims3 -v "1,46,46,2116" \
+      -k data_path3 -v /data/mingdaic/qwen25input/data_uint16_vitScaleOffset/full_attention_mask \
+      -k topic -v /sensor/camera/VIT/aux_inputs \
+  -n VIT_MERGER -t FrameSync \
+      -k window -v 1500 \
+      -k input_topic0 -v /sensor/camera/VIT/pixel_values \
+      -k input_topic1 -v /sensor/camera/VIT/aux_inputs \
+      -k output_topic -v /sensor/camera/VIT/input \
+  -n VIT -t Qnn -k processor -v htp0 -k perf_profile -v burst \
+      -k model_path -v /data/mingdaic/qwen25input/data/vit/veg.serialized.bin -k core_ids -v 0,1,2,3 \
+      -k input_topic -v /sensor/camera/VIT/input \
+      -k output_topic -v /sensor/camera/VIT/embdeds \
+  -n CAT_VIS -t ConcatVision \
+      -k input_topic -v /sensor/camera/VIT/embdeds \
+      -k input_ids_file -v /data/mingdaic/qwen25input/input_ids_cmd.raw \
+      -k input_embeds_file -v /data/mingdaic/qwen25input/inputs_embeds_before_replacement553x2048.bin \
+      -k output_topic -v /sensor/genie/embeding/raw \
+  -n GENIE0 -t Genie -k config -v /data/mingdaic/qwen25input/qwen2vl_absolute10.json \
+      -k embedding_table -v /data/mingdaic/qwen25input/embedding_weights_151936x2048.raw \
+      -k input_topic -v /sensor/genie/embeding/raw \
+      -k output_topic -v /sensor/genie/decoder/text \
+  -d
 ```
 
 ## 3. Typical QCNode Sample Application pipelines
