@@ -466,6 +466,56 @@ private:
 } QCMemoryManagerInit_t;
 
 /**
+ * @struct QCMemoryPoolInitConfig_t
+ * @brief Structure for configuring a memory pool.
+ * This structure provides the necessary information to configure a memory pool via memory manager
+ * interface, including the properties of individual buffers in the pool, the maximum number of
+ * elements, the name of the pool, and memory allocator enum used by the pool.
+ */
+typedef struct QCMemoryPoolInitConfig
+{
+    /**
+     * @brief Deleted default constructor.
+     * This constructor is deleted to prevent default initialization of the QCMemoryPoolConfig
+     * structure.
+     */
+    QCMemoryPoolInitConfig() : maxElements( 0 ), allocator( QC_MEMORY_ALLOCATOR_LAST ) {};
+
+    /**
+     * @var buff
+     * @brief Properties of individual buffers in the pool.
+     * This structure specifies the properties of each buffer in the pool,
+     * such as size, alignment, and cache attributes.
+     */
+    QCBufferPropBase_t buff;
+
+    /**
+     * @var maxElements
+     * @brief Maximum number of elements in the pool.
+     * This value specifies the maximum number of buffers that can be allocated from the pool.
+     * A value of 0 indicates that the pool has no limit on the number of elements.
+     */
+    QCCount_t maxElements;
+
+    /**
+     * @var name
+     * @brief Name of the pool.
+     * This string specifies the name of the pool, which can be used for identification and
+     * debugging purposes.
+     */
+    std::string name;
+
+    /**
+     * @var allocator
+     * @brief enumerator indicationg the allocator used by the pool.
+     * This enumerator specifies the allocator type that will be used to allocate and release memory
+     * for the pool.
+     */
+    QCMemoryAllocator_e allocator;
+} QCMemoryPoolInitConfig_t;
+
+
+/**
  * @class QCMemoryManagerIfs
  * @brief Abstract interface for memory manager implementations.
  *
@@ -588,7 +638,7 @@ public:
      * @note The pool is automatically destroyed when the owning node is unregistered
      */
     virtual QCStatus_e CreatePool( const QCMemoryHandle_t &handle,
-                                   const QCMemoryPoolConfig &poolCfg,
+                                   const QCMemoryPoolInitConfig_t &poolCfg,
                                    QCMemoryPoolHandle_t &poolHandle ) = 0;
 
     /**

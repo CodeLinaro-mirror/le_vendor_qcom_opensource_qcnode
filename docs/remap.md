@@ -46,7 +46,7 @@ The Remap node is configured via a single JSON document under the "static" key. 
 | `id`       | true      | uint32_t    | The Node unique ID.    |
 | `logLevel` | false     | string      | The message log level. <br> Options: `VERBOSE`, `DEBUG`, `INFO`, `WARN`, `ERROR` <br> Default: `ERROR`   |
 | `processorType` | true | string      | The processor type, type: string. <br> Options: `cpu`, `gpu`, `htp0`, `htp1`, `htp2`, `htp3`|
-| `coreId`       | false      | uint32_t    | The core ID of processor, currently only used for nordy dsp. <br> Default: `0`|
+| `coreId`       | false      | uint32_t    | The core ID of processor. <br> Default: `0`|
 | `outputWidth`  | true  | uint32_t    | The output width.      |
 | `outputHeight` | true  | uint32_t    | The output height.     |
 | `outputFormat` | true  | string      | The output format. <br> Options: `rgb`, `bgr` <br> Default: `rgb` |

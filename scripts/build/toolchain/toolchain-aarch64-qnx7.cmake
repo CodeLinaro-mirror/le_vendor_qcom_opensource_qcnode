@@ -10,10 +10,60 @@ set( CMAKE_CXX_COMPILER_TARGET ${arch} )
 
 set( CMAKE_SYSROOT $ENV{QNX_TARGET}/aarch64le/ )
 
-# pmem
+if( DEFINED ENV{BSP_ROOT} )
+add_link_options("--sysroot=$ENV{BSP_ROOT}/install/aarch64le")
+endif()
+
+set( CMAKE_FIND_LIBRARY_PREFIXES lib )
+set( CMAKE_FIND_LIBRARY_SUFFIXES .so )
+
+# Usage:
+#   find_and_append_library(
+#       OUT_LIST         <output list variable>
+#       NAMES            <library name> [library name ...]
+#       PATHS            <paths to search>
+#   )
+function(find_and_append_library)
+    set(options)
+    set(oneValueArgs OUT_LIST)
+    set(multiValueArgs NAMES PATHS)
+    cmake_parse_arguments(FAL "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    if(NOT FAL_OUT_LIST)
+        message(FATAL_ERROR "find_and_append_library: OUT_LIST is required")
+    endif()
+    if(NOT FAL_NAMES)
+        message(FATAL_ERROR "find_and_append_library: NAMES is required")
+    endif()
+
+    foreach(_lib_name ${FAL_NAMES})
+        string(TOUPPER "${_lib_name}" _VAR_NAME)
+        set(_VAR_NAME "${_VAR_NAME}_LIB")
+
+        find_library(${_VAR_NAME}
+            NAMES ${_lib_name}
+            PATHS ${FAL_PATHS}
+        )
+
+        if(${_VAR_NAME})
+            list(APPEND ${FAL_OUT_LIST} "${${_VAR_NAME}}")
+        else()
+            message(INFO "${_lib_name} is not found, build without it")
+        endif()
+    endforeach()
+    set(${FAL_OUT_LIST} "${${FAL_OUT_LIST}}" PARENT_SCOPE)
+endfunction()
+
+set( QC_LIB_PATHS
+    ${CMAKE_SYSROOT}/lib
+    ${CMAKE_SYSROOT}/usr/lib
+)
+
+# common header files
 if( DEFINED ENV{BSP_ROOT} )
 include_directories( $ENV{BSP_ROOT}/AMSS/inc )
 include_directories( $ENV{BSP_ROOT}/install/usr/include )
+include_directories( $ENV{BSP_ROOT}/install/usr/include/amss )
 endif()
 
 # apdf
@@ -53,6 +103,7 @@ set( QC_VIDC_FILEDEMUX_LIBS
 # qcarcam
 if( DEFINED ENV{BSP_ROOT} )
 include_directories( $ENV{BSP_ROOT}/AMSS/multimedia/qcamera/camera_qcx/cdk_qcx/api/qcarcam/ )
+include_directories( $ENV{BSP_ROOT}/install/usr/include/amss/multimedia/camera_qcx )
 add_link_options( "-L$ENV{BSP_ROOT}/install/aarch64le/lib/camera_qcx/" )
 endif()
 set( QC_CAMERA_EXTRA_LIBS xml2 )
@@ -84,4 +135,10 @@ include_directories( $ENV{BSP_ROOT}/install_remote/usr/include/amss/multimedia/e
 endif()
 set( QC_EVA_EXTRA_LIBS cdsprpc smmu_client npa_client clock_client icb_client )
 
-
+# c2c
+set( QC_C2C_EXTRA_LIBS )
+find_and_append_library(
+    OUT_LIST QC_C2C_EXTRA_LIBS
+    NAMES rc_client ep_client mhi_client
+    PATHS ${QC_LIB_PATHS}
+)

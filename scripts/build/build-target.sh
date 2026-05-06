@@ -60,6 +60,10 @@ if ! [[ -v ENABLE_CTC ]] ; then
   export CTC_BUILD_PREFIX=""
 fi
 
+if ! [[ -v ENABLE_SIMNODE ]] ; then
+  export ENABLE_SIMNODE=OFF
+fi
+
 if ! [[ -v ENABLE_C2D ]] ; then
   if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
     export ENABLE_C2D=OFF
@@ -136,7 +140,15 @@ if ! [[ -v ENABLE_RESMON ]] ; then
 fi
 
 if ! [[ -v ENABLE_RADAR ]] ; then
-  export ENABLE_RADAR=OFF
+  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+    export ENABLE_RADAR=ON
+  else
+    export ENABLE_RADAR=OFF
+  fi
+fi
+
+if ! [[ -v ENABLE_HS ]] ; then
+  export ENABLE_HS=OFF
 fi
 
 
@@ -365,7 +377,11 @@ setup_qnn_sdk() {
     if [[ -f ${QNN_SDK_ROOT}/lib/${qnx_target_arch}/libGenie.so ]] ; then
       mkdir -p $destdir/opt/qcnode/include
       mkdir -p $destdir/opt/qcnode/lib
-      cp -v ${QNN_SDK_ROOT}/lib/${qnx_target_arch}/libGenie.so $destdir/opt/qcnode/lib
+      if [ -f ${QNN_SDK_ROOT}/lib-safe/${qnx_target_arch}/libGenie.so ]; then
+        cp -v ${QNN_SDK_ROOT}/lib-safe/${qnx_target_arch}/libGenie.so $destdir/opt/qcnode/lib
+      else
+        cp -v ${QNN_SDK_ROOT}/lib/${qnx_target_arch}/libGenie.so $destdir/opt/qcnode/lib
+      fi
       cp -v ${QNN_SDK_ROOT}/include/Genie/*.h $destdir/opt/qcnode/include
       export ENABLE_GENIE=ON
     fi
@@ -447,6 +463,7 @@ cmake \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
     -DENABLE_GCOV=${ENABLE_GCOV} \
     -DENABLE_CTC=${ENABLE_CTC} \
+    -DENABLE_SIMNODE=${ENABLE_SIMNODE} \
     -DENABLE_C2D=${ENABLE_C2D} \
     -DENABLE_EVA=${ENABLE_EVA} \
     -DENABLE_EVA_AUTO=${ENABLE_EVA_AUTO} \
@@ -458,6 +475,7 @@ cmake \
     -DENABLE_GENIE=${ENABLE_GENIE} \
     -DENABLE_RESMON=${ENABLE_RESMON} \
     -DENABLE_RADAR=${ENABLE_RADAR} \
+    -DENABLE_HS=${ENABLE_HS} \
     -DQC_TARGET_SOC=${QC_TARGET_SOC} \
     .. || exit -1
 ${CTC_BUILD_PREFIX} make -j 16 || exit -1
@@ -483,18 +501,42 @@ aarch64-qnx)
       QNX_VARIANT=aarch64-qnx
     fi
     cp -vf $QNN_SDK_ROOT/bin/${QNX_VARIANT}/* $destdir/opt/qcnode/bin
-    cp -vf $QNN_SDK_ROOT/lib/${QNX_VARIANT}/libQnn* $destdir/opt/qcnode/lib
-    cp -vf $QNN_SDK_ROOT/lib/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    if [ -d $QNN_SDK_ROOT/lib-safe/${QNX_VARIANT} ]; then
+      cp -v $QNN_SDK_ROOT/lib-safe/${QNX_VARIANT}/libQnn* $destdir/opt/qcnode/lib
+    else
+      cp -vf $QNN_SDK_ROOT/lib/${QNX_VARIANT}/libQnn* $destdir/opt/qcnode/lib
+    fi
+    if [ -d $QNN_SDK_ROOT/lib-safe/${HEXAGON_VARIANT} ]; then
+      cp -vf $QNN_SDK_ROOT/lib-safe/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    else
+      cp -vf $QNN_SDK_ROOT/lib/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    fi
     ;;
 aarch64-linux)
     cp -vf $QNN_SDK_ROOT/bin/aarch64-${variant}-linux-gcc11.2/* $destdir/opt/qcnode/bin
-    cp -vf $QNN_SDK_ROOT/lib/aarch64-${variant}-linux-gcc11.2/libQnn* $destdir/opt/qcnode/lib
-    cp -vf $QNN_SDK_ROOT/lib/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    if [ -d $QNN_SDK_ROOT/lib-safe/aarch64-${variant}-linux-gcc11.2 ]; then
+      cp -vf $QNN_SDK_ROOT/lib-safe/aarch64-${variant}-linux-gcc11.2/libQnn* $destdir/opt/qcnode/lib
+    else
+      cp -vf $QNN_SDK_ROOT/lib/aarch64-${variant}-linux-gcc11.2/libQnn* $destdir/opt/qcnode/lib
+    fi
+    if [ -d $QNN_SDK_ROOT/lib-safe/${HEXAGON_VARIANT} ]; then
+      cp -vf $QNN_SDK_ROOT/lib-safe/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    else
+      cp -vf $QNN_SDK_ROOT/lib/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    fi
     ;;
 aarch64-ubuntu)
     cp -vf $QNN_SDK_ROOT/bin/aarch64-${variant}-linux-gcc11.2/* $destdir/opt/qcnode/bin
-    cp -vf $QNN_SDK_ROOT/lib/aarch64-${variant}-linux-gcc11.2/libQnn* $destdir/opt/qcnode/lib
-    cp -vf $QNN_SDK_ROOT/lib/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    if [ -d $QNN_SDK_ROOT/lib-safe/aarch64-${variant}-linux-gcc11.2 ]; then
+      cp -vf $QNN_SDK_ROOT/lib-safe/aarch64-${variant}-linux-gcc11.2/libQnn* $destdir/opt/qcnode/lib
+    else
+      cp -vf $QNN_SDK_ROOT/lib/aarch64-${variant}-linux-gcc11.2/libQnn* $destdir/opt/qcnode/lib
+    fi
+    if [ -d $QNN_SDK_ROOT/lib-safe/${HEXAGON_VARIANT} ]; then
+      cp -vf $QNN_SDK_ROOT/lib-safe/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    else
+      cp -vf $QNN_SDK_ROOT/lib/${HEXAGON_VARIANT}/unsigned/libQnn* $destdir/opt/qcnode/lib/dsp
+    fi
     ;;
 esac
 fi
@@ -557,5 +599,4 @@ tar -C $topdir --xform="s/run/pkg/" --exclude="*.a" \
     --exclude="*.la" --exclude="include" --exclude="share" \
     --exclude="cmake" \
     --use-compress-program=pigz -cf $pkgname run-$target
-
 

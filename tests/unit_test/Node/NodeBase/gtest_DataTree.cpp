@@ -169,6 +169,7 @@ TEST( NodeBase, Sanity_DataTree )
     {
         std::map<QCProcessorType_e, std::string> processorTypeMap = {
                 { QC_PROCESSOR_HTP0, "htp0" },   { QC_PROCESSOR_HTP1, "htp1" },
+                { QC_PROCESSOR_HTP2, "htp2" },   { QC_PROCESSOR_HTP3, "htp3" },
                 { QC_PROCESSOR_CPU, "cpu" },     { QC_PROCESSOR_GPU, "gpu" },
                 { QC_PROCESSOR_MAX, "unknown" },
         };

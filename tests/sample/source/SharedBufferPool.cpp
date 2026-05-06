@@ -100,6 +100,31 @@ QCStatus_e SharedBufferPool::Register( void )
 }
 
 QCStatus_e SharedBufferPool::Init( std::string name, QCNodeID_t nodeId, Logger_Level_e level,
+                                   uint32_t number, const BufferProps_t &bufferProps )
+{
+    QCStatus_e ret = Init( name, nodeId, level, number );
+
+    for ( uint32_t idx = 0; ( idx < m_queue.size() ) && ( QC_STATUS_OK == ret ); idx++ )
+    {
+        BufferDescriptor_t &bufferDesc = m_queue[idx].sharedBuffer.bufferDesc;
+        ret = m_pBufMgr->Allocate( bufferProps, bufferDesc );
+
+        QC_DEBUG( "%s buffer[%u] allocated with size=%u data=%p handle=%llu ret=%d", m_name.c_str(),
+                  idx, bufferDesc.size, bufferDesc.pBuf, bufferDesc.dmaHandle, ret );
+        m_queue[idx].sharedBuffer.bufferDesc.name = name + "." + std::to_string( idx );
+        m_queue[idx].sharedBuffer.buffer = m_queue[idx].sharedBuffer.bufferDesc;
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        m_bIsInited = true;
+        (void) Register();
+    }
+
+    return ret;
+}
+
+QCStatus_e SharedBufferPool::Init( std::string name, QCNodeID_t nodeId, Logger_Level_e level,
                                    uint32_t number, uint32_t width, uint32_t height,
                                    QCImageFormat_e format, QCMemoryAllocator_e allocatorType,
                                    QCAllocationCache_e cache )

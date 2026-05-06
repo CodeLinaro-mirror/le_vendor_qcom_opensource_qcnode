@@ -37,14 +37,14 @@ QCStatus_e PMEMUtils::MemoryMap( const QCBufferDescriptorBase_t &orig,
 
     if ( QC_STATUS_OK == status )
     {
-        /* convert ride hal flags to the PMEM flags */
+        /* convert cache to the PMEM flags */
         if ( ( QC_CACHEABLE == orig.cache ) || ( QC_CACHEABLE_WRITE_THROUGH == orig.cache ) ||
              ( QC_CACHEABLE_WRITE_BACK == orig.cache ) )
         {
             pmemFlags |= PMEM_FLAGS_CACHE_WB_WA;
         }
 
-        /* convert ride hal usage to the PMEM ID */
+        /* convert allocatorType usage to the PMEM ID */
         if ( ( orig.allocatorType < QC_MEMORY_ALLOCATOR_LAST ) &&
              ( orig.allocatorType >= QC_MEMORY_ALLOCATOR_DMA ) )
         {

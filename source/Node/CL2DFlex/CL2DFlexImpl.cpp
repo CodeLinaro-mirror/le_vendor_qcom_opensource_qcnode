@@ -44,7 +44,14 @@ QCStatus_e CL2DFlexImpl::Stop()
     QC_TRACE_BEGIN( "Stop", {} );
     if ( QC_OBJECT_STATE_RUNNING == m_state )
     {
-        m_state = QC_OBJECT_STATE_READY;
+        if ( true == m_config.bDeRegisterAllBuffersWhenStop )
+        {
+            status = m_OpenclSrvObj.DeregAllBuffers();
+        }
+        if ( QC_STATUS_OK == status )
+        {
+            m_state = QC_OBJECT_STATE_READY;
+        }
     }
     else
     {
@@ -232,6 +239,7 @@ QCStatus_e CL2DFlexImpl::DeInitialize()
                 delete m_pCL2DPipeline[inputId];
             }
         }
+        m_state = QC_OBJECT_STATE_INITIAL;
     }
     QC_TRACE_END( "DeInit", {} );
 
@@ -298,19 +306,10 @@ QCStatus_e CL2DFlexImpl::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frame
                     }
                     else
                     {
-                        if ( nullptr == m_pCL2DPipeline[inputId] )
-                        {
-                            QC_ERROR( "Pipeline not setup for inputId=%d!", inputId );
-                            status = QC_STATUS_FAIL;
-                        }
-                        else
-                        {
-                            QC_TRACE_BEGIN( "Execute",
-                                            { QCNodeTraceArg( "frameId", inputBufDesc.id ) } );
-                            status = m_pCL2DPipeline[inputId]->Execute( inputBufDesc,
-                                                                        outputBufDesc );
-                            QC_TRACE_END( "Execute", {} );
-                        }
+                        QC_TRACE_BEGIN( "Execute",
+                                        { QCNodeTraceArg( "frameId", inputBufDesc.id ) } );
+                        status = m_pCL2DPipeline[inputId]->Execute( inputBufDesc, outputBufDesc );
+                        QC_TRACE_END( "Execute", {} );
                     }
                     if ( QC_STATUS_OK != status )
                     {

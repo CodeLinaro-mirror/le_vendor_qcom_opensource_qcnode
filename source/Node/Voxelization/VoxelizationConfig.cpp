@@ -13,19 +13,19 @@ QCStatus_e VoxelizationConfig::VerifyStaticConfig( DataTree &dt, std::string &er
     QCStatus_e ret = QC_STATUS_OK;
     QCStatus_e ret2 = QC_STATUS_OK;
 
-    std::string name = dt.Get<std::string>( "name", "" );
-    if ( "" == name )
+    uint32_t id = dt.Get<uint32_t>( "id", UINT32_MAX );
+    if ( UINT32_MAX == id )
     {
-        errors += "the name is empty, ";
+        errors += "the id is empty, ";
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    if ( QC_STATUS_OK == ret )
+    if ( ( QC_STATUS_OK == ret ) && ( dt.Exists( "coreId" ) ) )
     {
-        uint32_t id = dt.Get<uint32_t>( "id", UINT32_MAX );
-        if ( UINT32_MAX == id )
+        uint32_t coreId = dt.Get<uint32_t>( "coreId", UINT32_MAX );
+        if ( NSP_CORES_ID_MAX < coreId )
         {
-            errors += "the id is empty, ";
+            errors += "coreId invalid, ";
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
     }
@@ -228,8 +228,9 @@ QCStatus_e VoxelizationConfig::ParseStaticConfig( DataTree &dt, std::string &err
     if ( QC_STATUS_OK == ret )
     {
         config.nodeId.name = dt.Get<std::string>( "name", "" );
-        config.nodeId.id = dt.Get<uint32_t>( "id", UINT32_MAX );
+        config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
         config.voxelConfig.processor = dt.GetProcessorType( "processorType", QC_PROCESSOR_HTP0 );
+        config.voxelConfig.coreId = dt.Get<uint32_t>( "coreId", 0 );
         config.voxelConfig.pillarXSize = dt.Get<float>( "Xsize", 0.0f );
         config.voxelConfig.pillarYSize = dt.Get<float>( "Ysize", 0.0f );
         config.voxelConfig.pillarZSize = dt.Get<float>( "Zsize", 0.0f );
@@ -244,21 +245,19 @@ QCStatus_e VoxelizationConfig::ParseStaticConfig( DataTree &dt, std::string &err
         config.voxelConfig.maxNumPtsPerPlr = dt.Get<uint32_t>( "maxPointNumPerPlr", UINT32_MAX );
         config.voxelConfig.numOutFeatureDim = dt.Get<uint32_t>( "outputFeatureDimNum", UINT32_MAX );
 
+        /*inputMode is being verified multiple times and no other mode reaches here
+          so validating only for xzyr & xzyrt */
         std::string inputMode = dt.Get<std::string>( "inputMode", "" );
         if ( "xyzr" == inputMode )
         {
             config.voxelConfig.inputMode = VOXELIZATION_INPUT_MODE_XYZR;
             config.voxelConfig.numInFeatureDim = 4;
         }
-        else if ( "xyzrt" == inputMode )
+
+        if ( "xyzrt" == inputMode )
         {
             config.voxelConfig.inputMode = VOXELIZATION_INPUT_MODE_XYZRT;
             config.voxelConfig.numInFeatureDim = 5;
-        }
-        else
-        {
-            QC_ERROR( "Error input mode" );
-            ret = QC_STATUS_BAD_ARGUMENTS;
         }
     }
 

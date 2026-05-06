@@ -39,6 +39,8 @@ option(ENABLE_TRACE "Enable Trace building" OFF)
 option(ENABLE_EVA_AUTO "Enable EVA AUTO building" OFF)
 option(ENABLE_RESMON "Enable Resource Monitor building" OFF)
 option(ENABLE_GENIE "Enable GENIE building" OFF)
+option(ENABLE_SIMNODE "Enable SimulationNode" OFF)
+option(ENABLE_HS "Enable Hetero Scheduler building" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
@@ -58,6 +60,10 @@ else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
   set(CMAKE_CXX_FLAGS_RELEASE "-O2 -DNDEBUG")
   set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O2 -g -DNDEBUG")
+endif()
+
+if( ENABLE_HS )
+  add_compile_definitions(QC_ENABLE_HS)
 endif()
 
 

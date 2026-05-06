@@ -24,6 +24,260 @@
 #include "pipeline/CL2DPipelineResize.hpp"
 #include "pipeline/CL2DPipelineResizeMultiple.hpp"
 
+#include <atomic>
+#include <dlfcn.h>
+
+// OpenCL clReleaseMemObject mock interposer for coverage
+enum MockClReleaseMode
+{
+    MOCK_CL_RELEASE_NONE = 0,
+    MOCK_CL_RELEASE_ALWAYS_FAIL = 1,
+    MOCK_CL_RELEASE_FAIL_N_TIMES = 2
+};
+
+static std::atomic<int> g_mock_release_mode{ MOCK_CL_RELEASE_NONE };
+static std::atomic<int> g_mock_release_count{ 0 };
+
+extern "C" void MockOpenCL_ControlReleaseMemObject( int mode, int count )
+{
+    g_mock_release_mode.store( mode );
+    g_mock_release_count.store( count );
+}
+
+extern "C" cl_int clReleaseMemObject( cl_mem memobj )
+{
+    static cl_int ( *real_clReleaseMemObject )( cl_mem ) = nullptr;
+    if ( nullptr == real_clReleaseMemObject )
+    {
+        real_clReleaseMemObject = (cl_int ( * )( cl_mem )) dlsym( RTLD_NEXT, "clReleaseMemObject" );
+    }
+
+    const int mode = g_mock_release_mode.load();
+    if ( mode == MOCK_CL_RELEASE_ALWAYS_FAIL )
+    {
+        return CL_INVALID_MEM_OBJECT;
+    }
+    if ( mode == MOCK_CL_RELEASE_FAIL_N_TIMES )
+    {
+        int cnt = g_mock_release_count.load();
+        if ( cnt > 0 )
+        {
+            g_mock_release_count.store( cnt - 1 );
+            return CL_INVALID_MEM_OBJECT;
+        }
+    }
+
+    if ( real_clReleaseMemObject )
+    {
+        return real_clReleaseMemObject( memobj );
+    }
+    // Fallback: if the real symbol cannot be resolved in this environment, behave as success
+    // to avoid impacting unrelated tests when mocking is not enabled.
+    return CL_SUCCESS;
+}
+
+// OpenCL clReleaseKernel mock interposer for coverage
+static std::atomic<int> g_mock_release_kernel_mode{ MOCK_CL_RELEASE_NONE };
+static std::atomic<int> g_mock_release_kernel_count{ 0 };
+
+extern "C" void MockOpenCL_ControlReleaseKernel( int mode, int count )
+{
+    g_mock_release_kernel_mode.store( mode );
+    g_mock_release_kernel_count.store( count );
+}
+
+extern "C" cl_int clReleaseKernel( cl_kernel kernel )
+{
+    static cl_int ( *real_clReleaseKernel )( cl_kernel ) = nullptr;
+    if ( nullptr == real_clReleaseKernel )
+    {
+        real_clReleaseKernel = (cl_int ( * )( cl_kernel )) dlsym( RTLD_NEXT, "clReleaseKernel" );
+    }
+
+    const int mode = g_mock_release_kernel_mode.load();
+    if ( mode == MOCK_CL_RELEASE_ALWAYS_FAIL )
+    {
+        return CL_INVALID_KERNEL;
+    }
+    if ( mode == MOCK_CL_RELEASE_FAIL_N_TIMES )
+    {
+        int cnt = g_mock_release_kernel_count.load();
+        if ( cnt > 0 )
+        {
+            g_mock_release_kernel_count.store( cnt - 1 );
+            return CL_INVALID_KERNEL;
+        }
+    }
+
+    if ( real_clReleaseKernel )
+    {
+        return real_clReleaseKernel( kernel );
+    }
+    // Fallback: if the real symbol cannot be resolved in this environment, behave as success
+    return CL_SUCCESS;
+}
+
+// OpenCL clReleaseProgram mock interposer for coverage
+static std::atomic<int> g_mock_release_program_mode{ MOCK_CL_RELEASE_NONE };
+static std::atomic<int> g_mock_release_program_count{ 0 };
+
+extern "C" void MockOpenCL_ControlReleaseProgram( int mode, int count )
+{
+    g_mock_release_program_mode.store( mode );
+    g_mock_release_program_count.store( count );
+}
+
+extern "C" cl_int clReleaseProgram( cl_program program )
+{
+    static cl_int ( *real_clReleaseProgram )( cl_program ) = nullptr;
+    if ( nullptr == real_clReleaseProgram )
+    {
+        real_clReleaseProgram = (cl_int ( * )( cl_program )) dlsym( RTLD_NEXT, "clReleaseProgram" );
+    }
+
+    const int mode = g_mock_release_program_mode.load();
+    if ( mode == MOCK_CL_RELEASE_ALWAYS_FAIL )
+    {
+        return CL_INVALID_PROGRAM;
+    }
+    if ( mode == MOCK_CL_RELEASE_FAIL_N_TIMES )
+    {
+        int cnt = g_mock_release_program_count.load();
+        if ( cnt > 0 )
+        {
+            g_mock_release_program_count.store( cnt - 1 );
+            return CL_INVALID_PROGRAM;
+        }
+    }
+
+    if ( real_clReleaseProgram )
+    {
+        return real_clReleaseProgram( program );
+    }
+    return CL_SUCCESS;
+}
+
+// OpenCL clReleaseCommandQueue mock interposer for coverage
+static std::atomic<int> g_mock_release_cmdqueue_mode{ MOCK_CL_RELEASE_NONE };
+static std::atomic<int> g_mock_release_cmdqueue_count{ 0 };
+
+extern "C" void MockOpenCL_ControlReleaseCommandQueue( int mode, int count )
+{
+    g_mock_release_cmdqueue_mode.store( mode );
+    g_mock_release_cmdqueue_count.store( count );
+}
+
+extern "C" cl_int clReleaseCommandQueue( cl_command_queue command_queue )
+{
+    static cl_int ( *real_clReleaseCommandQueue )( cl_command_queue ) = nullptr;
+    if ( nullptr == real_clReleaseCommandQueue )
+    {
+        real_clReleaseCommandQueue =
+                (cl_int ( * )( cl_command_queue )) dlsym( RTLD_NEXT, "clReleaseCommandQueue" );
+    }
+
+    const int mode = g_mock_release_cmdqueue_mode.load();
+    if ( mode == MOCK_CL_RELEASE_ALWAYS_FAIL )
+    {
+        return CL_INVALID_COMMAND_QUEUE;
+    }
+    if ( mode == MOCK_CL_RELEASE_FAIL_N_TIMES )
+    {
+        int cnt = g_mock_release_cmdqueue_count.load();
+        if ( cnt > 0 )
+        {
+            g_mock_release_cmdqueue_count.store( cnt - 1 );
+            return CL_INVALID_COMMAND_QUEUE;
+        }
+    }
+
+    if ( real_clReleaseCommandQueue )
+    {
+        return real_clReleaseCommandQueue( command_queue );
+    }
+    return CL_SUCCESS;
+}
+
+// OpenCL clReleaseContext mock interposer for coverage
+static std::atomic<int> g_mock_release_context_mode{ MOCK_CL_RELEASE_NONE };
+static std::atomic<int> g_mock_release_context_count{ 0 };
+
+extern "C" void MockOpenCL_ControlReleaseContext( int mode, int count )
+{
+    g_mock_release_context_mode.store( mode );
+    g_mock_release_context_count.store( count );
+}
+
+extern "C" cl_int clReleaseContext( cl_context context )
+{
+    static cl_int ( *real_clReleaseContext )( cl_context ) = nullptr;
+    if ( nullptr == real_clReleaseContext )
+    {
+        real_clReleaseContext = (cl_int ( * )( cl_context )) dlsym( RTLD_NEXT, "clReleaseContext" );
+    }
+
+    const int mode = g_mock_release_context_mode.load();
+    if ( mode == MOCK_CL_RELEASE_ALWAYS_FAIL )
+    {
+        return CL_INVALID_CONTEXT;
+    }
+    if ( mode == MOCK_CL_RELEASE_FAIL_N_TIMES )
+    {
+        int cnt = g_mock_release_context_count.load();
+        if ( cnt > 0 )
+        {
+            g_mock_release_context_count.store( cnt - 1 );
+            return CL_INVALID_CONTEXT;
+        }
+    }
+
+    if ( real_clReleaseContext )
+    {
+        return real_clReleaseContext( context );
+    }
+    return CL_SUCCESS;
+}
+
+// OpenCL clReleaseSampler mock interposer for coverage
+static std::atomic<int> g_mock_release_sampler_mode{ MOCK_CL_RELEASE_NONE };
+static std::atomic<int> g_mock_release_sampler_count{ 0 };
+
+extern "C" void MockOpenCL_ControlReleaseSampler( int mode, int count )
+{
+    g_mock_release_sampler_mode.store( mode );
+    g_mock_release_sampler_count.store( count );
+}
+
+extern "C" cl_int clReleaseSampler( cl_sampler sampler )
+{
+    static cl_int ( *real_clReleaseSampler )( cl_sampler ) = nullptr;
+    if ( nullptr == real_clReleaseSampler )
+    {
+        real_clReleaseSampler = (cl_int ( * )( cl_sampler )) dlsym( RTLD_NEXT, "clReleaseSampler" );
+    }
+
+    const int mode = g_mock_release_sampler_mode.load();
+    if ( mode == MOCK_CL_RELEASE_ALWAYS_FAIL )
+    {
+        return CL_INVALID_SAMPLER;
+    }
+    if ( mode == MOCK_CL_RELEASE_FAIL_N_TIMES )
+    {
+        int cnt = g_mock_release_sampler_count.load();
+        if ( cnt > 0 )
+        {
+            g_mock_release_sampler_count.store( cnt - 1 );
+            return CL_INVALID_SAMPLER;
+        }
+    }
+
+    if ( real_clReleaseSampler )
+    {
+        return real_clReleaseSampler( sampler );
+    }
+    return CL_SUCCESS;
+}
+
 inline const char *InvalidKernels() noexcept
 {
     static const char *invalidkernels = KERNELCODE(
@@ -208,7 +462,6 @@ void Sanity()
     SetConfigCL2D( &CL2DFlexConfig, &dt );
 
     QCNodeInit_t config = { dt.Dump() };
-    printf( "config: %s\n", config.config.c_str() );
 
     ImageProps_t imgPropInputs[CL2DFlexConfig.numOfInputs];
     for ( int i = 0; i < CL2DFlexConfig.numOfInputs; i++ )
@@ -1032,6 +1285,35 @@ void Coverage1()
     ret = pCL2DFlex16->Initialize( config16 );
     EXPECT_EQ( QC_STATUS_FAIL, ret );
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex16 )->~CL2DFlex();
+
+    // deregister all buffers when stop
+    QCNodeIfs *pCL2DFlex17 = new QC::Node::CL2DFlex();
+    DataTree dt17;
+    dt17.Set<std::string>( "static.name", "CL2D" );
+    dt17.Set<uint32_t>( "static.id", 0 );
+    dt17.Set<bool>( "static.deRegisterAllBuffersWhenStop", true );
+    SetConfigCL2D( &CL2DFlexConfig, &dt17 );
+    QCNodeInit_t config17 = { dt17.Dump() };
+    ret = pCL2DFlex17->Initialize( config17 );
+    ret = pCL2DFlex17->Start();
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    ret = pCL2DFlex17->Stop();
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex17 )->~CL2DFlex();
+
+    // wrong bufferIds
+    QCNodeIfs *pCL2DFlex18 = new QC::Node::CL2DFlex();
+    DataTree dt18;
+    dt18.Set<std::string>( "static.name", "CL2D" );
+    dt18.Set<uint32_t>( "static.id", 0 );
+    uint32_t id = 100;
+    bufferIds.push_back( id );
+    dt18.Set<uint32_t>( "static.bufferIds", bufferIds );
+    QCNodeInit_t config18 = { dt18.Dump() };
+    ret = pCL2DFlex18->Initialize( config18 );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex18 )->~CL2DFlex();
 }
 
 void Coverage2()
@@ -1196,6 +1478,22 @@ void Coverage2()
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex6 )->~CL2DFlex();
     CL2DFlexConfig.inputWidths[0] = 128;
 
+    QCNodeIfs *pCL2DFlex7 = new QC::Node::CL2DFlex();
+    DataTree dt7;
+    dt7.Set<std::string>( "static.name", "CL2D" );
+    dt7.Set<uint32_t>( "static.id", 0 );
+    SetConfigCL2D( &CL2DFlexConfig, &dt7 );
+    QCNodeInit_t config7 = { dt7.Dump() };
+    QCNodeID_t nodeId;
+    Logger logger;
+    CL2DFlexImpl *pCL2DFlexImpl = new CL2DFlexImpl( nodeId, logger );
+    CL2DFlexImplConfig_t &config = pCL2DFlexImpl->GetConifg();
+    config.params.deviceId = 0;
+    config.params.priority = OPENCLIFACE_PERF_NORMAL;
+    config.params.numOfInputs = 1;
+    config.params.workModes[0] = CL2DFLEX_WORK_MODE_MAX;
+    ret = pCL2DFlexImpl->Initialize( config7.buffers );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
     for ( auto imageDesc : inputs )
     {
         ret = bufMgr.Free( imageDesc );
@@ -1218,11 +1516,11 @@ void Coverage3()
     char pName[20] = "CL2DFlex";
 
     ret = OpenclSrvObj.Init( pName, LOGGER_LEVEL_ERROR, OPENCLIFACE_PERF_NORMAL,
-                             100 );   // init without invalid device id
+                             100 );   // init with invalid device id
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 
     ret = OpenclSrvObj.Init( pName, LOGGER_LEVEL_ERROR, (OpenclIfcae_Perf_e) 100,
-                             0 );   // init without invalid performance level
+                             0 );   // init with invalid performance level
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 
     ret = OpenclSrvObj.Init( pName, LOGGER_LEVEL_MAX,
@@ -1346,6 +1644,18 @@ void Coverage3()
     ret = OpenclSrvObj.DeregPlane( imageDesc.pBuf, &inputYFormat );   // dereg plane twice
     EXPECT_EQ( QC_STATUS_OK, ret );
 
+    inputImageFormat.image_channel_order = CL_QCOM_COMPRESSED_NV12;
+    inputImageFormat.image_channel_data_type = CL_UNORM_INT8;
+    ret = OpenclSrvObj.RegImage( imageDesc.pBuf, imageDesc.dmaHandle, &bufferCLImage,
+                                 &inputImageFormat, &inputImageDesc );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    inputYFormat.image_channel_order = CL_QCOM_COMPRESSED_NV12_Y;
+    inputYFormat.image_channel_data_type = CL_UNORM_INT8;
+    ret = OpenclSrvObj.RegPlane( imageDesc.pBuf, &bufferCLPlane, &inputYFormat, &inputYDesc );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    ret = OpenclSrvObj.DeregAllBuffers();   // deregister all buffers
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
     OpenclIfcae_Arg_t OpenclArg;
     OpenclArg.pArg = nullptr;
     OpenclArg.argSize = 0;
@@ -1383,10 +1693,16 @@ void Coverage3()
     ret = OpenclSrvObj.CreateKernel( &kernel, "RemapNV12ToRGB" );   // create kernel twice
     EXPECT_EQ( QC_STATUS_OK, ret );
 
+    ret = OpenclSrvObj.DeregAllBuffers();   // DeregAllBuffers after init
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
     ret = OpenclSrvObj.Deinit();   // success to deinit
     EXPECT_EQ( QC_STATUS_OK, ret );
 
     ret = OpenclSrvObj.Deinit();   // deinit without init
+    EXPECT_EQ( QC_STATUS_BAD_STATE, ret );
+
+    ret = OpenclSrvObj.DeregAllBuffers();   // DeregAllBuffers without init
     EXPECT_EQ( QC_STATUS_BAD_STATE, ret );
 
     ret = OpenclSrvObj.LoadFromSource( nullptr );   // create program without init
@@ -1701,24 +2017,205 @@ void Coverage4()
     delete pCL2DPipelineRemap;
 }
 
+void CoverageOpenCLReleaseMock_DeregAllBuffers()
+{
+    QCStatus_e ret;
+    BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_CL_2D_FLEX, 0 } );
+
+    OpenclSrv openclSrvObj;
+    ret = openclSrvObj.Init( "Opencl", LOGGER_LEVEL_MAX, OPENCLIFACE_PERF_NORMAL, 0 );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    // Prepare a registered buffer, image and plane to populate internal maps
+    ImageProps_t imgProp;
+    imgProp.batchSize = 2;
+    imgProp.width = 64;
+    imgProp.height = 64;
+    imgProp.format = QC_IMAGE_FORMAT_RGB888;
+    imgProp.stride[0] = imgProp.width * 3;
+    imgProp.actualHeight[0] = imgProp.height;
+    imgProp.planeBufSize[0] = 0;
+    imgProp.numPlanes = 1;
+
+    ImageDescriptor_t imageDesc;
+    ret = bufMgr.Allocate( imgProp, imageDesc );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    cl_mem bufferCL;
+    ret = openclSrvObj.RegBufferDesc( imageDesc, bufferCL );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    cl_mem bufferCLImage;
+    cl_image_format inputImageFormat = { 0 };
+    cl_image_desc inputImageDesc = { 0 };
+    inputImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+    inputImageDesc.image_width = 64;
+    inputImageDesc.image_height = 64;
+    inputImageFormat.image_channel_order = CL_QCOM_COMPRESSED_NV12;
+    inputImageFormat.image_channel_data_type = CL_UNORM_INT8;
+    ret = openclSrvObj.RegImage( imageDesc.pBuf, imageDesc.dmaHandle, &bufferCLImage,
+                                 &inputImageFormat, &inputImageDesc );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    cl_mem bufferCLPlane;
+    cl_image_format inputYFormat = { 0 };
+    cl_image_desc inputYDesc = { 0 };
+    inputYDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+    inputYDesc.image_width = 64;
+    inputYDesc.image_height = 64;
+    inputYDesc.mem_object = bufferCLImage;
+    inputYFormat.image_channel_order = CL_QCOM_COMPRESSED_NV12_Y;
+    inputYFormat.image_channel_data_type = CL_UNORM_INT8;
+    ret = openclSrvObj.RegPlane( imageDesc.pBuf, &bufferCLPlane, &inputYFormat, &inputYDesc );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    // Force clReleaseMemObject to fail to cover error branches in DeregAllBuffers
+    MockOpenCL_ControlReleaseMemObject( MOCK_CL_RELEASE_ALWAYS_FAIL, 0 );
+    ret = openclSrvObj.DeregAllBuffers();
+    EXPECT_EQ( QC_STATUS_FAIL, ret );
+    // Reset mock
+    MockOpenCL_ControlReleaseMemObject( MOCK_CL_RELEASE_NONE, 0 );
+    (void) bufMgr.Free( imageDesc );
+}
+
+void CoverageOpenCLReleaseMock_Deinit()
+{
+    QCStatus_e ret;
+    BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_CL_2D_FLEX, 0 } );
+
+    OpenclSrv openclSrvObj;
+    ret = openclSrvObj.Init( "Opencl", LOGGER_LEVEL_MAX, OPENCLIFACE_PERF_NORMAL, 0 );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    ret = openclSrvObj.LoadFromSource( s_pSourceCL2DFlex );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    cl_kernel kernel;
+    ret = openclSrvObj.CreateKernel( &kernel, "RemapNV12ToRGB" );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    // Prepare registered objects again
+    ImageProps_t imgProp;
+    imgProp.batchSize = 2;
+    imgProp.width = 64;
+    imgProp.height = 64;
+    imgProp.format = QC_IMAGE_FORMAT_RGB888;
+    imgProp.stride[0] = imgProp.width * 3;
+    imgProp.actualHeight[0] = imgProp.height;
+    imgProp.planeBufSize[0] = 0;
+    imgProp.numPlanes = 1;
+
+    ImageDescriptor_t imageDesc;
+    ret = bufMgr.Allocate( imgProp, imageDesc );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    cl_mem bufferCL;
+    ret = openclSrvObj.RegBufferDesc( imageDesc, bufferCL );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    cl_mem bufferCLImage;
+    cl_image_format inputImageFormat = { 0 };
+    cl_image_desc inputImageDesc = { 0 };
+    inputImageDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+    inputImageDesc.image_width = 64;
+    inputImageDesc.image_height = 64;
+    inputImageFormat.image_channel_order = CL_QCOM_COMPRESSED_NV12;
+    inputImageFormat.image_channel_data_type = CL_UNORM_INT8;
+    ret = openclSrvObj.RegImage( imageDesc.pBuf, imageDesc.dmaHandle, &bufferCLImage,
+                                 &inputImageFormat, &inputImageDesc );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    cl_mem bufferCLPlane;
+    cl_image_format inputYFormat = { 0 };
+    cl_image_desc inputYDesc = { 0 };
+    inputYDesc.image_type = CL_MEM_OBJECT_IMAGE2D;
+    inputYDesc.image_width = 64;
+    inputYDesc.image_height = 64;
+    inputYDesc.mem_object = bufferCLImage;
+    inputYFormat.image_channel_order = CL_QCOM_COMPRESSED_NV12_Y;
+    inputYFormat.image_channel_data_type = CL_UNORM_INT8;
+    ret = openclSrvObj.RegPlane( imageDesc.pBuf, &bufferCLPlane, &inputYFormat, &inputYDesc );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    // Force clReleaseMemObject to fail to cover error branches in Deinit
+    MockOpenCL_ControlReleaseMemObject( MOCK_CL_RELEASE_ALWAYS_FAIL, 0 );
+    // Force clReleaseKernel to fail to cover error branch in Deinit
+    MockOpenCL_ControlReleaseKernel( MOCK_CL_RELEASE_ALWAYS_FAIL, 0 );
+    // Force clReleaseProgram to fail to cover error branch in Deinit
+    MockOpenCL_ControlReleaseProgram( MOCK_CL_RELEASE_ALWAYS_FAIL, 0 );
+    // Force clReleaseCommandQueue to fail to cover error branch in Deinit
+    MockOpenCL_ControlReleaseCommandQueue( MOCK_CL_RELEASE_ALWAYS_FAIL, 0 );
+    // Force clReleaseContext to fail to cover error branch in Deinit
+    MockOpenCL_ControlReleaseContext( MOCK_CL_RELEASE_ALWAYS_FAIL, 0 );
+    // Force clReleaseSampler to fail to cover error branch in Deinit
+    MockOpenCL_ControlReleaseSampler( MOCK_CL_RELEASE_ALWAYS_FAIL, 0 );
+
+    ret = openclSrvObj.Deinit();
+    EXPECT_EQ( QC_STATUS_FAIL, ret );
+    // Reset mock
+    MockOpenCL_ControlReleaseMemObject( MOCK_CL_RELEASE_NONE, 0 );
+    // Reset kernel release mock
+    MockOpenCL_ControlReleaseKernel( MOCK_CL_RELEASE_NONE, 0 );
+    // Reset program release mock
+    MockOpenCL_ControlReleaseProgram( MOCK_CL_RELEASE_NONE, 0 );
+    // Reset command queue release mock
+    MockOpenCL_ControlReleaseCommandQueue( MOCK_CL_RELEASE_NONE, 0 );
+    // Reset context release mock
+    MockOpenCL_ControlReleaseContext( MOCK_CL_RELEASE_NONE, 0 );
+    // Reset sampler release mock
+    MockOpenCL_ControlReleaseSampler( MOCK_CL_RELEASE_NONE, 0 );
+
+    (void) bufMgr.Free( imageDesc );
+}
+
 TEST( NodeCL2D, Sanity )
 {
     Sanity();
 }
 
-#if defined( ENABLE_COVERAGE_TEST )
-TEST( NodeCL2D, Coverage )
+TEST( NodeCL2D, Stress )
+{
+    uint32_t loopNumber = 100;
+    const char *envValue = getenv( "CL2DFLEX_TEST_LOOP_NUMBER" );
+    if ( nullptr != envValue )
+    {
+        loopNumber = (uint32_t) atoi( envValue );
+    }
+    for ( uint32_t l = 0; l < loopNumber; l++ )
+    {
+        printf( "\nloopNumber = %d", l );
+        Sanity();
+    }
+}
+
+TEST( NodeCL2D, Coverage1 )
 {
     printf( "\ncoverage test 1\n" );
     Coverage1();
+}
+
+TEST( NodeCL2D, Coverage2 )
+{
     printf( "\ncoverage test 2\n" );
     Coverage2();
+}
+
+TEST( NodeCL2D, Coverage3 )
+{
     printf( "\ncoverage test 3\n" );
     Coverage3();
+}
+
+TEST( NodeCL2D, Coverage4 )
+{
     printf( "\ncoverage test 4\n" );
     Coverage4();
 }
-#endif
+
+TEST( NodeCL2D, Coverage5 )
+{
+    printf( "\ncoverage test 5\n" );
+    CoverageOpenCLReleaseMock_DeregAllBuffers();
+    CoverageOpenCLReleaseMock_Deinit();
+}
 
 // md5 of 0.nv12 is a1591f4b8c196a47628f0ef6bc3a721c
 // md5 of 0.uyvy is 5b1ae2203a9d97aeafe65e997f3beebc

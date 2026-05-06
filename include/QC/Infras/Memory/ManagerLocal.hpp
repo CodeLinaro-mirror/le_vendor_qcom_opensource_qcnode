@@ -5,12 +5,13 @@
 #define QC_MEMORY_MANAGER_LOCAL_HPP
 
 #include "QC/Infras/Log/Logger.hpp"
-#include "QC/Infras/Memory/HeapAllocator.hpp"
 #include "QC/Infras/Memory/Ifs/QCMemoryManagerIfs.hpp"
-#include <functional>
 #include <map>
+#include <memory>
 #include <set>
+#include <shared_mutex>
 #include <vector>
+
 
 namespace QC
 {
@@ -101,7 +102,7 @@ public:
      * @return The status of the pool creation operation.
      */
     virtual QCStatus_e CreatePool( const QCMemoryHandle_t &handle,
-                                   const QCMemoryPoolConfig &poolCfg,
+                                   const QCMemoryPoolInitConfig_t &poolCfg,
                                    QCMemoryPoolHandle_t &poolHandle );
 
     /**
@@ -174,6 +175,77 @@ public:
 
 private:
     /**
+     * @brief Structure to hold pool map with its associated shared_mutex for reader-writer locking.
+     */
+    struct PoolMapWithMutex
+    {
+        std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> poolMap;
+        mutable std::shared_mutex poolMutex;
+
+        /**
+         * @var poolSequenceCounter
+         * @brief Per-node monotonic counter incremented on every CreatePool call.
+         */
+        uint8_t poolSequenceCounter{ 0 };
+
+        PoolMapWithMutex() = default;
+
+        // Delete copy constructor and assignment operator to prevent copying of mutex
+        PoolMapWithMutex( const PoolMapWithMutex & ) = delete;
+        PoolMapWithMutex &operator=( const PoolMapWithMutex & ) = delete;
+
+        // Provide move constructor and assignment operator
+        PoolMapWithMutex( PoolMapWithMutex &&other ) noexcept
+            : poolMap( std::move( other.poolMap ) )
+        {
+            // Note: shared_mutex is not moved, each object gets its own mutex
+        }
+
+        PoolMapWithMutex &operator=( PoolMapWithMutex &&other ) noexcept
+        {
+            if ( this != &other )
+            {
+                poolMap = std::move( other.poolMap );
+                // Note: shared_mutex is not moved, each object keeps its own mutex
+            }
+            return *this;
+        }
+    };
+
+    /**
+     * @brief Structure to hold allocation set with its associated shared_mutex for reader-writer
+     * locking.
+     */
+    struct AllocationSetWithMutex
+    {
+        std::set<QCBufferDescriptorBase_t> allocationSet;
+        mutable std::shared_mutex allocationMutex;
+
+        AllocationSetWithMutex() = default;
+
+        // Delete copy constructor and assignment operator to prevent copying of mutex
+        AllocationSetWithMutex( const AllocationSetWithMutex & ) = delete;
+        AllocationSetWithMutex &operator=( const AllocationSetWithMutex & ) = delete;
+
+        // Provide move constructor and assignment operator
+        AllocationSetWithMutex( AllocationSetWithMutex &&other ) noexcept
+            : allocationSet( std::move( other.allocationSet ) )
+        {
+            // Note: shared_mutex is not moved, each object gets its own mutex
+        }
+
+        AllocationSetWithMutex &operator=( AllocationSetWithMutex &&other ) noexcept
+        {
+            if ( this != &other )
+            {
+                allocationSet = std::move( other.allocationSet );
+                // Note: shared_mutex is not moved, each object keeps its own mutex
+            }
+            return *this;
+        }
+    };
+
+    /**
      * @var m_handleToNodeIdInVector
      * @brief A mapping between memory handles and node IDs.
      */
@@ -181,34 +253,27 @@ private:
 
     /**
      * @var m_pools
-     * @brief A vector of nodes with mapping between pool handles and pool instances.
+     * @brief A vector of nodes with mapping between pool handles and pool instances, each with its
+     * own shared_mutex.
      */
-    std::vector<std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>>> m_pools;
+    std::vector<PoolMapWithMutex> m_pools;
 
     /**
      * @var m_allocations
-     * @brief A vector of length of nodes containing set of allocated buffer descriptors.
+     * @brief A vector of length of nodes containing set of allocated buffer descriptors, each with
+     * its own shared_mutex.
      */
-    std::vector<std::set<QCBufferDescriptorBase_t>> m_allocations;
+    std::vector<AllocationSetWithMutex> m_allocations;
 
     /**
      * @brief Checks if a handle is legal.
      * This method checks if a handle is legal by verifying that it is present in the
      * handle-to-node-ID mapping.
      * @param handle The handle to check.
-     * @param it An iterator to the handle in the mapping.
+     * @param nodeId Reference to store the node ID if handle is found.
      * @return True if the handle is legal, false otherwise.
      */
-    inline bool IsMemoryHandleRegistered( const QCMemoryHandle_t &handle,
-                                          std::map<QCMemoryHandle_t, uint32_t>::iterator &it );
-
-    /**
-     * @brief Checks if a allocator is legal.
-     * This method checks if allocatoe enum is legal.
-     * @param allocator The allocator enaum to check.
-     * @return True if the allocator is legal, false otherwise
-     */
-    inline bool IsAllocatorLegal( const QCMemoryAllocator_e allocator );
+    inline bool IsMemoryHandleRegistered( const QCMemoryHandle_t &handle, uint8_t &nodeId );
 
     /**
      * @brief Checks if a node index is unique.
@@ -224,22 +289,17 @@ private:
     QC_DECLARE_LOGGER();
 
     /**
+     * @var m_multiThreadLock
+     * @brief A mutex for synchronizing access from multiple threads to functions which requires
+     * single thread.
+     */
+    std::mutex m_multiThreadLock;
+
+    /**
      * @var m_handle2NodeIdLock
      * @brief A mutex for synchronizing access to the handle-to-node-ID mapping.
      */
-    std::mutex m_handle2NodeIdLock;
-
-    /**
-     * @var m_poolsLock
-     * @brief A mutex for synchronizing access to the pools.
-     */
-    std::mutex m_poolsLock;
-
-    /**
-     * @var m_allocationsLock
-     * @brief A mutex for synchronizing access to the allocations.
-     */
-    std::mutex m_allocationsLock;
+    mutable std::shared_mutex m_handle2NodeIdLock;
 
     /**
      * @var m_config

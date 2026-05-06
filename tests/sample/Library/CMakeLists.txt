@@ -2,6 +2,9 @@
 add_subdirectory(BufferManager)
 add_subdirectory(SharedRing)
 add_subdirectory(TinyViz)
+if( ENABLE_HS )
+  add_subdirectory(HeteroSchedulerWrapper)
+endif()
 
 if( ENABLE_DEMUXER )
     add_subdirectory(VidcDemuxer)

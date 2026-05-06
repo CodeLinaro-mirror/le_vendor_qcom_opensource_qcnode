@@ -28,4 +28,5 @@ allow qcnode_t {
     kgsl_t
     videoCore_t
     sv_server_t
+    compresmgr_service_t
 }:channel connect;

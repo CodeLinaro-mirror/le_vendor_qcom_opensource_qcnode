@@ -68,6 +68,10 @@ if ( ENABLE_GENIE )
   list( APPEND TARGET_LIBRARIES Genie )
 endif()
 
+if( ENABLE_HS )
+  list( APPEND TARGET_LIBRARIES HeteroSchedulerWrapper )
+endif()
+
 if( NOT TARGET TinyViz )
   message(STATUS "build sample without TinyViz")
 else()

@@ -297,6 +297,9 @@ QCStatus_e OpticalFlowConfigIfs::ParseStaticConfig( DataTree &dt, std::string &e
 
     if ( QC_STATUS_OK == status )
     {
+        m_config.nodeId.name = dt.Get<std::string>( "name", "" );
+        m_config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
+
         m_config.imageFormat = dt.GetImageFormat( "format", QC_IMAGE_FORMAT_NV12 );
         m_config.motionMapFormat = static_cast<MotionMapFormat_e>(
                 dt.Get<uint8_t>( "motionMapFormat", MOTION_FORMAT_12_LA ) );
@@ -440,81 +443,253 @@ PixelFormat OpticalFlow::GetMotionMapFormat( MotionMapFormat_e motionMapFormat )
 }
 
 
-void OpticalFlow::UpdateIconfig( LME::ConfigMap &configMap, const OpticalFlow_Config_t &configuration )
+QCStatus_e OpticalFlow::UpdateIconfig( LME::ConfigMap &configMap,
+                                       const OpticalFlow_Config_t &configuration )
 {
+    QCStatus_e ret = QC_STATUS_OK;
+    ConfigMapStatus status = ConfigMapStatus::SUCCESS;
 
-    configMap.Set( LME::ConfigId::AVERAGE_FPS, configuration.frameRate );
-    configMap.Set( LME::ConfigId::SRC_IMAGE_INFO, &m_imageInfo );
-    configMap.Set( LME::ConfigId::DST_IMAGE_INFO, &m_imageInfo );
-    configMap.Set( LME::ConfigId::MOTION_MAP_FORMAT,
-                   GetMotionMapFormat( configuration.motionMapFormat ) );
-    configMap.Set( LME::ConfigId::MOTION_MAP_FRAC_EN, configuration.motionMapFracEn );
-
-    if ( configuration.motionMapUpscale == MOTION_MAP_UPSCALE_NONE )
+    status = configMap.Set( LME::ConfigId::AVERAGE_FPS, configuration.frameRate );
+    if ( status != ConfigMapStatus::SUCCESS )
     {
-        configMap.Set( LME::ConfigId::MOTION_MAP_UPSCALE, LME::MotionMapUpscale::NONE );
-    }
-    else if ( configuration.motionMapUpscale == MOTION_MAP_UPSCALE_2 )
-    {
-        configMap.Set( LME::ConfigId::MOTION_MAP_UPSCALE, LME::MotionMapUpscale::UPSCALE_2 );
-    }
-    else
-    {
-        configMap.Set( LME::ConfigId::MOTION_MAP_UPSCALE, LME::MotionMapUpscale::UPSCALE_4 );
+        QC_ERROR( "OpticalFlow: Failed to set AVERAGE_FPS: %d", status );
+        ret = QC_STATUS_FAIL;
     }
 
-    if ( configuration.motionMapStepSize == MOTION_MAP_STEP_SIZE_1 )
+    if ( QC_STATUS_OK == ret )
     {
-        configMap.Set( LME::ConfigId::MOTION_MAP_STEP_SIZE, LME::MotionMapStepSize::STEP_1 );
-    }
-    else if ( configuration.motionMapStepSize == MOTION_MAP_STEP_SIZE_2 )
-    {
-        configMap.Set( LME::ConfigId::MOTION_MAP_STEP_SIZE, LME::MotionMapStepSize::STEP_2 );
-    }
-    else
-    {
-        configMap.Set( LME::ConfigId::MOTION_MAP_STEP_SIZE, LME::MotionMapStepSize::STEP_4 );
+        status = configMap.Set( LME::ConfigId::SRC_IMAGE_INFO, &m_imageInfo );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set SRC_IMAGE_INFO: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
     }
 
-    if ( configuration.motionDirection == MOTION_DIRECTION_FORWARD )
+    if ( QC_STATUS_OK == ret )
     {
-        configMap.Set( LME::ConfigId::MOTION_DIRECTION, LME::MotionDirection::FORWARD );
-    }
-    else if ( configuration.motionDirection == MOTION_DIRECTION_BACKWARD )
-    {
-        configMap.Set( LME::ConfigId::MOTION_DIRECTION, LME::MotionDirection::BACKWARD );
-    }
-    else
-    {
-        configMap.Set( LME::ConfigId::MOTION_DIRECTION, LME::MotionDirection::BIDIRECTIONAL );
+        status = configMap.Set( LME::ConfigId::DST_IMAGE_INFO, &m_imageInfo );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set DST_IMAGE_INFO: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
     }
 
-    configMap.Set( LME::ConfigId::CONFIDENCE_OUTPUT_EN, configuration.confidenceOutputEn );
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMap.Set( LME::ConfigId::MOTION_MAP_FORMAT,
+                                GetMotionMapFormat( configuration.motionMapFormat ) );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_FORMAT: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
 
-    if ( configuration.refinementLevel == REFINEMENT_LEVEL_NONE )
+    if ( QC_STATUS_OK == ret )
     {
-        configMap.Set( LME::ConfigId::REFINEMENT_LEVEL, LME::RefinementLevel::NONE );
-    }
-    else
-    {
-        configMap.Set( LME::ConfigId::REFINEMENT_LEVEL, LME::RefinementLevel::REFINED_L1 );
+        status = configMap.Set( LME::ConfigId::MOTION_MAP_FRAC_EN, configuration.motionMapFracEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_FRAC_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
     }
 
-    configMap.Set( LME::ConfigId::CHROMA_PROC_EN, configuration.chromaProcEn );
-    configMap.Set( LME::ConfigId::MASK_LOW_TEXTURE_EN, configuration.maskLowTextureEn );
+    if ( QC_STATUS_OK == ret )
+    {
+        if ( configuration.motionMapUpscale == MOTION_MAP_UPSCALE_NONE )
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_MAP_UPSCALE,
+                                    LME::MotionMapUpscale::NONE );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_UPSCALE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else if ( configuration.motionMapUpscale == MOTION_MAP_UPSCALE_2 )
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_MAP_UPSCALE,
+                                    LME::MotionMapUpscale::UPSCALE_2 );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_UPSCALE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_MAP_UPSCALE,
+                                    LME::MotionMapUpscale::UPSCALE_4 );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_UPSCALE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+    }
 
-    if ( configuration.computationAccuracy == COMPUTATION_ACCURACY_LOW )
+    if ( QC_STATUS_OK == ret )
     {
-        configMap.Set( LME::ConfigId::COMPUTATION_ACCURACY, LME::ComputationAccuracy::LOW );
+        if ( configuration.motionMapStepSize == MOTION_MAP_STEP_SIZE_1 )
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_MAP_STEP_SIZE,
+                                    LME::MotionMapStepSize::STEP_1 );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_STEP_SIZE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else if ( configuration.motionMapStepSize == MOTION_MAP_STEP_SIZE_2 )
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_MAP_STEP_SIZE,
+                                    LME::MotionMapStepSize::STEP_2 );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_STEP_SIZE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_MAP_STEP_SIZE,
+                                    LME::MotionMapStepSize::STEP_4 );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_STEP_SIZE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
     }
-    else if ( configuration.computationAccuracy == COMPUTATION_ACCURACY_MEDIUM )
+
+    if ( QC_STATUS_OK == ret )
     {
-        configMap.Set( LME::ConfigId::COMPUTATION_ACCURACY, LME::ComputationAccuracy::MEDIUM );
+        if ( configuration.motionDirection == MOTION_DIRECTION_FORWARD )
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_DIRECTION,
+                                    LME::MotionDirection::FORWARD );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_DIRECTION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else if ( configuration.motionDirection == MOTION_DIRECTION_BACKWARD )
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_DIRECTION,
+                                    LME::MotionDirection::BACKWARD );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_DIRECTION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMap.Set( LME::ConfigId::MOTION_DIRECTION,
+                                    LME::MotionDirection::BIDIRECTIONAL );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set MOTION_DIRECTION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
     }
-    else
+
+    if ( QC_STATUS_OK == ret )
     {
-        configMap.Set( LME::ConfigId::COMPUTATION_ACCURACY, LME::ComputationAccuracy::HIGH );
+        status = configMap.Set( LME::ConfigId::CONFIDENCE_OUTPUT_EN,
+                                configuration.confidenceOutputEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set CONFIDENCE_OUTPUT_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
     }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        if ( configuration.refinementLevel == REFINEMENT_LEVEL_NONE )
+        {
+            status = configMap.Set( LME::ConfigId::REFINEMENT_LEVEL,
+                                    LME::RefinementLevel::NONE );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set REFINEMENT_LEVEL: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMap.Set( LME::ConfigId::REFINEMENT_LEVEL,
+                                    LME::RefinementLevel::REFINED_L1 );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set REFINEMENT_LEVEL: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMap.Set( LME::ConfigId::CHROMA_PROC_EN, configuration.chromaProcEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set CHROMA_PROC_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMap.Set( LME::ConfigId::MASK_LOW_TEXTURE_EN,
+                                configuration.maskLowTextureEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set MASK_LOW_TEXTURE_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        if ( configuration.computationAccuracy == COMPUTATION_ACCURACY_LOW )
+        {
+            status = configMap.Set( LME::ConfigId::COMPUTATION_ACCURACY,
+                                    LME::ComputationAccuracy::LOW );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set COMPUTATION_ACCURACY: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else if ( configuration.computationAccuracy == COMPUTATION_ACCURACY_MEDIUM )
+        {
+            status = configMap.Set( LME::ConfigId::COMPUTATION_ACCURACY,
+                                    LME::ComputationAccuracy::MEDIUM );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set COMPUTATION_ACCURACY: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMap.Set( LME::ConfigId::COMPUTATION_ACCURACY,
+                                    LME::ComputationAccuracy::HIGH );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set COMPUTATION_ACCURACY: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+    }
+
+    return ret;
 }
 
 QCStatus_e OpticalFlow::ValidateImageDesc( const ImageDescriptor_t &imgDesc,
@@ -554,9 +729,11 @@ QCStatus_e OpticalFlow::ValidateImageDesc( const ImageDescriptor_t &imgDesc,
     return ret;
 }
 
-void OpticalFlow::SetInitialFrameConfig( LME::ConfigMap &configMapFrame,
-                                         const OpticalFlow_Config_t &configuration )
+QCStatus_e OpticalFlow::SetInitialFrameConfig( LME::ConfigMap &configMapFrame,
+                                               const OpticalFlow_Config_t &configuration )
 {
+    QCStatus_e ret = QC_STATUS_OK;
+    ConfigMapStatus status = ConfigMapStatus::SUCCESS;
 
     noiseTolerances.nScaleSrc = configuration.noiseScaleSrc;
     noiseTolerances.nScaleDst = configuration.noiseScaleDst;
@@ -566,32 +743,190 @@ void OpticalFlow::SetInitialFrameConfig( LME::ConfigMap &configMapFrame,
     penalties.nEdgePenalty = configuration.edgePenalty;
     penalties.nNeighborPenalty = configuration.neighborPenalty;
     penalties.nSmoothnessPenalty = configuration.smoothnessPenalty;
-    configMapFrame.Set( LME::ConfigId::NOISE_TOLERANCES, &noiseTolerances );
-    configMapFrame.Set( LME::ConfigId::MOTION_VARIANCE_TOLERANCE,
-                        configuration.motionVarianceTolerance );
-    configMapFrame.Set( LME::ConfigId::OCCLUSION_TOLERANCE, configuration.occlusionTolerance );
-    configMapFrame.Set( LME::ConfigId::PENALTIES, &penalties );
-    configMapFrame.Set( LME::ConfigId::TEXTURE_METRIC, configuration.textureMetric );
-    configMapFrame.Set( LME::ConfigId::EDGE_ALIGN_METRIC, configuration.edgeAlignMetric );
-    configMapFrame.Set( LME::ConfigId::MOTION_VARIANCE_METRIC, configuration.motionVarianceMetric );
-    configMapFrame.Set( LME::ConfigId::OCCLUSION_METRIC, configuration.occlusionMetric );
-    configMapFrame.Set( LME::ConfigId::SEGMENTATION_THRESHOLD,
-                        configuration.segmentationThreshold );
-    configMapFrame.Set( LME::ConfigId::IMAGE_SHARPNESS_THRESHOLD,
-                        configuration.imageSharpnessThreshold );
-    configMapFrame.Set( LME::ConfigId::MV_EDGE_THRESHOLD, configuration.mvEdgeThreshold );
-    configMapFrame.Set( LME::ConfigId::REFINEMENT_THRESHOLD, configuration.refinementThreshold );
-    configMapFrame.Set( LME::ConfigId::TEXTURE_THRESHOLD, configuration.textureThreshold );
-    if ( configuration.lightingCondition == LIGHTING_CONDITION_LOW )
+
+    status = configMapFrame.Set( LME::ConfigId::NOISE_TOLERANCES, &noiseTolerances );
+    if ( status != ConfigMapStatus::SUCCESS )
     {
-        configMapFrame.Set( LME::ConfigId::LIGHTING_CONDITION, LME::LightingCondition::LOW );
+        QC_ERROR( "OpticalFlow: Failed to set NOISE_TOLERANCES: %d", status );
+        ret = QC_STATUS_FAIL;
     }
-    else
+
+    if ( QC_STATUS_OK == ret )
     {
-        configMapFrame.Set( LME::ConfigId::LIGHTING_CONDITION, LME::LightingCondition::HIGH );
+        status = configMapFrame.Set( LME::ConfigId::MOTION_VARIANCE_TOLERANCE,
+                                     configuration.motionVarianceTolerance );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set MOTION_VARIANCE_TOLERANCE: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
     }
-    configMapFrame.Set( LME::ConfigId::IS_FIRST_REQUEST, configuration.isFirstRequest );
-    configMapFrame.Set( LME::ConfigId::REQUEST_ID, configuration.requestId );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::OCCLUSION_TOLERANCE,
+                                     configuration.occlusionTolerance );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set OCCLUSION_TOLERANCE: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::PENALTIES, &penalties );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set PENALTIES: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::TEXTURE_METRIC, configuration.textureMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set TEXTURE_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::EDGE_ALIGN_METRIC,
+                                     configuration.edgeAlignMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set EDGE_ALIGN_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::MOTION_VARIANCE_METRIC,
+                                     configuration.motionVarianceMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set MOTION_VARIANCE_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::OCCLUSION_METRIC,
+                                     configuration.occlusionMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set OCCLUSION_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::SEGMENTATION_THRESHOLD,
+                                     configuration.segmentationThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set SEGMENTATION_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::IMAGE_SHARPNESS_THRESHOLD,
+                                     configuration.imageSharpnessThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set IMAGE_SHARPNESS_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::MV_EDGE_THRESHOLD,
+                                     configuration.mvEdgeThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set MV_EDGE_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::REFINEMENT_THRESHOLD,
+                                     configuration.refinementThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set REFINEMENT_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::TEXTURE_THRESHOLD,
+                                     configuration.textureThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set TEXTURE_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        if ( configuration.lightingCondition == LIGHTING_CONDITION_LOW )
+        {
+            status = configMapFrame.Set( LME::ConfigId::LIGHTING_CONDITION,
+                                         LME::LightingCondition::LOW );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set LIGHTING_CONDITION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMapFrame.Set( LME::ConfigId::LIGHTING_CONDITION,
+                                         LME::LightingCondition::HIGH );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "OpticalFlow: Failed to set LIGHTING_CONDITION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::IS_FIRST_REQUEST,
+                                     configuration.isFirstRequest );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set IS_FIRST_REQUEST: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( LME::ConfigId::REQUEST_ID, configuration.requestId );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "OpticalFlow: Failed to set REQUEST_ID: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    return ret;
 }
 
 QCStatus_e OpticalFlow::RegisterMemory( const BufferDescriptor_t &bufferDesc, Buffer &pBuff )
@@ -703,8 +1038,15 @@ QCStatus_e OpticalFlow::Initialize( QCNodeInit_t &config )
 
     if ( ret == QC_STATUS_OK )
     {
-        UpdateIconfig( m_configMap, configuration );
-        m_state = QC_OBJECT_STATE_READY;
+        ret = UpdateIconfig( m_configMap, configuration );
+        if ( ret == QC_STATUS_OK )
+        {
+            m_state = QC_OBJECT_STATE_READY;
+        }
+        else
+        {
+            QC_ERROR( "OpticalFlow: UpdateIconfig failed" );
+        }
     }
 
 
@@ -750,8 +1092,15 @@ QCStatus_e OpticalFlow::Start()
         }
         if ( ret == QC_STATUS_OK )
         {
-            SetInitialFrameConfig( m_configMap, configuration );
-            m_state = QC_OBJECT_STATE_RUNNING;
+            ret = SetInitialFrameConfig( m_configMap, configuration );
+            if ( ret == QC_STATUS_OK )
+            {
+                m_state = QC_OBJECT_STATE_RUNNING;
+            }
+            else
+            {
+                QC_ERROR( "OpticalFlow: SetInitialFrameConfig failed" );
+            }
         }
     }
 

@@ -32,28 +32,45 @@ QCStatus_e SampleTemporal::ParseConfig( SampleConfig_t &config )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    m_temporalTsProps.tensorType =
+    m_number = Get( config, "number", 1 );
+    m_temporal.resize( m_number );
+
+    QCTensorType_e tensorTypeDft =
             Get( config, "temporal_tensor_type", QC_TENSOR_TYPE_UFIXED_POINT_8 );
-    if ( QC_TENSOR_TYPE_MAX == m_temporalTsProps.tensorType )
+    std::vector<uint32_t> dimsTempDft;
+    dimsTempDft = Get( config, "temporal_tensor_dims", dimsTempDft );
+    float temporalQuantScaleDft = Get( config, "temporal_quant_scale", 1.0f );
+    int32_t temporalQuantOffsetDft = Get( config, "temporal_quant_offset", 0 );
+    uint32_t temporalIndexDft = Get( config, "temporal_index", 0u );
+
+    for ( uint32_t i = 0; i < m_number; i++ )
     {
-        QC_ERROR( "invalid temporal_tensor_type\n" );
-        ret = QC_STATUS_BAD_ARGUMENTS;
+        std::string suffix = std::to_string( i );
+        m_temporal[i].temporalTsProps.tensorType =
+                Get( config, "temporal_tensor_type" + suffix, tensorTypeDft );
+        if ( QC_TENSOR_TYPE_MAX == m_temporal[i].temporalTsProps.tensorType )
+        {
+            QC_ERROR( "invalid temporal_tensor_type\n" );
+            ret = QC_STATUS_BAD_ARGUMENTS;
+        }
+        std::vector<uint32_t> dimsTemp;
+        dimsTemp = Get( config, "temporal_tensor_dims" + suffix, dimsTempDft );
+        if ( 0 == dimsTemp.size() )
+        {
+            QC_ERROR( "invalid temporal_tensor_dims\n" );
+            ret = QC_STATUS_BAD_ARGUMENTS;
+        }
+        m_temporal[i].temporalTsProps.numDims = dimsTemp.size();
+        for ( size_t j = 0; j < dimsTemp.size(); j++ )
+        {
+            m_temporal[i].temporalTsProps.dims[j] = dimsTemp[j];
+        }
+        m_temporal[i].temporalQuantScale =
+                Get( config, "temporal_quant_scale" + suffix, temporalQuantScaleDft );
+        m_temporal[i].temporalQuantOffset =
+                Get( config, "temporal_quant_offset" + suffix, temporalQuantOffsetDft );
+        m_temporal[i].temporalIndex = Get( config, "temporal_index" + suffix, temporalIndexDft );
     }
-    std::vector<uint32_t> dimsTemp;
-    dimsTemp = Get( config, "temporal_tensor_dims", dimsTemp );
-    if ( 0 == dimsTemp.size() )
-    {
-        QC_ERROR( "invalid temporal_tensor_dims\n" );
-        ret = QC_STATUS_BAD_ARGUMENTS;
-    }
-    m_temporalTsProps.numDims = dimsTemp.size();
-    for ( size_t i = 0; i < dimsTemp.size(); i++ )
-    {
-        m_temporalTsProps.dims[i] = dimsTemp[i];
-    }
-    m_temporalQuantScale = Get( config, "temporal_quant_scale", 1.0f );
-    m_temporalQuantOffset = Get( config, "temporal_quant_offset", 0 );
-    m_temporalIndex = Get( config, "temporal_index", 0u );
 
     m_useFlagTsProps.tensorType = Get( config, "use_flag_tensor_type", QC_TENSOR_TYPE_MAX );
     if ( QC_TENSOR_TYPE_MAX == m_useFlagTsProps.tensorType )
@@ -115,9 +132,9 @@ QCStatus_e SampleTemporal::Init( std::string name, SampleConfig_t &config )
         }
     }
 
-    if ( QC_STATUS_OK == ret )
+    for ( uint32_t i = 0; ( i < m_number ) && ( QC_STATUS_OK == ret ); i++ )
     {
-        ret = m_pBufMgr->Allocate( m_temporalTsProps, m_initTempTs );
+        ret = m_pBufMgr->Allocate( m_temporal[i].temporalTsProps, m_temporal[i].initTempTs );
         if ( QC_STATUS_OK != ret )
         {
             QC_ERROR( "Failed to allocal temporal init tensor!" );
@@ -125,8 +142,8 @@ QCStatus_e SampleTemporal::Init( std::string name, SampleConfig_t &config )
         }
         else
         {
-            m_temporal = std::make_shared<SharedBuffer_t>();
-            m_temporal->SetBuffer( m_initTempTs );
+            m_temporal[i].temporal = std::make_shared<SharedBuffer_t>();
+            m_temporal[i].temporal->SetBuffer( m_temporal[i].initTempTs );
         }
     }
 
@@ -150,7 +167,11 @@ QCStatus_e SampleTemporal::Init( std::string name, SampleConfig_t &config )
         }
         else
         { /* if without use flag tensor, init temporal with 0 */
-            ret = FillTensor( m_initTempTs, m_temporalQuantScale, m_temporalQuantOffset, 0.0f );
+            for ( uint32_t i = 0; ( i < m_number ) && ( QC_STATUS_OK == ret ); i++ )
+            {
+                ret = FillTensor( m_temporal[i].initTempTs, m_temporal[i].temporalQuantScale,
+                                  m_temporal[i].temporalQuantOffset, 0.0f );
+            }
         }
     }
 
@@ -216,9 +237,10 @@ void SampleTemporal::ThreadMain()
 
     { /* publish the 1st frame */
         DataFrames_t frames;
+        for ( uint32_t i = 0; i < m_number; i++ )
         {
             DataFrame_t frame;
-            frame.buffer = m_temporal;
+            frame.buffer = m_temporal[i].temporal;
             frame.frameId = frameId;
             frames.Add( frame );
         }
@@ -242,13 +264,21 @@ void SampleTemporal::ThreadMain()
         {
             QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
                       frames.Timestamp( 0 ) );
-            if ( m_temporalIndex < frames.frames.size() )
+            for ( uint32_t i = 0; i < m_number; i++ )
             {
-                m_temporal = frames.frames[m_temporalIndex].buffer;
+                if ( m_temporal[i].temporalIndex < frames.frames.size() )
+                {
+                    m_temporal[i].temporal = frames.frames[m_temporal[i].temporalIndex].buffer;
+                }
+                else
+                {
+                    QC_ERROR( "temporal[%u] index %u out of range.", i,
+                              m_temporal[i].temporalIndex );
+                    ret = QC_STATUS_FAIL;
+                }
             }
-            else
+            if ( QC_STATUS_OK != ret )
             {
-                QC_ERROR( "temporal index %u out of range.", m_temporalIndex );
                 break; /* exit this thread as wrong configuration */
             }
         }
@@ -257,9 +287,10 @@ void SampleTemporal::ThreadMain()
             QC_WARN( "reach deadline, publish history data instead." );
         }
         DataFrames_t framesOut;
+        for ( uint32_t i = 0; i < m_number; i++ )
         {
             DataFrame_t frame;
-            frame.buffer = m_temporal;
+            frame.buffer = m_temporal[i].temporal;
             frame.frameId = frameId;
             framesOut.Add( frame );
         }

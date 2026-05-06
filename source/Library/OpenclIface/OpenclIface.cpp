@@ -137,18 +137,18 @@ QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae
             size_t extensionSize = 0;
             (void) clGetDeviceInfo( m_deviceID, CL_DEVICE_EXTENSIONS, 0, NULL, &extensionSize );
             std::vector<char> extensions( extensionSize );
-            retCL = clGetDeviceInfo( m_deviceID, CL_DEVICE_EXTENSIONS, extensionSize,
-                                     extensions.data(), NULL );
+            (void) clGetDeviceInfo( m_deviceID, CL_DEVICE_EXTENSIONS, extensionSize,
+                                    extensions.data(), NULL );
             QC_INFO( "CL extension is %s", extensions.data() );
 
             cl_uint unit;
-            retCL = clGetDeviceInfo( m_deviceID, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof( cl_uint ),
-                                     &unit, NULL );
+            (void) clGetDeviceInfo( m_deviceID, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof( cl_uint ),
+                                    &unit, NULL );
             QC_INFO( "CL max compute unit is %d\n", unit );
 
             size_t workSizes[3];
-            retCL = clGetDeviceInfo( m_deviceID, CL_DEVICE_MAX_WORK_ITEM_SIZES,
-                                     sizeof( size_t ) * 3, workSizes, NULL );
+            (void) clGetDeviceInfo( m_deviceID, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof( size_t ) * 3,
+                                    workSizes, NULL );
             QC_INFO( "CL max work item sizes is {%d, %d, %d}", workSizes[0], workSizes[1],
                      workSizes[2] );
         }
@@ -298,6 +298,7 @@ QCStatus_e OpenclSrv::CreateKernel( cl_kernel *pKernel, const char *pKernelName 
 QCStatus_e OpenclSrv::Deinit()
 {
     QCStatus_e ret = QC_STATUS_OK;
+    cl_int retCL = CL_SUCCESS;
 
     if ( true == m_initialized )
     {
@@ -305,39 +306,81 @@ QCStatus_e OpenclSrv::Deinit()
 
         for ( auto &it : m_kernelMap )
         {
-            (void) clReleaseKernel( it.second );
+            retCL = clReleaseKernel( it.second );
+            if ( CL_SUCCESS != retCL )
+            {
+                ret = QC_STATUS_FAIL;
+                QC_ERROR( "Failed to release kernel, retCL = %d", retCL );
+            }
         }
         m_kernelMap.clear();
 
         for ( auto &it : m_bufferMap )
         {
-            (void) clReleaseMemObject( it.second.clMem );
+            retCL = clReleaseMemObject( it.second.clMem );
+            if ( CL_SUCCESS != retCL )
+            {
+                ret = QC_STATUS_FAIL;
+                QC_ERROR( "Failed to release buffer memory object, retCL = %d", retCL );
+            }
         }
         m_bufferMap.clear();
 
         for ( auto &it : m_imageMap )
         {
-            (void) clReleaseMemObject( it.second.clMem );
+            retCL = clReleaseMemObject( it.second.clMem );
+            if ( CL_SUCCESS != retCL )
+            {
+                ret = QC_STATUS_FAIL;
+                QC_ERROR( "Failed to release image memory object, retCL = %d", retCL );
+            }
         }
         m_imageMap.clear();
 
         for ( auto &it : m_planeMap )
         {
-            (void) clReleaseMemObject( it.second.clMem );
+            retCL = clReleaseMemObject( it.second.clMem );
+            if ( CL_SUCCESS != retCL )
+            {
+                ret = QC_STATUS_FAIL;
+                QC_ERROR( "Failed to release plane memory object, retCL = %d", retCL );
+            }
         }
         m_planeMap.clear();
 
-        (void) clReleaseProgram( m_program );
-        (void) clReleaseCommandQueue( m_commandQueue );
-        (void) clReleaseContext( m_context );
-        (void) clReleaseSampler( m_sampler );
+        retCL = clReleaseProgram( m_program );
+        if ( CL_SUCCESS != retCL )
+        {
+            ret = QC_STATUS_FAIL;
+            QC_ERROR( "Failed to release program, retCL = %d", retCL );
+        }
 
-        ret = QC_LOGGER_DEINIT();
-        if ( QC_STATUS_OK != ret )
+        retCL = clReleaseCommandQueue( m_commandQueue );
+        if ( CL_SUCCESS != retCL )
+        {
+            ret = QC_STATUS_FAIL;
+            QC_ERROR( "Failed to release commandqueue, retCL = %d", retCL );
+        }
+
+        retCL = clReleaseContext( m_context );
+        if ( CL_SUCCESS != retCL )
+        {
+            ret = QC_STATUS_FAIL;
+            QC_ERROR( "Failed to release context, retCL = %d", retCL );
+        }
+
+        retCL = clReleaseSampler( m_sampler );
+        if ( CL_SUCCESS != retCL )
+        {
+            ret = QC_STATUS_FAIL;
+            QC_ERROR( "Failed to release sampler, retCL = %d", retCL );
+        }
+
+        QCStatus_e retVal = QC_LOGGER_DEINIT();
+        if ( QC_STATUS_OK != retVal )
         {
             (void) fprintf( stderr, "WARINING: failed to deinit logger for OpenclSrv: ret = %d\n",
-                            ret );
-            ret = QC_STATUS_OK; /* ignore logger deinit error */
+                            retVal );
         }
     }
     else
@@ -661,6 +704,55 @@ QCStatus_e OpenclSrv::Execute( const cl_kernel *pKernel, const OpenclIfcae_Arg_t
                 }
             }
         }
+    }
+    else
+    {
+        QC_ERROR( "OpenCL Iface not initialized!" );
+        ret = QC_STATUS_BAD_STATE;
+    }
+
+    return ret;
+}
+
+QCStatus_e OpenclSrv::DeregAllBuffers()
+{
+    QCStatus_e ret = QC_STATUS_OK;
+    cl_int retCL = CL_SUCCESS;
+
+    if ( true == m_initialized )
+    {
+        for ( auto &it : m_bufferMap )
+        {
+            retCL = clReleaseMemObject( it.second.clMem );
+            if ( CL_SUCCESS != retCL )
+            {
+                ret = QC_STATUS_FAIL;
+                QC_ERROR( "Failed to release buffer memory object, retCL = %d", retCL );
+            }
+        }
+        m_bufferMap.clear();
+
+        for ( auto &it : m_imageMap )
+        {
+            retCL = clReleaseMemObject( it.second.clMem );
+            if ( CL_SUCCESS != retCL )
+            {
+                ret = QC_STATUS_FAIL;
+                QC_ERROR( "Failed to release image memory object, retCL = %d", retCL );
+            }
+        }
+        m_imageMap.clear();
+
+        for ( auto &it : m_planeMap )
+        {
+            retCL = clReleaseMemObject( it.second.clMem );
+            if ( CL_SUCCESS != retCL )
+            {
+                ret = QC_STATUS_FAIL;
+                QC_ERROR( "Failed to release plane memory object, retCL = %d", retCL );
+            }
+        }
+        m_planeMap.clear();
     }
     else
     {

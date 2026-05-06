@@ -195,6 +195,14 @@ public:
     QCStatus_e Execute( const cl_kernel *pKernel, const OpenclIfcae_Arg_t *pArgs, size_t numOfArgs,
                         const OpenclIface_WorkParams_t *pWorkParam );
 
+    /**
+     * @brief Deregister all OpenCL buffers
+     * @return QC_STATUS_OK on success, others on failure
+     * @note Deregister all OpenCL buffers in all member maps, be called in stop API of CL2DFlex
+     * node if bDeRegisterAllBuffersWhenStop is set to true.
+     */
+    QCStatus_e DeregAllBuffers();
+
 
 private:
     bool m_initialized = false;

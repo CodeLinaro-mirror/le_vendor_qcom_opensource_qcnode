@@ -110,7 +110,7 @@ QCStatus_e RemapConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
     if ( QC_STATUS_OK == status )
     {
         config.nodeId.name = dt.Get<std::string>( "name", "" );
-        config.nodeId.id = dt.Get<uint32_t>( "id", UINT32_MAX );
+        config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
 
         config.params.numOfInputs = m_numOfInputs;
         config.params.processor = dt.GetProcessorType( "processorType", QC_PROCESSOR_HTP0 );

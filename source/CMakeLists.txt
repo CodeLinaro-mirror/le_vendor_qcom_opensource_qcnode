@@ -1,4 +1,3 @@
-
 add_subdirectory(Common)
 add_subdirectory(Infras)
 add_subdirectory(Library)
@@ -13,36 +12,46 @@ set( QCNODE_SOURCES ${CMAKE_BINARY_DIR}/null.cpp )
 set( TARGET_LIBRARIES
     QCNodeCommon
     QCNodeMemory
-    QCNodeCamera
-    QCNodeCL2DFlex
     QCNodeBase
-    QCNodeVideoEncoder
-    QCNodeVideoDecoder
 )
 
-if ( ENABLE_EVA )
-  list( APPEND TARGET_LIBRARIES
-            QCNodeOpticalFlow
-            QCNodeDepthFromStereo
-  )
-endif()
+# Add regular nodes if not in simulation mode
+if( NOT ENABLE_SIMNODE )
+    list( APPEND TARGET_LIBRARIES
+        QCNodeCamera
+        QCNodeCL2DFlex
+        QCNodeVideoEncoder
+        QCNodeVideoDecoder
+    )
 
-if ( ENABLE_FADAS )
-  list( APPEND TARGET_LIBRARIES
-            QCNodeRemap
-            QCNodeVoxelization
-  )
-endif()
+    if ( ENABLE_EVA )
+      list( APPEND TARGET_LIBRARIES
+                QCNodeOpticalFlow
+                QCNodeDepthFromStereo
+      )
+    endif()
 
-if ( ENABLE_RADAR AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" )
-  list( APPEND TARGET_LIBRARIES
-            QCNodeNodeRadar
-  )
-endif()
-if( NOT TARGET QCNodeQNN )
-  message(STATUS "build QCNode without QNN")
+    if ( ENABLE_FADAS )
+      list( APPEND TARGET_LIBRARIES
+                QCNodeRemap
+                QCNodeVoxelization
+      )
+    endif()
+
+    if ( ENABLE_RADAR AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" )
+      list( APPEND TARGET_LIBRARIES
+                QCNodeNodeRadar
+      )
+    endif()
+
+    if( NOT TARGET QCNodeQNN )
+      message(STATUS "build QCNode without QNN")
+    else()
+      list( APPEND TARGET_LIBRARIES QCNodeQNN )
+    endif()
 else()
-  list( APPEND TARGET_LIBRARIES QCNodeQNN )
+    # Add SimulationNode when in simulation mode
+    list( APPEND TARGET_LIBRARIES QCNodeSimulationNode )
 endif()
 
 add_library( QCNode SHARED ${QCNODE_SOURCES} )

@@ -25,7 +25,7 @@ QCStatus_e ManagerLocal::Initialize( const QCMemoryManagerInit_t &init )
     QCStatus_e status = QC_STATUS_OK;
     // reuse of member mutex for this function scope only
     // scoped lock
-    std::lock_guard<std::mutex> lk( m_handle2NodeIdLock );
+    std::lock_guard<std::mutex> lk( m_multiThreadLock );
     QCObjectState_e state = GetState();
     if ( QC_OBJECT_STATE_INITIAL != state )
     {
@@ -48,14 +48,12 @@ QCStatus_e ManagerLocal::Initialize( const QCMemoryManagerInit_t &init )
     {
         m_pools.reserve( m_config.numOfNodes );
         m_allocations.reserve( m_config.numOfNodes );
-        std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> poolMap;
-        std::set<QCBufferDescriptorBase_t> allocSet;
-
         for ( auto i = 0; i < m_config.numOfNodes; i++ )
         {
-            m_pools.push_back( poolMap );
-            m_allocations.push_back( allocSet );
+            m_pools.emplace_back();
+            m_allocations.emplace_back();
         }
+
         state = QC_OBJECT_STATE_READY;
     }
 
@@ -80,7 +78,7 @@ QCStatus_e ManagerLocal::DeInitialize()
     // Free all allocated resources if not freed before
     // reuse of member mutex for this function scope only
     // scoped lock
-    std::lock_guard<std::mutex> lk( m_handle2NodeIdLock );
+    std::lock_guard<std::mutex> lk( m_multiThreadLock );
     QCStatus_e status = QC_STATUS_OK;
     QCObjectState_e state = QC_OBJECT_STATE_INITIAL;
     if ( GetState() == QC_OBJECT_STATE_INITIAL )
@@ -104,16 +102,16 @@ QCStatus_e ManagerLocal::DeInitialize()
             }
         }
 
+        // Clear the vectors (this will properly destruct the objects)
         for ( auto i = 0; i < m_config.numOfNodes; i++ )
         {
             QC_DEBUG( "DB memory free itteration %d ", i );
-            std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> &refPoolMap =
-                    m_pools.back();
-            QC_DEBUG( "refPoolMap at %p ", &refPoolMap );
+            PoolMapWithMutex &refPoolMapWithMutex = m_pools.back();
+            QC_DEBUG( "refPoolMapWithMutex at %p ", &refPoolMapWithMutex );
             m_pools.pop_back();
 
-            std::set<QCBufferDescriptorBase_t> &refAllocSet = m_allocations.back();
-            QC_DEBUG( "refAllocSet at %p ", &refAllocSet );
+            AllocationSetWithMutex &refAllocSetWithMutex = m_allocations.back();
+            QC_DEBUG( "refAllocSetWithMutex at %p ", &refAllocSetWithMutex );
             m_allocations.pop_back();
         }
 
@@ -131,38 +129,8 @@ QCStatus_e ManagerLocal::Register( const QCNodeID_t &node, QCMemoryHandle_t &han
     QC_INFO( "node name %s node type %d node id %d", node.name.c_str(), node.type, node.id );
 
     QCStatus_e status = QC_STATUS_OK;
-    // generate random number to used as memory handlers
-    //  create random device
-    std::random_device rd;
-    // create Mersenne Twister engine for 32-bit integers
-    // with random device as seed value
-    std::mt19937 randomNumbersGenerator( rd() );
-    // define result range uint64 and distribution
-    std::uniform_int_distribution<uint32_t> distribution( 0, UINT32_MAX );
 
-    // Set Node enum into memory hadler
-    handle.SetNodeType( node.type );
-    QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 " ",
-              handle.GetNodeType(), handle.GetNodeCount(), handle.GetRandomNumber(),
-              handle.GetProcessId() );
-
-    // scoped lock
-    std::lock_guard<std::mutex> lk( m_handle2NodeIdLock );
-
-    // Set nodes number in hnadler
-    handle.SetNodeCount( m_handleToNodeIdInVector.size() + 1 );
-    QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 " ",
-              handle.GetNodeType(), handle.GetNodeCount(), handle.GetRandomNumber(),
-              handle.GetProcessId() );
-
-    // generate random number
-    handle.SetRandomNumber( distribution( randomNumbersGenerator ) );
-    QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 " ",
-              handle.GetNodeType(), handle.GetNodeCount(), handle.GetRandomNumber(),
-              handle.GetProcessId() );
-
-    // check if handle allready exists
-    std::map<QCMemoryHandle_t, uint32_t>::iterator it;
+    // Initial validation without locks
     if ( GetState() != QC_OBJECT_STATE_READY )
     {
         QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", GetState() );
@@ -175,32 +143,74 @@ QCStatus_e ManagerLocal::Register( const QCNodeID_t &node, QCMemoryHandle_t &han
                   QC_NODE_TYPE_LAST, QC_NODE_TYPE_RESERVED );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
-    else if ( m_handleToNodeIdInVector.size() == m_config.numOfNodes )
-    {
-        QC_ERROR( "m_handleToNodeIdInVector.size() == m_config.numOfNodes" );
-        status = QC_STATUS_BAD_ARGUMENTS;
-    }
-    else if ( IsMemoryHandleRegistered( handle, it ) )
-    {
-        QC_ERROR( "COULD NOT GENERATE UNIQUE HANDLE" );
-        status = QC_STATUS_FAIL;
-    }
     else if ( m_config.numOfNodes <= node.id )
     {
         QC_ERROR( "node.id %d is bigger or equal to m_config.numOfNodes %d", node.id,
                   m_config.numOfNodes );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
-    else if ( IsNodeIdUnique( node ) == false )
-    {
-        QC_ERROR( "node.id %d is allready registers in m_handleToNodeIdInVector", node.id );
-        status = QC_STATUS_BAD_ARGUMENTS;
-    }
     else
     {
-        QC_DEBUG( "GENERATED UNIQUE HANDLE" );
-        m_handleToNodeIdInVector.insert( { handle, node.id } );
-        status = IS_IN_DB_STATUS( m_handleToNodeIdInVector, handle );
+        // Generate random number for memory handlers
+        std::random_device rd;
+        std::mt19937 randomNumbersGenerator( rd() );
+        std::uniform_int_distribution<uint32_t> distribution( 0, UINT32_MAX );
+
+        // Set Node enum into memory handler
+        handle.SetNodeType( node.type );
+        QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 " ",
+                  handle.GetNodeType(), handle.GetNodeCount(), handle.GetRandomNumber(),
+                  handle.GetProcessId() );
+
+        // Critical section with unique lock for handle registration
+        {
+            std::unique_lock<std::shared_mutex> writeLock( m_handle2NodeIdLock );
+
+            // Check capacity limits
+            if ( m_handleToNodeIdInVector.size() >= m_config.numOfNodes )
+            {
+                QC_ERROR( "m_handleToNodeIdInVector.size() >= m_config.numOfNodes (%zu >= %d)",
+                          m_handleToNodeIdInVector.size(), m_config.numOfNodes );
+                status = QC_STATUS_BAD_ARGUMENTS;
+            }
+            // Check if node ID is unique
+            else if ( IsNodeIdUnique( node ) == false )
+            {
+                QC_ERROR( "node.id %d is already registered in m_handleToNodeIdInVector", node.id );
+                status = QC_STATUS_BAD_ARGUMENTS;
+            }
+            else
+            {
+                // Set node count based on current registry size
+                handle.SetNodeCount( m_handleToNodeIdInVector.size() + 1 );
+
+                // Generate and set random number
+                handle.SetRandomNumber( distribution( randomNumbersGenerator ) );
+
+                QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32
+                          " pid %" PRIu32 " ",
+                          handle.GetNodeType(), handle.GetNodeCount(), handle.GetRandomNumber(),
+                          handle.GetProcessId() );
+
+                // Check if generated handle already exists (collision detection)
+                uint8_t tempNodeId;
+                if ( true == IsMemoryHandleRegistered( handle, tempNodeId ) )
+                {
+                    QC_ERROR( "COULD NOT GENERATE UNIQUE HANDLE - collision detected" );
+                    status = QC_STATUS_FAIL;
+                }
+                else
+                {
+                    // Insert the new handle-to-node mapping
+                    m_handleToNodeIdInVector.insert( { handle, node.id } );
+                    if ( false == IsMemoryHandleRegistered( handle, tempNodeId ) )
+                    {
+                        QC_ERROR( "Failed to insert handle into registry" );
+                        status = QC_STATUS_FAIL;
+                    }
+                }
+            }
+        }
     }
 
     if ( QC_STATUS_FAIL == status )
@@ -215,46 +225,57 @@ QCStatus_e ManagerLocal::Register( const QCNodeID_t &node, QCMemoryHandle_t &han
 QCStatus_e ManagerLocal::UnRegister( const QCMemoryHandle_t &memHandle )
 {
     QCStatus_e status = QC_STATUS_OK;
-    std::map<QCMemoryHandle_t, uint32_t>::iterator handleIt;
+    uint8_t nodeId;
     QCObjectState_e startState = GetState();
     QCObjectState_e finalState = startState;
-    // scoped lock
-    std::lock_guard<std::mutex> lk( m_handle2NodeIdLock );
 
-    if ( startState != QC_OBJECT_STATE_READY )
+    // Initial validation with shared lock for handle lookup
     {
-        QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", startState );
-        status = QC_STATUS_BAD_STATE;
+        std::shared_lock<std::shared_mutex> readLock( m_handle2NodeIdLock );
+        if ( startState != QC_OBJECT_STATE_READY )
+        {
+            QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", startState );
+            status = QC_STATUS_BAD_STATE;
+        }
+        else if ( false == IsMemoryHandleRegistered( memHandle, nodeId ) )
+        {
+            status = QC_STATUS_BAD_ARGUMENTS;
+            QC_ERROR( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32
+                      " ",
+                      memHandle.GetNodeType(), memHandle.GetNodeCount(),
+                      memHandle.GetRandomNumber(), memHandle.GetProcessId() );
+        }
     }
-    else if ( false == IsMemoryHandleRegistered( memHandle, handleIt ) )
-    {
-        status = QC_STATUS_BAD_ARGUMENTS;
-        QC_ERROR( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 " ",
-                  memHandle.GetNodeType(), memHandle.GetNodeCount(), memHandle.GetRandomNumber(),
-                  memHandle.GetProcessId() );
-    }
-    else
+
+    // If validation passed, proceed with resource cleanup and handle removal
+    if ( status == QC_STATUS_OK )
     {
         QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 " ",
                   memHandle.GetNodeType(), memHandle.GetNodeCount(), memHandle.GetRandomNumber(),
                   memHandle.GetProcessId() );
+
         finalState = QC_OBJECT_STATE_ERROR;
-        // clean all allocations related to this handle
+
+        // Clean all allocations related to this handle
         status = ReclaimResources( memHandle );
+
         if ( status == QC_STATUS_OK )
         {
-            QC_DEBUG( "GetState () == %d", finalState );
             finalState = startState;
-            m_handleToNodeIdInVector.erase( memHandle );
-            // validate erase success
-            if ( IsMemoryHandleRegistered( memHandle, handleIt ) )
+            // Remove handle from registry with unique lock
             {
-                finalState = QC_OBJECT_STATE_ERROR;
-                status = QC_STATUS_FAIL;
-                QC_ERROR( "Memory Handle node type %d count %d random Number %" PRIu32
-                          " pid %" PRIu32 " ",
-                          memHandle.GetNodeType(), memHandle.GetNodeCount(),
-                          memHandle.GetRandomNumber(), memHandle.GetProcessId() );
+                std::unique_lock<std::shared_mutex> writeLock( m_handle2NodeIdLock );
+                m_handleToNodeIdInVector.erase( memHandle );
+                if ( true == IsMemoryHandleRegistered( memHandle, nodeId ) )
+                {
+                    // erasure failed
+                    finalState = QC_OBJECT_STATE_ERROR;
+                    status = QC_STATUS_FAIL;
+                    QC_ERROR( "Memory Handle still registered after erase - node type %d count %d "
+                              "random Number %" PRIu32 " pid %" PRIu32 " ",
+                              memHandle.GetNodeType(), memHandle.GetNodeCount(),
+                              memHandle.GetRandomNumber(), memHandle.GetProcessId() );
+                }
             }
         }
     }
@@ -268,99 +289,119 @@ QCStatus_e ManagerLocal::UnRegister( const QCMemoryHandle_t &memHandle )
 // Pools methods
 // Pools creation and destruction
 QCStatus_e ManagerLocal::CreatePool( const QCMemoryHandle_t &handle,
-                                     const QCMemoryPoolConfig &poolCfg,
+                                     const QCMemoryPoolInitConfig_t &poolCfg,
                                      QCMemoryPoolHandle_t &poolHandle )
 {
     QCStatus_e status = QC_STATUS_OK;
     QCObjectState_e state = GetState();
     // check Memory Handle correctness
-    std::map<QCMemoryHandle_t, uint32_t>::iterator itNodeMap;
-    // scoped lock
-    std::lock_guard<std::mutex> lk( m_poolsLock );
+    uint8_t nodeIndex;
+    // scoped lock for handle lookup
+    std::shared_lock<std::shared_mutex> readLock( m_handle2NodeIdLock );
     if ( state != QC_OBJECT_STATE_READY )
     {
         QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", state );
         status = QC_STATUS_BAD_STATE;
     }
-    else if ( false == IsMemoryHandleRegistered( handle, itNodeMap ) )
+    else if ( false == IsMemoryHandleRegistered( handle, nodeIndex ) )
     {
         status = QC_STATUS_BAD_ARGUMENTS;
         QC_ERROR( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 " ",
                   handle.GetNodeType(), handle.GetNodeCount(), handle.GetRandomNumber(),
                   handle.GetProcessId() );
     }
-    else if ( QC_MEMORY_MAX_POOLS_PER_NODE == m_pools[itNodeMap->second].size() )
+    else if ( QC_MEMORY_ALLOCATOR_LAST <= poolCfg.allocator )
     {
-        status = QC_STATUS_OUT_OF_BOUND;
-        QC_ERROR( "Node m_pools count too hight %" PRIu64 " ", UINT8_MAX );
+        QC_ERROR( "QC_MEMORY_ALLOCATOR_LAST(%d) <= allocator, allocator=%d",
+                  QC_MEMORY_ALLOCATOR_LAST, poolCfg.allocator );
+        status = QC_STATUS_BAD_ARGUMENTS;
     }
     else
     {
-        // generate random number to used as memory handlers
-        //  create random device
-        std::random_device rd;
-        // create Mersenne Twister engine for 64-bit integers
-        // with random device as seed value
-        std::mt19937 randomNumbersGenerator( rd() );
-        // define result range uint64 and distribution
-        std::uniform_int_distribution<uint64_t> distribution( 0, UINT32_MAX );
-        // check uniqness
+        readLock.unlock();
 
-        // Set memory handler into pool handler
-        poolHandle.SetMemoryHandle( handle );
-        // generate and set random number
-        poolHandle.SetRandomNumber( distribution( randomNumbersGenerator ) );
+        // Use the individual pool's mutex for thread-safe access
+        std::unique_lock<std::shared_mutex> poolLock( m_pools[nodeIndex].poolMutex );
 
-        // set new pool count
-        uint64_t count = m_pools[itNodeMap->second].size();
-        poolHandle.SetPoolCount( static_cast<uint16_t>( count + 1 ) );
-        QC_DEBUG( "Memory Pool Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32
-                  "",
-                  poolHandle.GetMemoryHandle().GetNodeType(),
-                  poolHandle.GetMemoryHandle().GetRandomNumber(),
-                  poolHandle.GetMemoryHandle().GetProcessId() );
-        QC_DEBUG( "Pool Handle created with pool count %d random,number %" PRIu32 "",
-                  poolHandle.GetPoolCount(), poolHandle.GetRandomNumber() );
-
-        std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> &poolsMap =
-                m_pools[itNodeMap->second];
-        if ( QC_STATUS_OK == IS_IN_DB_STATUS( poolsMap, poolHandle ) )
+        if ( QC_MEMORY_MAX_POOLS_PER_NODE == m_pools[nodeIndex].poolMap.size() )
         {
-            QC_ERROR( "COULD NOT GENERATE UNIQUE POOL HANDLE" );
-            state = QC_OBJECT_STATE_ERROR;
-            status = QC_STATUS_FAIL;
+            status = QC_STATUS_OUT_OF_BOUND;
+            QC_ERROR( "Node m_pools count too hight %" PRIu64 " ", UINT8_MAX );
         }
         else
         {
-            status = QC_STATUS_NULL_PTR;
-            state = QC_OBJECT_STATE_ERROR;
-            QC_DEBUG( "GENERATED UNIQUE POOL HANDLE" );
-            // Create pool
-            QCMemoryPoolIfs *pool = new Pool( poolCfg );
-            // Initialize pool
-            if ( nullptr != pool )
+            // generate random number to used as memory handlers
+            //  create random device
+            std::random_device rd;
+            // create Mersenne Twister engine for 64-bit integers
+            // with random device as seed value
+            std::mt19937 randomNumbersGenerator( rd() );
+            // define result range uint64 and distribution
+            std::uniform_int_distribution<uint64_t> distribution( 0, UINT32_MAX );
+            // check uniqness
+
+            // Set memory handler into pool handler
+            poolHandle.SetMemoryHandle( handle );
+            // generate and set random number
+            poolHandle.SetRandomNumber( distribution( randomNumbersGenerator ) );
+
+            // set new pool count
+            uint8_t count = m_pools[nodeIndex].poolSequenceCounter;
+            m_pools[nodeIndex].poolSequenceCounter++;
+            poolHandle.SetPoolCount( count );
+            QC_DEBUG( "Memory Pool Handle node type %d count %d random Number %" PRIu32
+                      " pid %" PRIu32 "",
+                      poolHandle.GetMemoryHandle().GetNodeType(),
+                      poolHandle.GetMemoryHandle().GetRandomNumber(),
+                      poolHandle.GetMemoryHandle().GetProcessId() );
+            QC_DEBUG( "Pool Handle created with pool count %d random,number %" PRIu32 "",
+                      poolHandle.GetPoolCount(), poolHandle.GetRandomNumber() );
+
+            std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> &poolsMap =
+                    m_pools[nodeIndex].poolMap;
+            if ( QC_STATUS_OK == IS_IN_DB_STATUS( poolsMap, poolHandle ) )
             {
-                status = pool->Init();
-                if ( status == QC_STATUS_OK )
+                QC_ERROR( "COULD NOT GENERATE UNIQUE POOL HANDLE" );
+                state = QC_OBJECT_STATE_ERROR;
+                status = QC_STATUS_FAIL;
+            }
+            else
+            {
+                status = QC_STATUS_NULL_PTR;
+                state = QC_OBJECT_STATE_ERROR;
+                QC_DEBUG( "GENERATED UNIQUE POOL HANDLE" );
+
+                QCMemoryPoolConfig_t config( m_config.allocators[poolCfg.allocator] );
+                config.buff = poolCfg.buff;
+                config.maxElements = poolCfg.maxElements;
+                config.name = poolCfg.name;
+
+                // Create pool
+                QCMemoryPoolIfs *pool = new Pool( config );
+                // Initialize pool
+                if ( nullptr != pool )
                 {
-                    state = QC_OBJECT_STATE_READY;
-                    poolsMap.insert(
-                            { poolHandle, std::reference_wrapper<QCMemoryPoolIfs>( *pool ) } );
-                    status = IS_IN_DB_STATUS( poolsMap, poolHandle );
-                    QC_DEBUG( "poolsMap,size() == %d", poolsMap.size() );
-                    QC_DEBUG( "GetState () == %d", state );
-                }
-                else if ( status == QC_STATUS_FAIL )
-                {
-                    QC_ERROR( "status = pool->Init() returned QC_STATUS_FAIL" );
-                }
-                else
-                {
-                    state = QC_OBJECT_STATE_READY;
-                    QC_ERROR( "GetState () == %d", state );
-                    pool->~QCMemoryPoolIfs();
-                    QC_ERROR( "Pool Creation & Initialization or Inseretion to DB failed - "
-                              "destroying" );
+                    status = pool->Init();
+                    if ( status == QC_STATUS_OK )
+                    {
+                        state = QC_OBJECT_STATE_READY;
+                        poolsMap.insert( { poolHandle, std::ref( *pool ) } );
+                        status = IS_IN_DB_STATUS( poolsMap, poolHandle );
+                        QC_DEBUG( "poolsMap,size() == %d", poolsMap.size() );
+                        QC_DEBUG( "GetState () == %lu", state );
+                    }
+                    else if ( status == QC_STATUS_FAIL )
+                    {
+                        QC_ERROR( "status = pool->Init() returned QC_STATUS_FAIL" );
+                    }
+                    else
+                    {
+                        state = QC_OBJECT_STATE_READY;
+                        QC_ERROR( "GetState () == %d", state );
+                        pool->~QCMemoryPoolIfs();
+                        QC_ERROR( "Pool Creation & Initialization or Inseretion to DB failed - "
+                                  "destroying" );
+                    }
                 }
             }
         }
@@ -375,48 +416,56 @@ QCStatus_e ManagerLocal::DestroyPool( const QCMemoryPoolHandle_t &poolHandle )
 {
     QCStatus_e status = QC_STATUS_OK;
     // check Memory Handle correctness
-    std::map<QCMemoryHandle_t, uint32_t>::iterator itNodeMap;
-    // scoped lock
-    std::lock_guard<std::mutex> lk( m_poolsLock );
+    uint8_t nodeIndex;
     const QCMemoryHandle_t &memoryHandle = poolHandle.GetMemoryHandle();
 
+    // scoped lock for handle lookup
+    std::shared_lock<std::shared_mutex> readLock( m_handle2NodeIdLock );
     if ( GetState() != QC_OBJECT_STATE_READY )
     {
         QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", GetState() );
         status = QC_STATUS_BAD_STATE;
     }
-    else if ( false == IsMemoryHandleRegistered( memoryHandle, itNodeMap ) )
+    else if ( false == IsMemoryHandleRegistered( memoryHandle, nodeIndex ) )
     {
         status = QC_STATUS_BAD_ARGUMENTS;
         QC_ERROR( "Memory Handle node type %d count %d random Number %d pid %d",
                   memoryHandle.GetNodeType(), memoryHandle.GetRandomNumber(),
                   memoryHandle.GetProcessId() );
     }
-    else if ( m_pools[itNodeMap->second].find( poolHandle ) == m_pools[itNodeMap->second].end() )
-    {
-        status = QC_STATUS_BAD_ARGUMENTS;
-        QC_ERROR( "Memory Pool Handle not found node type %d count %d random Number %" PRIu32
-                  " pid %" PRIu32 "",
-                  poolHandle.GetMemoryHandle().GetNodeType(),
-                  poolHandle.GetMemoryHandle().GetRandomNumber(),
-                  poolHandle.GetMemoryHandle().GetProcessId() );
-        QC_ERROR( "Pool Handle created with pool count %d random,number %" PRIu32 "",
-                  poolHandle.GetPoolCount(), poolHandle.GetRandomNumber() );
-    }
     else
     {
-        QCBufferPropBase_t buff;
-        std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> &poolsMap =
-                m_pools[itNodeMap->second];
-        auto it = poolsMap.find( poolHandle );
-        QCMemoryPoolIfs &pool = it->second.get();
-        QC_INFO( "Destroying pool with elements count %d size %d",
-                 pool.GetConfiguration().maxElements, pool.GetConfiguration().buff.size );
+        readLock.unlock();
 
-        pool.~QCMemoryPoolIfs();
+        // Use the individual pool's mutex for thread-safe access
+        std::unique_lock<std::shared_mutex> poolLock( m_pools[nodeIndex].poolMutex );
 
-        poolsMap.erase( poolHandle );
-        status = IS_NOT_IN_DB_STATUS( poolsMap, poolHandle );
+        if ( m_pools[nodeIndex].poolMap.find( poolHandle ) == m_pools[nodeIndex].poolMap.end() )
+        {
+            status = QC_STATUS_BAD_ARGUMENTS;
+            QC_ERROR( "Memory Pool Handle not found node type %d count %d random Number %" PRIu32
+                      " pid %" PRIu32 "",
+                      poolHandle.GetMemoryHandle().GetNodeType(),
+                      poolHandle.GetMemoryHandle().GetRandomNumber(),
+                      poolHandle.GetMemoryHandle().GetProcessId() );
+            QC_ERROR( "Pool Handle created with pool count %d random,number %" PRIu32 "",
+                      poolHandle.GetPoolCount(), poolHandle.GetRandomNumber() );
+        }
+        else
+        {
+            QCBufferPropBase_t buff;
+            std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> &poolsMap =
+                    m_pools[nodeIndex].poolMap;
+            auto it = poolsMap.find( poolHandle );
+            QC_INFO( "Destroying pool with elements count %d size %d",
+                     it->second.get().GetConfiguration().maxElements,
+                     it->second.get().GetConfiguration().buff.size );
+            delete ( &it->second.get() );
+            if ( 1 != poolsMap.erase( poolHandle ) )
+            {
+                status = QC_STATUS_FAIL;
+            }
+        }
     }
 
     if ( QC_STATUS_FAIL == status )
@@ -433,16 +482,17 @@ QCStatus_e ManagerLocal::AllocateBufferFromPool( const QCMemoryPoolHandle_t &poo
 {
     QCStatus_e status = QC_STATUS_OK;
     // check Memory Handle correctness
-    std::map<QCMemoryHandle_t, uint32_t>::iterator itNodeMap;
-    // scoped lock
-    std::lock_guard<std::mutex> lk( m_poolsLock );
+    uint8_t nodeIndex;
     const QCMemoryHandle_t &memoryHandle = poolHandle.GetMemoryHandle();
+
+    // scoped lock for handle lookup
+    std::shared_lock<std::shared_mutex> readLock( m_handle2NodeIdLock );
     if ( GetState() != QC_OBJECT_STATE_READY )
     {
         QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", GetState() );
         status = QC_STATUS_BAD_STATE;
     }
-    else if ( false == IsMemoryHandleRegistered( memoryHandle, itNodeMap ) )
+    else if ( false == IsMemoryHandleRegistered( memoryHandle, nodeIndex ) )
     {
         status = QC_STATUS_BAD_ARGUMENTS;
         QC_ERROR( "Memory Handle not found node type %d count %d random Number %" PRIu32
@@ -450,22 +500,29 @@ QCStatus_e ManagerLocal::AllocateBufferFromPool( const QCMemoryPoolHandle_t &poo
                   memoryHandle.GetNodeType(), memoryHandle.GetRandomNumber(),
                   memoryHandle.GetProcessId() );
     }
-    else if ( m_pools[itNodeMap->second].find( poolHandle ) == m_pools[itNodeMap->second].end() )
-    {
-        status = QC_STATUS_BAD_ARGUMENTS;
-        QC_ERROR( "Memory Pool Handle not found node type %d count %d random Number %" PRIu32
-                  " pid %" PRIu32 "",
-                  poolHandle.GetMemoryHandle().GetNodeType(),
-                  poolHandle.GetMemoryHandle().GetRandomNumber(),
-                  poolHandle.GetMemoryHandle().GetProcessId() );
-        QC_ERROR( "Pool Handle created with pool count %d random,number %" PRIu32 "",
-                  poolHandle.GetPoolCount(), poolHandle.GetRandomNumber() );
-    }
     else
     {
-        auto it = m_pools[itNodeMap->second].find( poolHandle );
-        QCMemoryPoolIfs &pool = it->second.get();
-        status = pool.GetElement( buff );
+        readLock.unlock();
+
+        // Use the individual pool's mutex for thread-safe access
+        std::shared_lock<std::shared_mutex> poolLock( m_pools[nodeIndex].poolMutex );
+
+        if ( m_pools[nodeIndex].poolMap.find( poolHandle ) == m_pools[nodeIndex].poolMap.end() )
+        {
+            status = QC_STATUS_BAD_ARGUMENTS;
+            QC_ERROR( "Memory Pool Handle not found node type %d count %d random Number %" PRIu32
+                      " pid %" PRIu32 "",
+                      poolHandle.GetMemoryHandle().GetNodeType(),
+                      poolHandle.GetMemoryHandle().GetRandomNumber(),
+                      poolHandle.GetMemoryHandle().GetProcessId() );
+            QC_ERROR( "Pool Handle created with pool count %d random,number %" PRIu32 "",
+                      poolHandle.GetPoolCount(), poolHandle.GetRandomNumber() );
+        }
+        else
+        {
+            auto it = m_pools[nodeIndex].poolMap.find( poolHandle );
+            status = it->second.get().GetElement( buff );
+        }
     }
 
     if ( QC_STATUS_FAIL == status )
@@ -482,16 +539,17 @@ QCStatus_e ManagerLocal::PutBufferToPool( const QCMemoryPoolHandle_t &poolHandle
 {
     QCStatus_e status = QC_STATUS_OK;
     // check Memory Handle correctness
-    std::map<QCMemoryHandle_t, uint32_t>::iterator itNodeMap;
-    // scoped lock
-    std::lock_guard<std::mutex> lk( m_poolsLock );
+    uint8_t nodeIndex;
     const QCMemoryHandle_t &memoryHandle = poolHandle.GetMemoryHandle();
+
+    // scoped lock for handle lookup
+    std::shared_lock<std::shared_mutex> readLock( m_handle2NodeIdLock );
     if ( GetState() != QC_OBJECT_STATE_READY )
     {
         QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", GetState() );
         status = QC_STATUS_BAD_STATE;
     }
-    else if ( false == IsMemoryHandleRegistered( memoryHandle, itNodeMap ) )
+    else if ( false == IsMemoryHandleRegistered( memoryHandle, nodeIndex ) )
     {
         status = QC_STATUS_BAD_ARGUMENTS;
         QC_ERROR( "Memory Handle not found node type %d count %d random Number %" PRIu32
@@ -499,22 +557,29 @@ QCStatus_e ManagerLocal::PutBufferToPool( const QCMemoryPoolHandle_t &poolHandle
                   memoryHandle.GetNodeType(), memoryHandle.GetRandomNumber(),
                   memoryHandle.GetProcessId() );
     }
-    else if ( m_pools[itNodeMap->second].find( poolHandle ) == m_pools[itNodeMap->second].end() )
-    {
-        status = QC_STATUS_BAD_ARGUMENTS;
-        QC_ERROR( "Memory Pool Handle not found node type %d count %d random Number %" PRIu32
-                  " pid %" PRIu32 "",
-                  poolHandle.GetMemoryHandle().GetNodeType(),
-                  poolHandle.GetMemoryHandle().GetRandomNumber(),
-                  poolHandle.GetMemoryHandle().GetProcessId() );
-        QC_ERROR( "Pool Handle created with pool count %d random,number %" PRIu32 "",
-                  poolHandle.GetPoolCount(), poolHandle.GetRandomNumber() );
-    }
     else
     {
-        auto it = m_pools[itNodeMap->second].find( poolHandle );
-        QCMemoryPoolIfs &pool = it->second.get();
-        status = pool.PutElement( buff );
+        readLock.unlock();
+
+        // Use the individual pool's mutex for thread-safe access
+        std::shared_lock<std::shared_mutex> poolLock( m_pools[nodeIndex].poolMutex );
+
+        if ( m_pools[nodeIndex].poolMap.find( poolHandle ) == m_pools[nodeIndex].poolMap.end() )
+        {
+            status = QC_STATUS_BAD_ARGUMENTS;
+            QC_ERROR( "Memory Pool Handle not found node type %d count %d random Number %" PRIu32
+                      " pid %" PRIu32 "",
+                      poolHandle.GetMemoryHandle().GetNodeType(),
+                      poolHandle.GetMemoryHandle().GetRandomNumber(),
+                      poolHandle.GetMemoryHandle().GetProcessId() );
+            QC_ERROR( "Pool Handle created with pool count %d random,number %" PRIu32 "",
+                      poolHandle.GetPoolCount(), poolHandle.GetRandomNumber() );
+        }
+        else
+        {
+            auto it = m_pools[nodeIndex].poolMap.find( poolHandle );
+            status = it->second.get().PutElement( buff );
+        }
     }
 
     if ( QC_STATUS_FAIL == status )
@@ -534,11 +599,11 @@ QCStatus_e ManagerLocal::AllocateBuffer( const QCMemoryHandle_t handle,
                                          QCBufferDescriptorBase_t &buff )
 {
     QCStatus_e status = QC_STATUS_OK;
-    std::map<QCMemoryHandle_t, uint32_t>::iterator handleIt;
+    uint8_t nodeIndex;
     QCObjectState_e state = GetState();
-    // scoped lock
-    std::lock_guard<std::mutex> lk( m_allocationsLock );
 
+    // scoped lock for handle lookup
+    std::shared_lock<std::shared_mutex> readLock( m_handle2NodeIdLock );
     if ( state != QC_OBJECT_STATE_READY )
     {
         QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", state );
@@ -549,19 +614,25 @@ QCStatus_e ManagerLocal::AllocateBuffer( const QCMemoryHandle_t handle,
         QC_ERROR( "BAD INPUT size=%d", request.size );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
-    else if ( false == IsMemoryHandleRegistered( handle, handleIt ) )
+    else if ( false == IsMemoryHandleRegistered( handle, nodeIndex ) )
     {
         QC_ERROR( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 "",
                   handle.GetNodeType(), handle.GetRandomNumber(), handle.GetProcessId() );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
-    else if ( false == IsAllocatorLegal( allocator ) )
+    else if ( QC_MEMORY_ALLOCATOR_LAST <= allocator )
     {
-        QC_ERROR( "Wrong allocator" );
+        QC_ERROR( "QC_MEMORY_ALLOCATOR_LAST(%d) <= allocator, allocator=%d",
+                  QC_MEMORY_ALLOCATOR_LAST, allocator );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
     else
     {
+        readLock.unlock();
+
+        // Use the individual allocation's mutex for thread-safe access
+        std::unique_lock<std::shared_mutex> allocLock( m_allocations[nodeIndex].allocationMutex );
+
         QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 "",
                   handle.GetNodeType(), handle.GetRandomNumber(), handle.GetProcessId() );
         QC_DEBUG( "Allocating buffer using allocator %d ", allocator );
@@ -577,8 +648,9 @@ QCStatus_e ManagerLocal::AllocateBuffer( const QCMemoryHandle_t handle,
         }
         else if ( QC_STATUS_OK == status )
         {
-            m_allocations[handleIt->second].insert( buff );
-            status = IS_IN_DB_STATUS( m_allocations[handleIt->second], buff );
+            std::set<QCBufferDescriptorBase_t> &bufferSet = m_allocations[nodeIndex].allocationSet;
+            bufferSet.insert( buff );
+            status = IS_IN_DB_STATUS( bufferSet, buff );
             if ( QC_STATUS_OK != status )
             {
                 state = QC_OBJECT_STATE_ERROR;
@@ -589,7 +661,8 @@ QCStatus_e ManagerLocal::AllocateBuffer( const QCMemoryHandle_t handle,
             }
         }
         else
-        {}
+        {
+        }
     }
 
     QC_DEBUG( "GetState () == %d", status );
@@ -602,31 +675,37 @@ QCStatus_e ManagerLocal::FreeBuffer( const QCMemoryHandle_t handle,
                                      const QCBufferDescriptorBase_t &buff )
 {
     QCStatus_e status = QC_STATUS_OK;
-    std::map<QCMemoryHandle_t, uint32_t>::iterator handleIt;
+    uint8_t nodeIndex;
 
-    // scoped lock
-    std::lock_guard<std::mutex> lk( m_allocationsLock );
+    // scoped lock for handle lookup
+    std::shared_lock<std::shared_mutex> readLock( m_handle2NodeIdLock );
     if ( GetState() != QC_OBJECT_STATE_READY )
     {
         QC_ERROR( "GetState () != QC_OBJECT_STATE_READY, state =%d", GetState() );
         status = QC_STATUS_BAD_STATE;
     }
     // validate handle
-    else if ( false == IsMemoryHandleRegistered( handle, handleIt ) )
+    else if ( false == IsMemoryHandleRegistered( handle, nodeIndex ) )
     {
         QC_ERROR( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 "",
                   handle.GetNodeType(), handle.GetRandomNumber(), handle.GetProcessId() );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
-    else if ( false == IsAllocatorLegal( buff.allocatorType ) )
+    else if ( QC_MEMORY_ALLOCATOR_LAST <= buff.allocatorType )
     {
-        QC_ERROR( "Wrong allocator" );
+        QC_ERROR( "QC_MEMORY_ALLOCATOR_LAST(%d) <= allocator, allocator=%d",
+                  QC_MEMORY_ALLOCATOR_LAST, buff.allocatorType );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
     else
     {
+        readLock.unlock();
+
+        // Use the individual allocation's mutex for thread-safe access
+        std::unique_lock<std::shared_mutex> allocLock( m_allocations[nodeIndex].allocationMutex );
+
         // Validate existance of the buffer pointer in the data base
-        std::set<QCBufferDescriptorBase_t> &bufferSet = m_allocations[handleIt->second];
+        std::set<QCBufferDescriptorBase_t> &bufferSet = m_allocations[nodeIndex].allocationSet;
         if ( QC_STATUS_OK == IS_IN_DB_STATUS( bufferSet, buff ) )
         {
             QCMemoryAllocatorIfs &allocatorRef = m_config.allocators[buff.allocatorType];
@@ -662,16 +741,25 @@ QCStatus_e ManagerLocal::ReclaimResources( const QCMemoryHandle_t &handle )
 
     if ( state != QC_OBJECT_STATE_READY )
     {
-        QC_ERROR( "state != QC_OBJECT_STATE_READY" );
-        QC_ERROR( "GetState () == %d", state );
+        if ( state != QC_OBJECT_STATE_DEINITIALIZING )
+        {
+            QC_ERROR( "state != QC_OBJECT_STATE_READY" );
+            QC_ERROR( "GetState () == %d", state );
+        }
+        else
+        {
+            QC_DEBUG( "state == QC_OBJECT_STATE_DEINITIALIZING" );
+        }
         // changing temporally object state to allow call to
         // memory release methods which are blocked by wrong state
         SetState( QC_OBJECT_STATE_READY );
     }
 
-    std::map<QCMemoryHandle_t, uint32_t>::iterator handleIt;
+    uint8_t nodeIndex;
+    // scoped lock for handle lookup
+    std::shared_lock<std::shared_mutex> readLock( m_handle2NodeIdLock );
     // validate handle
-    if ( false == IsMemoryHandleRegistered( handle, handleIt ) )
+    if ( false == IsMemoryHandleRegistered( handle, nodeIndex ) )
     {
         QC_ERROR( "handle elegal" );
         QC_ERROR( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 "",
@@ -680,13 +768,21 @@ QCStatus_e ManagerLocal::ReclaimResources( const QCMemoryHandle_t &handle )
     }
     else
     {
+        readLock.unlock();
+
         // reclaim stand alone allocations
         // ###############################
         // create copy of buffers map for a given handle,
         // use of copy instead of reference required to cope with potential
         // database failure as part of FreeBuffer() call
-        // or attempt to allocated buffers for the same handle during resources recalim
-        std::set<QCBufferDescriptorBase_t> bufferMap = m_allocations[handleIt->second];
+        // or attempt to allocated buffers for the same handle during resources reclaim
+        std::set<QCBufferDescriptorBase_t> bufferMap;
+        {
+            // scoped lock to copy the buffer map for a specific client/node
+            std::unique_lock<std::shared_mutex> allocLock(
+                    m_allocations[nodeIndex].allocationMutex );
+            bufferMap = m_allocations[nodeIndex].allocationSet;
+        }
         QC_DEBUG( "bufferMap.size() %d ", bufferMap.size() );
 
         if ( bufferMap.empty() )
@@ -728,14 +824,20 @@ QCStatus_e ManagerLocal::ReclaimResources( const QCMemoryHandle_t &handle )
 
         // reclaim pool allocations & destroy pools
         // ########################################
-        std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> poolMap =
-                m_pools[handleIt->second];
-        QC_DEBUG( "poolMap.size() %d ", poolMap.size() );
         // create copy of pool map for a given handle,
         // use of copy instead of reference required to cope with potential
         // database failure as part of DestroyPool() call
-        // or attempt to allocated buffers for the same handle during resources recalim
-        //  itterate over map and release allocations
+        // or attempt to allocated buffers for the same handle during resources reclaim
+        // itterate over map and release allocations
+        std::map<QCMemoryPoolHandle_t, std::reference_wrapper<QCMemoryPoolIfs>> poolMap;
+        {
+            // scoped lock to copy the pool map for a specific client/node
+            std::unique_lock<std::shared_mutex> poolLock( m_pools[nodeIndex].poolMutex );
+            poolMap = m_pools[nodeIndex].poolMap;
+        }
+
+        QC_DEBUG( "poolMap.size() %d ", poolMap.size() );
+
         if ( poolMap.empty() )
         {
             QC_DEBUG( "No Pool allocations " );
@@ -786,13 +888,19 @@ QCStatus_e ManagerLocal::ReclaimResources( const QCMemoryHandle_t &handle )
     return status;
 }
 
-inline bool
-ManagerLocal::IsMemoryHandleRegistered( const QCMemoryHandle_t &handle,
-                                        std::map<QCMemoryHandle_t, uint32_t>::iterator &it )
+inline bool ManagerLocal::IsMemoryHandleRegistered( const QCMemoryHandle_t &handle,
+                                                    uint8_t &nodeId )
 {
     bool result = true;
-    it = m_handleToNodeIdInVector.find( handle );
-    if ( it == m_handleToNodeIdInVector.end() ) result = false;
+    auto it = m_handleToNodeIdInVector.find( handle );
+    if ( it == m_handleToNodeIdInVector.end() )
+    {
+        result = false;
+    }
+    else
+    {
+        nodeId = it->second;
+    }
 
     return result;
 }
@@ -814,18 +922,6 @@ inline bool ManagerLocal::IsNodeIdUnique( const QCNodeID_t &node )
     return result;
 }
 
-inline bool ManagerLocal::IsAllocatorLegal( const QCMemoryAllocator_e allocator )
-{
-    bool isLeagal = true;
-    if ( QC_MEMORY_ALLOCATOR_LAST <= allocator )
-    {
-        isLeagal = false;
-        QC_ERROR( "QC_MEMORY_ALLOCATOR_LAST(%d) <= allocator, allocator=%d",
-                  QC_MEMORY_ALLOCATOR_LAST, allocator );
-    }
-
-    return isLeagal;
-}
 
 }   // namespace Memory
 }   // namespace QC

@@ -13,7 +13,7 @@ Below is a summary information of the current implemented nodes.
 | [Camera](./docs/Camera.md) | YES| YES | qcarcam | Camera | camera streaming |
 | [Remap](./docs/remap.md)| YES | YES | FastADAS | CPU, HTP0, HTP1, GPU | Color Conversion, ROI Crop, Downscaling, Undistortion |
 | [QNN](./docs/QNN.md) | YES| YES | QNN | CPU, GPU, HTP0, HTP1 | AI model inference |
-| [VideoEncoder](./docs/videoencoder.md) | YES| YES | vidc | VPU | Encode image to video frame |
+| [VideoEncoder](./docs/VideoEncoder.md) | YES| YES | vidc | VPU | Encode image to video frame |
 | [VideoDecoder](./docs/VideoDecoder.md) | YES| YES | vidc | VPU | Decode video frame to image |
 | [Voxelization](./docs/Voxelization.md) | YES| YES | FastADAS, OpenCL| CPU, HTP0, HTP1, GPU | Generate pillars from point clouds |
 | [CL2DFlex](./docs/CL2DFlex.md) | YES| Yes| OpenCL | GPU | Color Conversion, Resize, ROI Crop, Undistortion |

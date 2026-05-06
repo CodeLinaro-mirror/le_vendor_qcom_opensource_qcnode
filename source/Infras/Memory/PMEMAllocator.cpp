@@ -15,7 +15,7 @@ PMEMAllocator::PMEMAllocator( const QCMemoryAllocatorConfigInit_t &config,
                               const QCMemoryAllocator_e allocator )
     : QCMemoryAllocatorIfs( config, allocator )
 {
-    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_VERBOSE );
+    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_ERROR );
     pmem_init();
 }
 

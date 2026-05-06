@@ -20,7 +20,6 @@ SampleRadar::SampleRadar()
       m_timeoutMs( 0 ),
       m_enablePerformanceLog( false ),
       m_poolSize( 0 ),
-      m_bufferFlags( QC_BUFFER_FLAGS_CACHE_WB_WA ),
       m_inputTopicName( "" ),
       m_outputTopicName( "" ),
       m_stop( false ),
@@ -80,8 +79,9 @@ QCStatus_e SampleRadar::Init( std::string name, SampleConfig_t &config )
     QC_LOG_DEBUG( "Node configuration setup completed" );
     // Initialize output buffer pool for processed radar data
     // Use tensor allocation for raw radar output data
-    TensorProps_t outputTensorProps(QC_TENSOR_TYPE_UINT_8, { m_maxOutputBufferSize });
-    ret = m_outputPool.Init( name + "_output", m_nodeId, LOGGER_LEVEL_INFO, m_poolSize, outputTensorProps);
+    TensorProps_t outputTensorProps( QC_TENSOR_TYPE_UINT_8, { m_maxOutputBufferSize } );
+    ret = m_outputPool.Init( name + "_output", m_nodeId, LOGGER_LEVEL_INFO, m_poolSize,
+                             outputTensorProps );
     if ( QC_STATUS_OK != ret )
     {
         QC_ERROR( "Output buffer pool initialization failed with error: %d", ret );
@@ -308,7 +308,6 @@ QCStatus_e SampleRadar::ParseConfig( SampleConfig_t &config )
 
     // Parse memory allocation preferences
     bool bCache = Get( config, "cache", true );
-    m_bufferFlags = bCache ? QC_BUFFER_FLAGS_CACHE_WB_WA : 0;
 
     // Parse required topic names
     m_inputTopicName = Get( config, "input_topic", "" );
@@ -491,7 +490,7 @@ QCStatus_e SampleRadar::ProcessFrame( const DataFrames_t &inputFrames )
     const DataFrame_t &inputFrame = inputFrames.frames[0];
 
     QC_DEBUG( "Processing radar frame: frameId=%lu, timestamp=%lu, size=%u", inputFrame.frameId,
-              inputFrame.timestamp, const_cast<DataFrame_t&>(inputFrame).GetBuffer().size );
+              inputFrame.timestamp, const_cast<DataFrame_t &>( inputFrame ).GetBuffer().size );
 
     // Validate input data format and content
     ret = ValidateInputData( inputFrame );
@@ -518,7 +517,7 @@ QCStatus_e SampleRadar::ProcessFrame( const DataFrames_t &inputFrames )
 
     // Set input buffer descriptor with proper base class initialization
     // const_cast is safe here as we're just getting the buffer descriptor
-    bufferDescs[0] = const_cast<DataFrame_t&>(inputFrame).GetBuffer();
+    bufferDescs[0] = const_cast<DataFrame_t &>( inputFrame ).GetBuffer();
     bufferDescs[0].name = "InputBuffer";
     bufferDescs[0].type = QC_BUFFER_TYPE_TENSOR;
     ret = frameDesc.SetBuffer( 0, bufferDescs[0] );
@@ -594,35 +593,35 @@ QCStatus_e SampleRadar::ValidateInputData( const DataFrame_t &frame )
     }
 
     // Check buffer data accessibility
-    if ( nullptr == const_cast<DataFrame_t&>(frame).GetBuffer().GetDataPtr() )
+    if ( nullptr == const_cast<DataFrame_t &>( frame ).GetBuffer().GetDataPtr() )
     {
         QC_ERROR( "Input buffer data pointer is null" );
         return QC_STATUS_INVALID_BUF;
     }
 
     // Check buffer size constraints
-    if ( const_cast<DataFrame_t&>(frame).GetBuffer().size == 0 )
+    if ( const_cast<DataFrame_t &>( frame ).GetBuffer().size == 0 )
     {
         QC_ERROR( "Input buffer size is zero" );
         return QC_STATUS_INVALID_BUF;
     }
 
-    if ( const_cast<DataFrame_t&>(frame).GetBuffer().size > m_maxInputBufferSize )
+    if ( const_cast<DataFrame_t &>( frame ).GetBuffer().size > m_maxInputBufferSize )
     {
-        QC_ERROR( "Input buffer size (%u) exceeds maximum (%u)", const_cast<DataFrame_t&>(frame).GetBuffer().size,
-                  m_maxInputBufferSize );
+        QC_ERROR( "Input buffer size (%u) exceeds maximum (%u)",
+                  const_cast<DataFrame_t &>( frame ).GetBuffer().size, m_maxInputBufferSize );
         return QC_STATUS_INVALID_BUF;
     }
 
     // Check DMA handle validity
-    if ( const_cast<DataFrame_t&>(frame).GetBuffer().dmaHandle == 0 )
+    if ( const_cast<DataFrame_t &>( frame ).GetBuffer().dmaHandle == 0 )
     {
         QC_ERROR( "Invalid DMA handle in input buffer" );
         return QC_STATUS_INVALID_BUF;
     }
 
     // Validate buffer type compatibility
-    QCBufferType_e bufferType = const_cast<DataFrame_t&>(frame).GetBuffer().type;
+    QCBufferType_e bufferType = const_cast<DataFrame_t &>( frame ).GetBuffer().type;
     if ( bufferType != QC_BUFFER_TYPE_RAW && bufferType != QC_BUFFER_TYPE_TENSOR &&
          bufferType != QC_BUFFER_TYPE_IMAGE )
     {
@@ -631,7 +630,7 @@ QCStatus_e SampleRadar::ValidateInputData( const DataFrame_t &frame )
     }
 
     QC_DEBUG( "Input data validation passed: type=%d, size=%u", bufferType,
-              const_cast<DataFrame_t&>(frame).GetBuffer().size );
+              const_cast<DataFrame_t &>( frame ).GetBuffer().size );
 
     return ret;
 }

@@ -54,6 +54,7 @@ bool DataTree::Exists( const std::string &key )
         else
         {
             bExists = false;
+            break;
         }
     }
 
@@ -76,6 +77,7 @@ QCStatus_e DataTree::Get( const std::string &key, DataTree &dt )
         else
         {
             status = QC_STATUS_OUT_OF_BOUND;
+            break;
         }
     }
 
@@ -103,6 +105,7 @@ QCStatus_e DataTree::Get( const std::string &key, std::vector<DataTree> &dts )
         else
         {
             status = QC_STATUS_OUT_OF_BOUND;
+            break;
         }
     }
 
@@ -142,6 +145,7 @@ QCImageFormat_e DataTree::GetImageFormat( const std::string key, QCImageFormat_e
         else
         {
             bHasKey = false;
+            break;
         }
     }
 
@@ -215,6 +219,7 @@ QCTensorType_e DataTree::GetTensorType( const std::string key, QCTensorType_e dv
         else
         {
             bHasKey = false;
+            break;
         }
     }
 
@@ -320,6 +325,7 @@ QCProcessorType_e DataTree::GetProcessorType( const std::string key, QCProcessor
         else
         {
             bHasKey = false;
+            break;
         }
     }
 
@@ -333,6 +339,14 @@ QCProcessorType_e DataTree::GetProcessorType( const std::string key, QCProcessor
         else if ( "htp1" == processor )
         {
             retV = QC_PROCESSOR_HTP1;
+        }
+        else if ( "htp2" == processor )
+        {
+            retV = QC_PROCESSOR_HTP2;
+        }
+        else if ( "htp3" == processor )
+        {
+            retV = QC_PROCESSOR_HTP3;
         }
         else if ( "cpu" == processor )
         {
@@ -562,6 +576,12 @@ void DataTree::SetProcessorType( const std::string key, QCProcessorType_e kv )
             break;
         case QC_PROCESSOR_HTP1:
             processor = "htp1";
+            break;
+        case QC_PROCESSOR_HTP2:
+            processor = "htp2";
+            break;
+        case QC_PROCESSOR_HTP3:
+            processor = "htp3";
             break;
         case QC_PROCESSOR_CPU:
             processor = "cpu";

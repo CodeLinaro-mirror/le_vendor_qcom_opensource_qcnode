@@ -111,6 +111,21 @@ static float sigmoid( float data )
 SamplePostProcCenternet::SamplePostProcCenternet() {}
 SamplePostProcCenternet::~SamplePostProcCenternet() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )>
+SamplePostProcCenternet::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SamplePostProcCenternet::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SamplePostProcCenternet::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
+
 QCStatus_e SamplePostProcCenternet::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -221,48 +236,72 @@ QCStatus_e SamplePostProcCenternet::Start()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = false;
-    m_thread = std::thread( &SamplePostProcCenternet::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
+    {
+#endif
+        m_thread = std::thread( &SamplePostProcCenternet::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+    }
+#endif
 
     return ret;
 }
 
-void SamplePostProcCenternet::ThreadMain()
+void SamplePostProcCenternet::Execute()
 {
     QCStatus_e ret;
+    DataFrames_t tensors;
+    uint32_t timeout = 1000;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
+    {
+        timeout = 0;
+    }
+#endif
+    ret = m_sub.Receive( tensors, timeout );
+    if ( QC_STATUS_OK == ret )
+    {
+        if ( QC_PROCESSOR_CPU == m_processor )
+        {
+            PROFILER_BEGIN();
+            TRACE_BEGIN( tensors.FrameId( 0 ) );
+            PostProcCPU( tensors );
+            PROFILER_END();
+            TRACE_END( tensors.FrameId( 0 ) );
+        }
+        else if ( QC_PROCESSOR_GPU == m_processor )
+        {
+            PROFILER_BEGIN();
+            TRACE_BEGIN( tensors.FrameId( 0 ) );
+            ret = RegisterInputBuffers( tensors );
+            if ( QC_STATUS_OK != ret )
+            {
+                QC_ERROR( "Failed to create input buffer" );
+            }
+            ret = PostProcCL( tensors );
+            PROFILER_END();
+            TRACE_END( tensors.FrameId( 0 ) );
+        }
+        else
+        {
+            QC_ERROR( "invalid processor type" );
+            ret = QC_STATUS_BAD_ARGUMENTS;
+        }
+    }
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "PostProcCenternet receive failed : %d", ret );
+    }
+#endif
+}
 
+void SamplePostProcCenternet::ThreadMain()
+{
     while ( false == m_stop )
     {
-        DataFrames_t tensors;
-        ret = m_sub.Receive( tensors );
-        if ( QC_STATUS_OK == ret )
-        {
-            if ( QC_PROCESSOR_CPU == m_processor )
-            {
-                PROFILER_BEGIN();
-                TRACE_BEGIN( tensors.FrameId( 0 ) );
-                PostProcCPU( tensors );
-                PROFILER_END();
-                TRACE_END( tensors.FrameId( 0 ) );
-            }
-            else if ( QC_PROCESSOR_GPU == m_processor )
-            {
-                PROFILER_BEGIN();
-                TRACE_BEGIN( tensors.FrameId( 0 ) );
-                ret = RegisterInputBuffers( tensors );
-                if ( QC_STATUS_OK != ret )
-                {
-                    QC_ERROR( "Failed to create input buffer" );
-                }
-                ret = PostProcCL( tensors );
-                PROFILER_END();
-                TRACE_END( tensors.FrameId( 0 ) );
-            }
-            else
-            {
-                QC_ERROR( "invalid processor type" );
-                ret = QC_STATUS_BAD_ARGUMENTS;
-            }
-        }
+        Execute();
     }
 }
 
@@ -650,10 +689,17 @@ QCStatus_e SamplePostProcCenternet::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     PROFILER_SHOW();
 

@@ -40,8 +40,8 @@ public:
     /**
      * @brief VideoDecoderConfigIfs Constructor
      * @param[in] logger A reference to the logger to be shared and used by VideoDecoderConfigIfs.
-     * @param[in] vide A reference to the RideHal Video Decoder component to be used by VideoDecoderConfigIfs.
-     * VideoDecoderConfigIfs.
+     * @param[in] vide A reference to the RideHal Video Decoder component to be used by
+     * VideoDecoderConfigIfs. VideoDecoderConfigIfs.
      * @return None
      */
     VidcNodeBaseConfigIfs( Logger &logger ) : NodeConfigIfs( logger ) {}
@@ -73,17 +73,17 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    const virtual std::string& GetOptions( ) = 0;
+    const virtual std::string &GetOptions() = 0;
 
     /**
      * @brief Get the Configuration Structure.
      * @return A reference to the Configuration Structure.
      */
-    const virtual QCNodeConfigBase_t& Get( ) = 0;
+    const virtual QCNodeConfigBase_t &Get() = 0;
 
 protected:
-    QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors, VidcNodeBase_Config_t &config );
-    QCStatus_e ApplyDynamicConfig( DataTree &dt, std::string &errors, VidcNodeBase_Config_t &config );
+    QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors,
+                                  VidcNodeBase_Config_t &config );
 };
 
 /** @brief base class for video codec component */
@@ -91,7 +91,7 @@ class VidcNodeBase : public NodeBase
 {
 public:
     /** @brief Default constructor */
-    VidcNodeBase() : m_state (QC_OBJECT_STATE_INITIAL) {}
+    VidcNodeBase() : m_state( QC_OBJECT_STATE_INITIAL ) {}
 
     /** @brief Default destructor */
     virtual ~VidcNodeBase() = default;
@@ -102,7 +102,7 @@ public:
      * @param level the log level used , default is error level
      * @return QC_STATUS_OK on success, others on failure
      */
-    virtual QCStatus_e Init( const VidcNodeBase_Config_t& config );
+    virtual QCStatus_e Init( const VidcNodeBase_Config_t &config );
 
     /**
      * @brief deinitialize the video codec
@@ -115,8 +115,9 @@ public:
 
     QCStatus_e PostInit( void );
 
-    QCStatus_e AllocateBuffer( const std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
-                               uint32_t bufferIdx, VideoCodec_BufType_e bufferType );
+    QCStatus_e
+    AllocateBuffer( const std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
+                    uint32_t bufferIdx, VideoCodec_BufType_e bufferType );
 
     /**
      * @brief Inform the video codec node of an externally allocated buffer address.
@@ -128,11 +129,12 @@ public:
      */
     QCStatus_e SetBuffer( VideoCodec_BufType_e bufferType );
 
-    QCStatus_e FreeOutputBuffers( );
-    QCStatus_e FreeInputBuffers( );
+    QCStatus_e FreeOutputBuffers();
+    QCStatus_e FreeInputBuffers();
 
-    QCStatus_e ValidateBuffer( const VideoFrameDescriptor &vidFrmDesc, VideoCodec_BufType_e bufferType );
-    QCStatus_e ValidateBuffers ( );
+    QCStatus_e ValidateBuffer( const VideoFrameDescriptor &vidFrmDesc,
+                               VideoCodec_BufType_e bufferType );
+    QCStatus_e ValidateBuffers();
     QCStatus_e NegotiateBufferReq( VideoCodec_BufType_e bufType );
 
     QCStatus_e WaitForState( QCObjectState_e expectedState );
@@ -151,8 +153,10 @@ protected:
 
     const VidcNodeBase_Config_t *m_pConfig = nullptr;
 
-    std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> m_inputBufferList;  /**< set input descriptors in non-dynamic mode */
-    std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> m_outputBufferList; /**< set output descriptors in non-dynamic mode */
+    std::vector<std::reference_wrapper<VideoFrameDescriptor_t>>
+            m_inputBufferList; /**< set input descriptors in non-dynamic mode */
+    std::vector<std::reference_wrapper<VideoFrameDescriptor_t>>
+            m_outputBufferList; /**< set output descriptors in non-dynamic mode */
 
     QCStatus_e ValidateFrameSubmission( const VideoFrameDescriptor_t &frameDesc,
                                         VideoCodec_BufType_e bufferType,
@@ -165,8 +169,9 @@ private:
         YUV_OR_RGB_MODE
     } VideoCodec_BufAllocMode_e;
 
-    QCStatus_e InitBufferForNonDynamicMode( const std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
-                                            uint32_t bufferIdx, VideoCodec_BufType_e bufferType );
+    QCStatus_e InitBufferForNonDynamicMode(
+            const std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
+            uint32_t bufferIdx, VideoCodec_BufType_e bufferType );
 
     void PrintConfig();
 };

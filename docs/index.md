@@ -8,7 +8,7 @@
   - [The QCNode Camera](./Camera.md)
   - [The QCNode QNN](./QNN.md)
   - [The QCNode Remap](./remap.md)
-  - [The QCNode VideoEncoder](./videoencoder.md)
+  - [The QCNode VideoEncoder](./VideoEncoder.md)
   - [The QCNode VideoDecoder](./VideoDecoder.md)
   - [The QCNode Voxelization](./Voxelization.md)
   - [The QCNode CL2DFlex](./CL2DFlex.md)

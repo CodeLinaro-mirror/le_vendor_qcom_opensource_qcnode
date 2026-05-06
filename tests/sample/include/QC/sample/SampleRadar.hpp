@@ -379,7 +379,6 @@ private:
     uint32_t m_timeoutMs;             ///< Processing timeout in milliseconds
     bool m_enablePerformanceLog;      ///< Enable performance logging
     uint32_t m_poolSize;              ///< Output buffer pool size
-    uint32_t m_bufferFlags;           ///< Buffer allocation flags (cached/uncached)
     std::string m_inputTopicName;     ///< Input topic name for DataBroker
     std::string m_outputTopicName;    ///< Output topic name for DataBroker
 

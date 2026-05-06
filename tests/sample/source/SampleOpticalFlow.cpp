@@ -14,6 +14,19 @@ namespace sample
 SampleOpticalFlow::SampleOpticalFlow() {}
 SampleOpticalFlow::~SampleOpticalFlow() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )> SampleOpticalFlow::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SampleOpticalFlow::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SampleOpticalFlow::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
 
 QCStatus_e SampleOpticalFlow::ParseConfig( SampleConfig_t &config )
 {
@@ -144,99 +157,121 @@ QCStatus_e SampleOpticalFlow::Start()
     if ( QC_STATUS_OK == ret )
     {
         m_stop = false;
-        m_thread = std::thread( &SampleOpticalFlow::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        if ( !m_bOrchestratorEnabled )
+        {
+#endif
+            m_thread = std::thread( &SampleOpticalFlow::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        }
+#endif
     }
 
     return ret;
 }
 
-void SampleOpticalFlow::ThreadMain()
+void SampleOpticalFlow::Execute()
 {
     QCStatus_e ret;
-    QCFrameDescriptorNodeIfs *frameDescriptor = new NodeFrameDescriptor( QC_NODE_OF_LAST_BUFF_ID );
-    while ( false == m_stop )
+    NodeFrameDescriptor frameDescriptor( QC_NODE_OF_LAST_BUFF_ID );
+
+    DataFrames_t frames;
+    uint32_t timeout = 1000;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
     {
-        DataFrames_t frames;
-        ret = m_sub.Receive( frames );
-        if ( QC_STATUS_OK == ret )
+        timeout = 0;
+    }
+#endif
+    ret = m_sub.Receive( frames, timeout );
+    if ( QC_STATUS_OK == ret )
+    {
+        QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
+                  frames.Timestamp( 0 ) );
+        if ( 0 == m_LastFrames.frames.size() )
         {
-            QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
-                      frames.Timestamp( 0 ) );
-            if ( 0 == m_LastFrames.frames.size() )
+            m_LastFrames = frames;
+            return;
+        }
+        std::shared_ptr<SharedBuffer_t> mv = m_mvPool.Get();
+        std::shared_ptr<SharedBuffer_t> mvConf = m_mvConfPool.Get();
+        if ( ( nullptr != mv ) && ( nullptr != mvConf ) )
+        {
+
+            QCBufferDescriptorBase_t &buffRefImg = m_LastFrames.GetBuffer( 0 );
+            QCBufferDescriptorBase_t &buffCurImg = frames.GetBuffer( 0 );
+            QCBufferDescriptorBase_t &buffMV = mv->buffer;
+            QCBufferDescriptorBase_t &buffConf = mvConf->buffer;
+
+            ImageDescriptor_t &buffRefImgDesc = dynamic_cast<ImageDescriptor_t &>( buffRefImg );
+            ImageDescriptor_t &buffCurImgDesc = dynamic_cast<ImageDescriptor_t &>( buffCurImg );
+            TensorDescriptor_t &buffMVDesc = dynamic_cast<TensorDescriptor_t &>( buffMV );
+            TensorDescriptor_t &buffConfDesc = dynamic_cast<TensorDescriptor_t &>( buffConf );
+
+            QCStatus_e status = frameDescriptor.SetBuffer(
+                    static_cast<uint32_t>( QC_NODE_OF_REFERENCE_IMAGE_BUFF_ID ), buffRefImgDesc );
+            if ( QC_STATUS_OK == status )
             {
-                m_LastFrames = frames;
-                continue;
-            }
-            std::shared_ptr<SharedBuffer_t> mv = m_mvPool.Get();
-            std::shared_ptr<SharedBuffer_t> mvConf = m_mvConfPool.Get();
-            if ( ( nullptr != mv ) && ( nullptr != mvConf ) )
-            {
-
-                QCBufferDescriptorBase_t &buffRefImg = m_LastFrames.GetBuffer( 0 );
-                QCBufferDescriptorBase_t &buffCurImg = frames.GetBuffer( 0 );
-                QCBufferDescriptorBase_t &buffMV = mv->buffer;
-                QCBufferDescriptorBase_t &buffConf = mvConf->buffer;
-
-                ImageDescriptor_t &buffRefImgDesc = dynamic_cast<ImageDescriptor_t &>( buffRefImg );
-                ImageDescriptor_t &buffCurImgDesc = dynamic_cast<ImageDescriptor_t &>( buffCurImg );
-                TensorDescriptor_t &buffMVDesc = dynamic_cast<TensorDescriptor_t &>( buffMV );
-                TensorDescriptor_t &buffConfDesc = dynamic_cast<TensorDescriptor_t &>( buffConf );
-
-                QCStatus_e status = frameDescriptor->SetBuffer(
-                        static_cast<uint32_t>( QC_NODE_OF_REFERENCE_IMAGE_BUFF_ID ),
-                        buffRefImgDesc );
+                status = frameDescriptor.SetBuffer(
+                        static_cast<uint32_t>( QC_NODE_OF_CURRENT_IMAGE_BUFF_ID ), buffCurImgDesc );
                 if ( QC_STATUS_OK == status )
                 {
-                    status = frameDescriptor->SetBuffer(
-                            static_cast<uint32_t>( QC_NODE_OF_CURRENT_IMAGE_BUFF_ID ),
-                            buffCurImgDesc );
+                    status = frameDescriptor.SetBuffer(
+                            static_cast<uint32_t>( QC_NODE_OF_FWD_MOTION_BUFF_ID ), buffMVDesc );
                     if ( QC_STATUS_OK == status )
                     {
-                        status = frameDescriptor->SetBuffer(
-                                static_cast<uint32_t>( QC_NODE_OF_FWD_MOTION_BUFF_ID ),
-                                buffMVDesc );
-                        if ( QC_STATUS_OK == status )
-                        {
-                            status = frameDescriptor->SetBuffer(
-                                    static_cast<uint32_t>( QC_NODE_OF_FWD_CONF_BUFF_ID ),
-                                    buffConfDesc );
+                        status = frameDescriptor.SetBuffer(
+                                static_cast<uint32_t>( QC_NODE_OF_FWD_CONF_BUFF_ID ),
+                                buffConfDesc );
 
-                            PROFILER_BEGIN();
-                            TRACE_BEGIN( frames.FrameId( 0 ) );
-                            ret = static_cast<QCStatus_e>(
-                                    m_of.ProcessFrameDescriptor( *frameDescriptor ) );
-                            if ( QC_STATUS_OK == ret )
-                            {
-                                PROFILER_END();
-                                TRACE_END( frames.FrameId( 0 ) );
-                                DataFrames_t outFrames;
-                                DataFrame_t frame;
-                                frame.buffer = mv;
-                                frame.frameId = frames.FrameId( 0 );
-                                frame.timestamp = frames.Timestamp( 0 );
-                                outFrames.Add( frame );
-                                frame.buffer = mvConf;
-                                outFrames.Add( frame );
-                                m_pub.Publish( outFrames );
-                            }
-                            else
-                            {
-                                QC_ERROR( "OpticalFlow failed for %" PRIu64 " : %d",
-                                          frames.FrameId( 0 ), ret );
-                            }
+                        PROFILER_BEGIN();
+                        TRACE_BEGIN( frames.FrameId( 0 ) );
+                        ret = static_cast<QCStatus_e>(
+                                m_of.ProcessFrameDescriptor( frameDescriptor ) );
+                        if ( QC_STATUS_OK == ret )
+                        {
+                            PROFILER_END();
+                            TRACE_END( frames.FrameId( 0 ) );
+                            DataFrames_t outFrames;
+                            DataFrame_t frame;
+                            frame.buffer = mv;
+                            frame.frameId = frames.FrameId( 0 );
+                            frame.timestamp = frames.Timestamp( 0 );
+                            outFrames.Add( frame );
+                            frame.buffer = mvConf;
+                            outFrames.Add( frame );
+                            m_pub.Publish( outFrames );
+                        }
+                        else
+                        {
+                            QC_ERROR( "OpticalFlow failed for %" PRIu64 " : %d",
+                                      frames.FrameId( 0 ), ret );
                         }
                     }
                 }
-                if ( QC_STATUS_OK != status )
-                {
-                    QC_ERROR( "OpticalFlow failed with error code %d", status );
-                }
             }
-
-            m_LastFrames = frames;
+            if ( QC_STATUS_OK != status )
+            {
+                QC_ERROR( "OpticalFlow failed with error code %d", status );
+            }
         }
+
+        m_LastFrames = frames;
     }
-    reinterpret_cast<NodeFrameDescriptor *>( frameDescriptor )->~NodeFrameDescriptor();
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "OpticalFlow receive failed : %d", ret );
+    }
+#endif
+}
+
+void SampleOpticalFlow::ThreadMain()
+{
+    while ( false == m_stop )
+    {
+        Execute();
+    }
 }
 
 QCStatus_e SampleOpticalFlow::Stop()
@@ -244,10 +279,17 @@ QCStatus_e SampleOpticalFlow::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     m_LastFrames.frames.clear();
 

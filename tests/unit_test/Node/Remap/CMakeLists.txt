@@ -2,7 +2,8 @@ if( NOT TARGET QCNodeRemap )
     return()
 endif()
 set( HEADERS_DIR ${PROJECT_SOURCE_DIR}/include
-                 ${PROJECT_SOURCE_DIR}/tests/utils 
+                 ${PROJECT_SOURCE_DIR}/tests/utils
+		 ${PROJECT_SOURCE_DIR}/source/Node/Remap 
 )
 add_executable( gtest_NodeRemap gtest_NodeRemap.cpp )
 target_include_directories( gtest_NodeRemap PUBLIC ${HEADERS_DIR})

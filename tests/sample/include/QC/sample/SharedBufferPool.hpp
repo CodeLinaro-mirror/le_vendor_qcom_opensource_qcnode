@@ -29,7 +29,7 @@ using namespace QC::Memory;
 typedef struct SharedBuffer
 {
 public:
-    SharedBuffer() : buffer( dummy )
+    SharedBuffer() : dummy(), buffer( dummy )
     {
         dummy.name = "dummy";
         dummy.pBuf = nullptr;
@@ -37,7 +37,7 @@ public:
         dummy.type = QC_BUFFER_TYPE_MAX;
     }
 
-    SharedBuffer( const SharedBuffer &other ) : buffer( dummy )
+    SharedBuffer( const SharedBuffer &other ) : dummy(), buffer( dummy )
     {
         if ( this != &other )
         {
@@ -83,11 +83,12 @@ public:
         return *this;
     }
 
-    std::reference_wrapper<QCBufferDescriptorBase_t> buffer;
     uint64_t pubHandle; /**< The publish handle associated with shared buffer that to be used to
                            release the shared buffer */
 
     QCBufferDescriptorBase_t dummy;
+    std::reference_wrapper<QCBufferDescriptorBase_t> buffer;
+    BufferDescriptor_t bufferDesc;
     ImageDescriptor_t imgDesc;
     TensorDescriptor_t tensorDesc;
 
@@ -100,16 +101,23 @@ public:
 
     void SetBuffer( QCBufferDescriptorBase_t &bufDesc )
     {
+        TensorDescriptor_t *pTensor = dynamic_cast<TensorDescriptor_t *>( &bufDesc );
         ImageDescriptor_t *pImage = dynamic_cast<ImageDescriptor_t *>( &bufDesc );
-        if ( nullptr != pImage )
+
+        if ( nullptr != pTensor )
+        {
+            tensorDesc = bufDesc;
+            buffer = tensorDesc;
+        }
+        else if ( nullptr != pImage )
         {
             imgDesc = bufDesc;
             buffer = imgDesc;
         }
         else
         {
-            tensorDesc = bufDesc;
-            buffer = tensorDesc;
+            bufferDesc = bufDesc;
+            buffer = bufferDesc;
         }
     }
 
@@ -173,6 +181,20 @@ class SharedBufferPool
 public:
     SharedBufferPool();
     ~SharedBufferPool();
+
+    /**
+     * @brief Do initialization of the shared memory ping-pong pool
+     * @param[in] name the shared memory pool name
+     * @param[in] nodeId the nodeId to be used to create the shared memory pool
+     * @param[in] level the logger level
+     * @param[in] number the number of the ping-pong shared buffers
+     * @param[in] bufferProps the the specified buffer properties
+     * @detdesc
+     * It was by using the basic buffer properties to allocate raw data buffers.
+     * @return QC_STATUS_OK on success, others on failure
+     */
+    QCStatus_e Init( std::string name, QCNodeID_t nodeId, Logger_Level_e level, uint32_t number,
+                     const BufferProps_t &bufferProps );
 
     /**
      * @brief Do initialization of the shared memory ping-pong pool

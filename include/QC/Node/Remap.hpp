@@ -14,7 +14,7 @@ namespace Node
 
 /** @brief The QCNode REMAP Version */
 #define QCNODE_REMAP_VERSION_MAJOR 2U
-#define QCNODE_REMAP_VERSION_MINOR 0U
+#define QCNODE_REMAP_VERSION_MINOR 1U
 #define QCNODE_REMAP_VERSION_PATCH 0U
 
 #define QCNODE_REMAP_VERSION                                                                       \
@@ -206,7 +206,7 @@ public:
      */
     RemapMonitoring( Logger &logger, RemapImpl *pRemapImpl )
         : m_pRemapImpl( pRemapImpl ),
-          m_logger(logger)
+          m_logger( logger )
     {}
     ~RemapMonitoring() {}
 

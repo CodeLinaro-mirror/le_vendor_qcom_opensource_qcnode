@@ -102,7 +102,6 @@ typedef struct DepthFromStereo_Config : public QCNodeConfigBase_t
     uint32_t frameRate;
     bool confidenceOutputEn;
     ProcessingMode_e processingMode;
-    bool isFirstRequest;
     float32_t noiseOffsetPri;
     float32_t noiseOffsetAux;
     uint8_t modelType;
@@ -182,7 +181,6 @@ public:
      *        "format": "Input image format (e.g., NV12, NV12_UBWC, P010), type: uint32_t, default:nv12",
      *        "confidenceOutputEn": "Enable confidence output, type: bool, default: false",
      *        "processingMode": "Processing mode selector, type: ProcessingMode_e, default: PROCESSING_MODE_AUTO",
-     *        "isFirstRequest": "Indicates whether this is the first request, type: bool, default:true",
      *        "noiseOffsetPrimary": "Primary noise offset, type: float32_t, default: 0.0f",
      *        "noiseOffsetAux": "Auxiliary noise offset, type: float32_t, default: 0.0f",
      *        "modelType": "Model type used for disparity computation (0-4), type: uint8_t, default:1",
@@ -376,12 +374,12 @@ private:
     StereoDisparity::FeatureNoiseToleranceScale noiseToleranceScale;
     PixelFormat GetInputImageFormat( QCImageFormat_e imageFormat );
     PixelFormat GetDisparityMapFormat( DisparityFormat_e disparityFormat );
-    void UpdateIconfig( StereoDisparity::ConfigMap &configMap,
-                        const DepthFromStereo_Config_t &configuration );
+    QCStatus_e UpdateIconfig( StereoDisparity::ConfigMap &configMap,
+                              const DepthFromStereo_Config_t &configuration );
     QCStatus_e ValidateImageDesc( const ImageDescriptor_t &imgDesc,
                                   const DepthFromStereo_Config_t &config );
-    void SetInitialFrameConfig( StereoDisparity::ConfigMap &configMapFrame,
-                                const DepthFromStereo_Config_t &configuration );
+    QCStatus_e SetInitialFrameConfig( StereoDisparity::ConfigMap &configMapFrame,
+                                      const DepthFromStereo_Config_t &configuration );
     QCStatus_e RegisterMemory( const BufferDescriptor_t &bufferDesc, Buffer &pBuff );
 };
 

@@ -212,10 +212,19 @@ incList = [ inputDir  + "/qnx_ap/AMSS/inc/AEEStdDef.h",
             inputDir  + "/qnx_ap/AMSS/inc/rpcmem.h",
             inputDir  + "/qnx_ap/AMSS/inc/remote.h",
             inputDir  + "/qnx_ap/AMSS/inc/AEEStdErr.h",
+            inputDir  + "/qnx_ap/AMSS/inc/HAP_farf.h",
+            inputDir  + "/qnx_ap/AMSS/inc/HAP_debug.h",
             inputDir  + "/qnx_ap/AMSS/inc/graphics-fusa/include/private/C2D/c2d2.h",
             srcIncDir + "/amss/multimedia/apdf/apdf.h",
             srcIncDir + "/amss/multimedia/camera_qcx/qcarcam.h",
             srcIncDir + "/amss/multimedia/camera_qcx/qcarcam_types.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/qcarcam_metadata.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/camera_vendor_tags.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/camera_metadata.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/camera_metadata_tags.h",
+            srcIncDir + "/amss/crc32.h",
+            srcIncDir + "/amss/crc.h",
+            srcIncDir + "/amss/safetylibs_types.h",
           ]
 
 mm_video_path = inputDir + "/qnx_ap/AMSS/multimedia/video"
@@ -319,12 +328,13 @@ libListC2C = [ "libc2c.so", "libep_client.so", "librc_client.so", "libmhi_client
 libListXml = [ "libsafe_xml.so", "libxml2_no_sock.so", "libsafe_xml_c.so" ]
 libListPmem  = [ "libpmem_client.so", "libpmemext.so" , "libsmmu_client.so"]
 libListFastADAS = [ "libfadas.so", "libfastrpc.so", "libfastrpc_pmem.so", "libfastrpc_pmem.so.1" ]
-libListQcx = [ "libqcxclient.so", "libqcxosal.so", "libmemorylogger.so" ]
+libListQcx = [ "libqcxclient.so", "libqcxosal.so", "libmemorylogger.so", "libcamera_metadata.a" ]
 libListSv = [ "libsvplatform.so", "libsvcl.so", "libdevioClient.so", "libsoftsku.so.1", "libpm_client.so" ]
+libListFuSa = [ "libFuSa-CRC32.so" ]
 libList = libListVidc + libListPmem + libListFastADAS + libListQcx + [
         "libplanedef.so", "libcdsprpc.so", "libapdf.so", "libaosal.so", "libfastrpc_pmem.so",
         "liblibstd.so", "libmmap_peer.so", "libOSAbstraction.so"
-    ] + libListDemux + libListSv + libListXml + libListC2C
+    ] + libListDemux + libListSv + libListXml + libListC2C + libListFuSa
 targetLibDirs = [
         inputDir + '/qnx_ap/install/aarch64le/lib',
     ]

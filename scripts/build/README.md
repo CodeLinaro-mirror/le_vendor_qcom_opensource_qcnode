@@ -284,6 +284,7 @@ These options can be used with all build methods.
 | `ENABLE_EVA` | Enable EVA SV (Snapdragon Vision) support | Default: `ON` for 8797, else `OFF` |
 | `ENABLE_EVA_AUTO` | Enable EVA Auto support | Default: `OFF` for 8797, else `ON` |
 | `ENABLE_TRACE` | Enable Tracing | Default: `ON` |
+| `ENABLE_HS` | Enable Hetero Scheduler | Default: `OFF` |
 
 ## 5. Directory Structure
 

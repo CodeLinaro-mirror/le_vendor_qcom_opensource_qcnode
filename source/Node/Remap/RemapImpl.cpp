@@ -236,6 +236,8 @@ QCStatus_e RemapImpl::DeInitialize()
             QC_ERROR( "Deinit fadas remap failed!" );
             status = QC_STATUS_FAIL;
         }
+
+        m_state = QC_OBJECT_STATE_INITIAL;
     }
     QC_TRACE_END( "DeInit", {} );
 

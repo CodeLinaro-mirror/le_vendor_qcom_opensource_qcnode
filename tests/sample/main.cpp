@@ -5,13 +5,18 @@
 #include "QC/sample/SampleIF.hpp"
 
 #include <chrono>
+#include <functional>
 #include <iostream>
+#include <memory>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <thread>
 #include <time.h>
 #include <unistd.h>
+#ifdef QC_ENABLE_HS
+#include "HeteroSchedulerWrapper.hpp"
+#endif
 
 using namespace QC::sample;
 
@@ -88,14 +93,38 @@ typedef struct
 
 int Usage( const char *program, int error )
 {
-    printf( "Usage: %s -n name -t type -k key -v value [-d] [-T run_time_seconds] [-h] [-V]\n"
+    printf( "Usage: %s -n name -t type -k key -v value [-d] [-T run_time_seconds] [-h] [-V]"
+#ifdef QC_ENABLE_HS
+            " [-c clientName]"
+#endif
+            "\n"
+#ifdef QC_ENABLE_HS
+            "  -c clientName       : Specify the client name for HeteroScheduler (enables orchestrator)\n"
+#endif
+            "  -d                  : Enable debug logging\n"
+            "  -T run_time_seconds : Run for specified seconds (default: run forever)\n"
+            "  -h                  : Show this help message\n"
+            "  -V                  : Show version information\n"
             "examples:\n"
             "%s -n CAM0 -t camera -k input_id -v 0 -k width -v 1920 -k height -v 1024 \\\n"
             "    -k topic -v /sensor/camera/CAM0/raw \\\n"
             "  -n CAM0_REMAP -t remap -k width -v 1152 -k height -v 768 \\\n"
             "    -k input_topic -v /sensor/camera/CAM0/raw \\\n"
-            "    -k output_topic -v /sensor/camera/CAM0/rgb\n",
-            program, program );
+            "    -k output_topic -v /sensor/camera/CAM0/rgb\n"
+            "\n"
+#ifdef QC_ENABLE_HS
+            "With orchestrator enabled (-c required):\n"
+            "%s -c myClient \\\n"
+            "  -n CAM0 -t camera -k input_id -v 0 -k width -v 1920 -k height -v 1024 \\\n"
+            "    -k topic -v /sensor/camera/CAM0/raw\n"
+#endif
+            ,
+            program, program
+#ifdef QC_ENABLE_HS
+            ,
+            program
+#endif
+    );
     return error;
 }
 
@@ -106,8 +135,11 @@ int main( int argc, char *argv[] )
     std::vector<SampleIF *> samples;
     std::vector<PipelineConfig_t> pipelineConfigs;
     std::string key;
+#ifdef QC_ENABLE_HS
+    std::string clientName;
+#endif
     int opt;
-    while ( ( opt = getopt( argc, argv, "dn:t:k:v:hT:V" ) ) != -1 )
+    while ( ( opt = getopt( argc, argv, "dn:t:k:v:c:hT:V" ) ) != -1 )
     {
         switch ( opt )
         {
@@ -148,6 +180,11 @@ int main( int argc, char *argv[] )
                 SampleIF::ShowVersion();
                 return 0;
                 break;
+#ifdef QC_ENABLE_HS
+            case 'c':
+                clientName = optarg;
+                break;
+#endif
             default:
                 return Usage( argv[0], -1 );
                 break;
@@ -158,6 +195,21 @@ int main( int argc, char *argv[] )
     {
         return Usage( argv[0], -1 );
     }
+
+#ifdef QC_ENABLE_HS
+    // Enable orchestrator if client name is provided
+    bool bEnableOrchestrator = !clientName.empty();
+
+    if ( bEnableOrchestrator )
+    {
+        printf( "cf::orchestrator enabled\n" );
+        printf( "  Client Name: %s\n", clientName.c_str() );
+    }
+    else
+    {
+        printf( "cf::orchestrator disabled\n" );
+    }
+#endif
 
     for ( auto &config : pipelineConfigs )
     {
@@ -183,6 +235,28 @@ int main( int argc, char *argv[] )
         }
     }
 
+#ifdef QC_ENABLE_HS
+    // Initialize HeteroSchedulerWrapper only if orchestrator is enabled
+    if ( bEnableOrchestrator )
+    {
+        HeteroSchedulerWrapper &hsClient = HeteroSchedulerWrapper::getInstance();
+
+        ret = hsClient.Initialize( clientName );
+        if ( ret != QC_STATUS_OK )
+        {
+            printf( "HeteroSchedulerWrapper Initialize failed: ret = %d\n", ret );
+            return -1;
+        }
+
+        ret = hsClient.RegisterVertex( samples );
+        if ( ret != QC_STATUS_OK )
+        {
+            printf( "HeteroSchedulerWrapper RegisterVertex failed: ret = %d\n", ret );
+            return -1;
+        }
+    }
+#endif
+
     for ( auto sample : samples )
     {
         ret = sample->Start();
@@ -196,6 +270,23 @@ int main( int argc, char *argv[] )
             printf( "Start %s OK\n", sample->GetName() );
         }
     }
+
+#ifdef QC_ENABLE_HS
+    if ( bEnableOrchestrator )
+    {
+        HeteroSchedulerWrapper &hsClient = HeteroSchedulerWrapper::getInstance();
+        ret = hsClient.Start();
+        if ( ret != QC_STATUS_OK )
+        {
+            printf( "HeteroSchedulerWrapper Start failed: ret = %d\n", ret );
+            return -1;
+        }
+        else
+        {
+            printf( "HeteroSchedulerWrapper Start OK\n" );
+        }
+    }
+#endif
 
     signal( SIGINT, SignalHandler );
     signal( SIGTERM, SignalHandler );
@@ -214,6 +305,22 @@ int main( int argc, char *argv[] )
         }
     }
 
+#ifdef QC_ENABLE_HS
+    if ( bEnableOrchestrator )
+    {
+        HeteroSchedulerWrapper &hsClient = HeteroSchedulerWrapper::getInstance();
+        ret = hsClient.Stop();
+        if ( ret != QC_STATUS_OK )
+        {
+            printf( "HeteroSchedulerWrapper Stop failed: ret = %d\n", ret );
+        }
+        else
+        {
+            printf( "HeteroSchedulerWrapper Stop OK\n" );
+        }
+    }
+#endif
+
     for ( int i = (int) samples.size() - 1; i >= 0; i-- )
     {
         auto sample = samples[i];
@@ -227,6 +334,23 @@ int main( int argc, char *argv[] )
             printf( "Stop %s OK\n", sample->GetName() );
         }
     }
+
+#ifdef QC_ENABLE_HS
+    // Deinitialize orchestrator if it was enabled
+    if ( bEnableOrchestrator )
+    {
+        HeteroSchedulerWrapper &hsClient = HeteroSchedulerWrapper::getInstance();
+        ret = hsClient.Deinit();
+        if ( ret != QC_STATUS_OK )
+        {
+            printf( "HeteroSchedulerWrapper Deinit failed: ret = %d\n", ret );
+        }
+        else
+        {
+            printf( "HeteroSchedulerWrapper Deinit OK\n" );
+        }
+    }
+#endif
 
     for ( int i = (int) samples.size() - 1; i >= 0; i-- )
     {

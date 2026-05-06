@@ -25,9 +25,6 @@ def RunCommand(cmd):
 
 parser = argparse.ArgumentParser(description="build package")
 parser.add_argument(
-    "--no_sudo", action="store_false", dest="sudo", default=True, help="Do not use sudo.", required=False
-)
-parser.add_argument(
     "--variant", type=str, default="linux", help="The build variant, [qnx, linux, ubuntu]", required=False
 )
 parser.add_argument(
@@ -65,10 +62,6 @@ TOOLCHAIN = os.path.abspath(args.toolchain)
 ENV_SCRIPT = args.env_script
 THIRD_PARTY = WORKSPACE + "/third_party"
 BUILD_DIR = WORKSPACE + "/build/" + SOCID
-if args.sudo:
-    OPT_SUDO = "sudo "
-else:
-    OPT_SUDO = ""
 
 RunCommand(["mkdir -p " + WORKSPACE])
 
@@ -85,14 +78,14 @@ else:
     OPT_ENV_SETUP = ""
 
 if args.clean:
-    RunCommand([f"{OPT_SUDO}rm -frv {BUILD_DIR}/bld-aarch64-{VARIANT}"])
+    RunCommand([f"rm -frv {BUILD_DIR}/bld-aarch64-{VARIANT}"])
 with open(WORKSPACE + "/build.sh", "w") as f:
     f.write(
         f"""#!/bin/bash
 mkdir -p {BUILD_DIR}/bld-aarch64-{VARIANT}
 mkdir -p {BUILD_DIR}/run-aarch64-{VARIANT}
 mkdir -p {THIRD_PARTY}
-{OPT_SUDO}docker run -it \\
+docker run -it \\
     -u $(id -u):$(id -g) \\
     {MOUNT_TOOLCHAIN} \\
     -v {HOMEDIR}:/data/qcnode \\

@@ -49,7 +49,7 @@ typedef enum
 /** @brief Configuration structure for Voxelization function parameters
  *
  * @param processor                 Processor type
- * @param coreIds                   A list of core IDs representing the target hardware processors
+ * @param coreId                    processor core ID
  * @param pillarXSize               Pillar size in x direction in meters
  * @param pillarYSize               Pillar size in y direction in meters
  * @param pillarZSize               Pillar size in z direction in meters
@@ -70,7 +70,7 @@ typedef enum
 typedef struct Voxelization_Config_t
 {
     QCProcessorType_e processor;
-    std::vector<uint32_t> coreIds;
+    uint32_t coreId;
 
     float pillarXSize;
     float pillarYSize;
@@ -131,6 +131,10 @@ typedef struct VoxelizationImplMonitorConfig : public QCNodeMonitoringBase_t
     bool bEnablePerf;
 } VoxelizationImplMonitorConfig_t;
 
+
+#ifndef VOXELIZATIONIMPL_FRIEND_CLASS
+#define VOXELIZATIONIMPL_FRIEND_CLASS()
+#endif
 
 class VoxelizationImpl
 {
@@ -267,6 +271,8 @@ private:
     std::unordered_map<uint64_t, MemInfo> m_bufferMap;
 
     QC_DECLARE_NODETRACE();
+
+    VOXELIZATIONIMPL_FRIEND_CLASS();
 };
 
 

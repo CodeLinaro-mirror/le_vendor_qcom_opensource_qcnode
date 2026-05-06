@@ -12,10 +12,16 @@ set( FADASIFACE_HEADERS
 )
 
 add_library(FadasIfaceStub SHARED)
-target_sources(FadasIfaceStub PRIVATE FadasIface.c FadasIface.h)
+target_sources(FadasIfaceStub PRIVATE FadasIfaceSafe.cpp FadasIfaceSafe.hpp FadasIface.h FadasIface.c)
 target_include_directories(FadasIfaceStub PUBLIC ${HEADERS_DIR})
 target_compile_definitions(FadasIfaceStub PUBLIC VARIANT_le_ BUILDENV_qss)
-target_link_libraries(FadasIfaceStub PUBLIC cdsprpc)
+
+if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
+  target_link_libraries(FadasIfaceStub PUBLIC cdsprpc safetylibs)
+else()
+  target_link_libraries(FadasIfaceStub PUBLIC cdsprpc FuSa-CRC32)
+endif()
+
 install(TARGETS FadasIfaceStub DESTINATION lib)
 
 add_library(FadasIface SHARED FadasSrv.cpp FadasRemap.cpp FadasPlr.cpp)

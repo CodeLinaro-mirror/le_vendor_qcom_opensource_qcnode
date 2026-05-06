@@ -10,7 +10,12 @@
 - [4. Typical Depth From Stereo API Usage Examples](#4-typical-depth-from-stereo-api-usage-examples)
   - [4.1 Basic Stereo Depth Estimation in Synchronous Mode](#41-basic-stereo-depth-estimation-in-synchronous-mode)
   - [4.2 Stereo Depth Estimation with Confidence Output](#42-stereo-depth-estimation-with-confidence-output)
-- [5. References](#5-references)
+- [5. Functional Safety](#5-functional-safety)
+  - [5.1 ASIL](#51-asil)
+  - [5.2 Assumptions of Use (SWAOU)](#52-assumptions-of-use-swaou)
+    - [QCNODE-DFS-SWAOU-1](#qcnode-dfs-swaou-1)
+    - [QCNODE-DFS-SWAOU-2](#qcnode-dfs-swaou-2)
+- [6. References](#6-references)
 
 
 # 1. Overview
@@ -52,7 +57,6 @@
 | `disparityFormat` | false | uint8_t | Disparity map output format. <br> Options: `0` (P012_LA_Y_ONLY) <br> Default: `0` |
 | `confidenceOutputEn` | false | bool | Enable confidence map output. <br> Default: `false` |
 | `processingMode` | false | uint8_t | Processing mode selector. <br> Options: `0` (AUTO), `1` (DL), `2` (SGM) <br> Default: `0` |
-| `isFirstRequest` | false | bool | Indicates whether this is the first frame request. <br> Default: `true` |
 | `noiseOffsetPrimary` | false | float32_t | Primary camera noise offset. <br> Range: [-1.0, 1.0] <br> Default: `0.0` |
 | `noiseOffsetAux` | false | float32_t | Auxiliary camera noise offset. <br> Range: [-1.0, 1.0] <br> Default: `0.0` |
 | `modelType` | false | uint8_t | Model type for disparity computation. <br> Range: [0, 4] <br> Default: `1` |
@@ -165,6 +169,8 @@ Dynamic configuration is currently not supported for Depth From Stereo. All conf
 
 - [DepthFromStereo::DeInitialize](../include/QC/Node/DepthFromStereo.hpp#L356) Deinitialize the Depth From Stereo node
 
+- [DepthFromStereo::GetState](../include/QC/Node/DepthFromStereo.hpp#L362) Get the current state of the Depth From Stereo node
+
 ## 3.2 QCNode Configuration Interfaces
 
 - [DepthFromStereoConfigIfs::GetOptions](../include/QC/Node/DepthFromStereo.hpp#L272) Get Configuration Options
@@ -172,10 +178,11 @@ Dynamic configuration is currently not supported for Depth From Stereo. All conf
     - Below is an example output:
       ```json
       {
-        "version": 1
+        "version": 131072
       }
       ```
       The version is encoded as: `(MAJOR << 16) | (MINOR << 8) | PATCH`
+      The current version is **2.0.0** (`(2 << 16) | (0 << 8) | 0 = 131072`).
 
 # 4. Typical Depth From Stereo API Usage Examples
 
@@ -197,12 +204,107 @@ private:
   ImageDescriptor_t m_primaryImgDesc;
   ImageDescriptor_t m_auxiliaryImgDesc;
   TensorDescriptor_t m_disparityMapDesc;
-  TensorDescriptor_t m_confidenceMapDesc;
   NodeFrameDescriptor *m_frameDesc = nullptr;
 
 public:
   void Init() {
     // Initialize the Depth From Stereo node.
+    QCNodeInit_t config = {
+      R"({
+        "static": {
+          "name": "DFS0",
+          "id": 0,
+          "width": 1280,
+          "height": 416,
+          "fps": 30,
+          "format": "NV12",
+          "searchDirection": 0
+        }
+      })"
+    };
+
+    QCStatus_e status = m_dfs.Initialize(config);
+
+    // Allocate primary (left) image buffer
+    ImageBasicProps_t priImgProp;
+    priImgProp.format = QC_IMAGE_FORMAT_NV12;
+    priImgProp.batchSize = 1;
+    priImgProp.width = 1280;
+    priImgProp.height = 416;
+    status = m_bufMgr.Allocate( priImgProp, m_primaryImgDesc );
+
+    // Allocate auxiliary (right) image buffer
+    ImageBasicProps_t auxImgProp;
+    auxImgProp.format = QC_IMAGE_FORMAT_NV12;
+    auxImgProp.batchSize = 1;
+    auxImgProp.width = 1280;
+    auxImgProp.height = 416;
+    status = m_bufMgr.Allocate( auxImgProp, m_auxiliaryImgDesc );
+
+    // Allocate disparity map output buffer
+    TensorProps_t dispMapProp = {
+      QC_TENSOR_TYPE_UINT_16,
+      { 1, 416, 1280, 1 }
+    };
+    status = m_bufMgr.Allocate( dispMapProp, m_disparityMapDesc );
+
+    // Create frame descriptor and set buffers
+    m_frameDesc = new NodeFrameDescriptor( QC_NODE_DFS_LAST_BUFF_ID );
+    (void)m_frameDesc->SetBuffer( QC_NODE_DFS_PRIMARY_IMAGE_BUFF_ID, m_primaryImgDesc );
+    (void)m_frameDesc->SetBuffer( QC_NODE_DFS_AUXILARY_IMAGE_BUFF_ID, m_auxiliaryImgDesc );
+    (void)m_frameDesc->SetBuffer( QC_NODE_DFS_DISPARITY_MAP_BUFF_ID, m_disparityMapDesc );
+
+    // Start the Depth From Stereo node
+    status = m_dfs.Start();
+  }
+
+  void Run() {
+    // Process the frame descriptor
+    QCStatus_e status = m_dfs.ProcessFrameDescriptor( *m_frameDesc );
+    (void)status;
+  }
+
+  void Deinit() {
+    // Stop and deinitialize the node
+    (void)m_dfs.Stop();
+    (void)m_dfs.DeInitialize();
+
+    // Free buffers and delete frame descriptor
+    m_bufMgr.Free( m_primaryImgDesc );
+    m_bufMgr.Free( m_auxiliaryImgDesc );
+    m_bufMgr.Free( m_disparityMapDesc );
+    delete m_frameDesc;
+    m_frameDesc = nullptr;
+  }
+};
+```
+
+## 4.2 Stereo Depth Estimation with Confidence Output
+
+When `confidenceOutputEn` is set to `true`, a confidence map buffer must also be provided in the frame descriptor using `QC_NODE_DFS_DISPARITY_CONFIDANCE_MAP_BUFF_ID`. The confidence map is a `uint8_t` tensor of the same spatial dimensions as the disparity map, where each value indicates the reliability of the corresponding disparity estimate.
+
+```c++
+// Include the QCNode Depth From Stereo header files
+#include "QC/Node/DepthFromStereo.hpp"
+using namespace QC::Node;
+
+// Use BufferManager to allocate and free buffers
+#include "QC/sample/BufferManager.hpp"
+using namespace QC::sample;
+
+class MyDfsConfApp {
+private:
+  DepthFromStereo m_dfs;
+  BufferManager m_bufMgr{ { "DFS", QC_NODE_TYPE_EVA_DFS, 0 } };
+  ImageDescriptor_t m_primaryImgDesc;
+  ImageDescriptor_t m_auxiliaryImgDesc;
+  TensorDescriptor_t m_disparityMapDesc;
+  TensorDescriptor_t m_confidenceMapDesc;
+  NodeFrameDescriptor *m_frameDesc = nullptr;
+
+public:
+  void Init() {
+    // Initialize with confidence output enabled
     QCNodeInit_t config = {
       R"({
         "static": {
@@ -236,21 +338,21 @@ public:
     auxImgProp.height = 416;
     status = m_bufMgr.Allocate( auxImgProp, m_auxiliaryImgDesc );
 
-    // Allocate disparity map output buffer
+    // Allocate disparity map output buffer (uint16)
     TensorProps_t dispMapProp = {
       QC_TENSOR_TYPE_UINT_16,
       { 1, 416, 1280, 1 }
     };
     status = m_bufMgr.Allocate( dispMapProp, m_disparityMapDesc );
 
-    // Allocate confidence map output buffer
+    // Allocate confidence map output buffer (uint8)
     TensorProps_t confMapProp = {
       QC_TENSOR_TYPE_UINT_8,
       { 1, 416, 1280, 1 }
     };
     status = m_bufMgr.Allocate( confMapProp, m_confidenceMapDesc );
 
-    // Create frame descriptor and set buffers
+    // Create frame descriptor and set all buffers including confidence map
     m_frameDesc = new NodeFrameDescriptor( QC_NODE_DFS_LAST_BUFF_ID );
     (void)m_frameDesc->SetBuffer( QC_NODE_DFS_PRIMARY_IMAGE_BUFF_ID, m_primaryImgDesc );
     (void)m_frameDesc->SetBuffer( QC_NODE_DFS_AUXILARY_IMAGE_BUFF_ID, m_auxiliaryImgDesc );
@@ -262,17 +364,15 @@ public:
   }
 
   void Run() {
-    // Process the frame descriptor
+    // Process the frame descriptor; confidence map is populated alongside disparity map
     QCStatus_e status = m_dfs.ProcessFrameDescriptor( *m_frameDesc );
     (void)status;
   }
 
   void Deinit() {
-    // Stop and deinitialize the node
     (void)m_dfs.Stop();
     (void)m_dfs.DeInitialize();
 
-    // Free buffers and delete frame descriptor
     m_bufMgr.Free( m_primaryImgDesc );
     m_bufMgr.Free( m_auxiliaryImgDesc );
     m_bufMgr.Free( m_disparityMapDesc );
@@ -283,7 +383,43 @@ public:
 };
 ```
 
-# 5. References
+# 5. Functional Safety
+
+This section provides an overview of QCNode Depth From Stereo usage for functional safety use cases.
+
+## 5.1 ASIL
+
+| Node             | ASIL (or equivalent) | Supported Platforms |
+|------------------|----------------------|---------------------|
+| DepthFromStereo  | ASIL B               |      SA8797         |
+
+## 5.2 Assumptions of Use (SWAOU)
+**SWAOU:** Software Assumption of Use.
+
+### QCNODE-DFS-SWAOU-1
+
+- **Assumption:**  
+  All SV Auto libraries and artifacts must be obtained from a single SDK version.
+
+- **Sample of "How AoU can be met?":**  
+  Enforced by system integration/configuration management and verified during integration/release packaging.
+
+- **SW AoU Rationale:**  
+  Avoids incompatible library/artifact combinations that can lead to incorrect outputs, runtime errors, or initialization failures due to ABI/API mismatches—i.e., prevents a systematic integration fault from cascading into QCNode EVA misbehavior.
+
+### QCNODE-DFS-SWAOU-2
+
+- **Assumption:**  
+  The system integrator shall implement a timeout mechanism when invoking blocking QCNode APIs, including `Initialize`, `Start`, `Stop`, `DeInitialize`, and `ProcessFrameDescriptor`, to prevent indefinite blocking in the event of a failure.
+
+- **Sample of "How AoU can be met?":**  
+  Implemented at the integration layer (caller/application/framework) and validated with fault-injection / negative testing (e.g., induced SDK non-response).
+
+- **SW AoU Rationale:**  
+  Prevents QCNode EVA init/execute/deinit from becoming stuck (deadlock/livelock/indefinite wait) and causing system-level timing/resource starvation. Ensures the caller can regain control and transition the system to a safe state (abort/retry/reset) if a dependent component or underlying execution hangs.
+
+
+# 6. References
 
 - [DepthFromStereo Header](../include/QC/Node/DepthFromStereo.hpp)
 - [DepthFromStereo Implementation](../source/Node/DepthFromStereo/DepthFromStereo.cpp)

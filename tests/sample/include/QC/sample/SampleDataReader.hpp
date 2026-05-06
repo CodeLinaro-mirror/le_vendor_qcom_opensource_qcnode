@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 
-#ifndef _QC_SAMPLE_DATAREADER_HPP_
-#define _QC_SAMPLE_DATAREADER_HPP_
+#ifndef QC_SAMPLE_DATAREADER_HPP
+#define QC_SAMPLE_DATAREADER_HPP
 
 #include "QC/sample/SampleIF.hpp"
 #include <mutex>
@@ -15,36 +15,47 @@ namespace sample
 
 /// @brief qcnode::sample::SampleDataReader
 ///
-/// SampleDataReader that to demonstate how to use the QC component Remap
+/// SampleDataReader that simulate sensor frames
 class SampleDataReader : public SampleIF
 {
 public:
     SampleDataReader();
     ~SampleDataReader();
 
-    /// @brief Initialize the remap
+    /// @brief Initialize the Data Reader
     /// @param name the sample unique instance name
     /// @param config the sample config key value map
     /// @return QC_STATUS_OK on success, others on failure
     QCStatus_e Init( std::string name, SampleConfig_t &config );
 
-    /// @brief Start the remap
+    /// @brief Start the Data Reader
     /// @return QC_STATUS_OK on success, others on failure
     QCStatus_e Start();
 
-    /// @brief Stop the remap
+    /// @brief Stop the Data Reader
     /// @return QC_STATUS_OK on success, others on failure
     QCStatus_e Stop();
 
-    /// @brief deinitialize the remap
+    /// @brief deinitialize the Data Reader
     /// @return QC_STATUS_OK on success, others on failure
     QCStatus_e Deinit();
+
+#ifdef QC_ENABLE_HS
+    /// @brief Get the runnable callback for HeteroScheduler
+    /// @return The runnable callback function
+    std::function<void( const std::uint32_t *, std::size_t )> GetRunnableCallback();
+#endif
 
 private:
     QCStatus_e ParseConfig( SampleConfig_t &config );
     void ThreadMain();
+    void Execute();
     QCStatus_e LoadImage( std::shared_ptr<SharedBuffer_t> image, std::string path );
     QCStatus_e LoadTensor( std::shared_ptr<SharedBuffer_t> tensor, std::string path );
+#ifdef QC_ENABLE_HS
+    void RunnableCallback( const std::uint32_t *rids, std::size_t count );
+    void RunnableCallbackWithSleep( const std::uint32_t *rids, std::size_t count );
+#endif
 
 private:
     typedef enum
@@ -71,6 +82,9 @@ private:
     uint32_t m_poolSize = 4;
     std::string m_topicName;
 
+    uint32_t m_index;
+    uint64_t m_frameId;
+
     std::thread m_thread;
     std::vector<SharedBufferPool> m_bufferPools;
     bool m_stop;
@@ -78,9 +92,15 @@ private:
     DataPublisher<DataFrames_t> m_pub;
     QCAllocationCache_e m_bufferCache = QC_CACHEABLE;
 
+#ifdef QC_ENABLE_HS
+    bool m_bEnableHsSleep = false;
+    std::chrono::time_point<std::chrono::high_resolution_clock> m_lastFrameTime;
+    uint64_t m_frameIntervalNs = 0;
+#endif
+
 };   // class SampleDataReader
 
 }   // namespace sample
 }   // namespace QC
 
-#endif   // _QC_SAMPLE_DATAREADER_HPP_
+#endif   // QC_SAMPLE_DATAREADER_HPP

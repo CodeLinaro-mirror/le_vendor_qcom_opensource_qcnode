@@ -11,6 +11,20 @@ namespace sample
 SamplePlrPre::SamplePlrPre() {}
 SamplePlrPre::~SamplePlrPre() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )> SamplePlrPre::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SamplePlrPre::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SamplePlrPre::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
+
 QCStatus_e SamplePlrPre::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -18,6 +32,7 @@ QCStatus_e SamplePlrPre::ParseConfig( SampleConfig_t &config )
     m_config.Set<std::string>( "name", m_name );
     m_config.Set<uint32_t>( "id", 0 );
     m_config.Set<std::string>( "processorType", Get( config, "processor", "cpu" ) );
+    m_config.Set<uint32_t>( "coreId", Get( config, "core_id", 0 ) );
     m_config.Set<float>( "Xsize", Get( config, "pillar_size_x", 0.16f ) );
     m_config.Set<float>( "Ysize", Get( config, "pillar_size_y", 0.16f ) );
     m_config.Set<float>( "Zsize", Get( config, "pillar_size_z", 4.0f ) );
@@ -334,74 +349,99 @@ QCStatus_e SamplePlrPre::Start()
     if ( QC_STATUS_OK == ret )
     {
         m_stop = false;
-        m_thread = std::thread( &SamplePlrPre::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        if ( !m_bOrchestratorEnabled )
+        {
+#endif
+            m_thread = std::thread( &SamplePlrPre::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        }
+#endif
     }
 
     return ret;
 }
 
-void SamplePlrPre::ThreadMain()
+void SamplePlrPre::Execute()
 {
     QCStatus_e ret = QC_STATUS_OK;
     NodeFrameDescriptor frameDesc( 5 );
 
+    DataFrames_t frames;
+    uint32_t timeout = 1000;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
+    {
+        timeout = 0;
+    }
+#endif
+    ret = m_sub.Receive( frames, timeout );
+    if ( QC_STATUS_OK == ret )
+    {
+        QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
+                  frames.Timestamp( 0 ) );
+
+        std::shared_ptr<SharedBuffer_t> pOutputPlrBuffer = m_outputPlrBufferPool.Get();
+        std::shared_ptr<SharedBuffer_t> pOutputFeatBuffer = m_outputFeatureBufferPool.Get();
+        if ( ( nullptr != pOutputPlrBuffer ) && ( nullptr != pOutputFeatBuffer ) )
+        {
+            QCBufferDescriptorBase_t &buffer = frames.GetBuffer( 0 );
+            ret = frameDesc.SetBuffer( 0, buffer );
+
+            if ( QC_STATUS_OK == ret )
+            {
+                ret = frameDesc.SetBuffer( 1, pOutputPlrBuffer->GetBuffer() );
+            }
+
+            if ( QC_STATUS_OK == ret )
+            {
+                ret = frameDesc.SetBuffer( 2, pOutputFeatBuffer->GetBuffer() );
+            }
+
+            if ( QC_STATUS_OK == ret )
+            {
+                ret = SampleIF::Lock();
+            }
+
+            if ( QC_STATUS_OK == ret )
+            {
+                PROFILER_BEGIN();
+                ret = m_voxel.ProcessFrameDescriptor( frameDesc );
+            }
+
+            if ( QC_STATUS_OK == ret )
+            {
+                PROFILER_END();
+                DataFrames_t outFrames;
+                DataFrame_t frame;
+                frame.buffer = pOutputPlrBuffer;
+                frame.frameId = frames.FrameId( 0 );
+                frame.timestamp = frames.Timestamp( 0 );
+                outFrames.Add( frame );
+                frame.buffer = pOutputFeatBuffer;
+                outFrames.Add( frame );
+                m_pub.Publish( outFrames );
+            }
+            else
+            {
+                QC_ERROR( "Pillarize failed for %" PRIu64 " : %d", frames.FrameId( 0 ), ret );
+            }
+            (void) SampleIF::Unlock();
+        }
+    }
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "Pillarize receive failed : %d", ret );
+    }
+#endif
+}
+
+void SamplePlrPre::ThreadMain()
+{
     while ( false == m_stop )
     {
-        DataFrames_t frames;
-        ret = m_sub.Receive( frames );
-        if ( QC_STATUS_OK == ret )
-        {
-            QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
-                      frames.Timestamp( 0 ) );
-
-            std::shared_ptr<SharedBuffer_t> pOutputPlrBuffer = m_outputPlrBufferPool.Get();
-            std::shared_ptr<SharedBuffer_t> pOutputFeatBuffer = m_outputFeatureBufferPool.Get();
-            if ( ( nullptr != pOutputPlrBuffer ) && ( nullptr != pOutputFeatBuffer ) )
-            {
-                QCBufferDescriptorBase_t &buffer = frames.GetBuffer( 0 );
-                ret = frameDesc.SetBuffer( 0, buffer );
-
-                if ( QC_STATUS_OK == ret )
-                {
-                    ret = frameDesc.SetBuffer( 1, pOutputPlrBuffer->GetBuffer() );
-                }
-
-                if ( QC_STATUS_OK == ret )
-                {
-                    ret = frameDesc.SetBuffer( 2, pOutputFeatBuffer->GetBuffer() );
-                }
-
-                if ( QC_STATUS_OK == ret )
-                {
-                    ret = SampleIF::Lock();
-                }
-
-                if ( QC_STATUS_OK == ret )
-                {
-                    PROFILER_BEGIN();
-                    ret = m_voxel.ProcessFrameDescriptor( frameDesc );
-                }
-
-                if ( QC_STATUS_OK == ret )
-                {
-                    PROFILER_END();
-                    DataFrames_t outFrames;
-                    DataFrame_t frame;
-                    frame.buffer = pOutputPlrBuffer;
-                    frame.frameId = frames.FrameId( 0 );
-                    frame.timestamp = frames.Timestamp( 0 );
-                    outFrames.Add( frame );
-                    frame.buffer = pOutputFeatBuffer;
-                    outFrames.Add( frame );
-                    m_pub.Publish( outFrames );
-                }
-                else
-                {
-                    QC_ERROR( "Pillarize failed for %" PRIu64 " : %d", frames.FrameId( 0 ), ret );
-                }
-                (void) SampleIF::Unlock();
-            }
-        }
+        Execute();
     }
 }
 
@@ -410,10 +450,17 @@ QCStatus_e SamplePlrPre::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
     ret = m_voxel.Stop();
 
     PROFILER_SHOW();

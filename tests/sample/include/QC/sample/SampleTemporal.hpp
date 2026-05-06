@@ -46,30 +46,33 @@ private:
                            float value );
 
 private:
+    struct TemporalContext
+    {
+        std::shared_ptr<SharedBuffer_t> temporal = nullptr;
+        TensorDescriptor_t initTempTs;
+        TensorProps_t temporalTsProps;
+        float temporalQuantScale;
+        int32_t temporalQuantOffset;
+        uint32_t temporalIndex = 0;
+    };
+
+private:
     std::string m_inputTopicName;
     std::string m_outputTopicName;
 
     std::thread m_thread;
-    std::shared_ptr<SharedBuffer_t> m_temporal = nullptr;
-    std::shared_ptr<SharedBuffer_t> m_useFlag = nullptr;
-
-    TensorProps_t m_temporalTsProps;
-    TensorProps_t m_useFlagTsProps;
-
-    float m_temporalQuantScale;
-    int32_t m_temporalQuantOffset;
-
-    uint32_t m_temporalIndex = 0;
-
-    float m_useFlagQuantScale;
-    int32_t m_useFlagQuantOffset;
-
-    TensorDescriptor_t m_initTempTs;
-    TensorDescriptor_t m_useFlagTs;
 
     uint32_t m_windowMs;
 
+    uint32_t m_number;
+    std::vector<TemporalContext> m_temporal;
+
     bool m_bHasUseFlag = false; /* use temporal flag can be optional */
+    std::shared_ptr<SharedBuffer_t> m_useFlag = nullptr;
+    TensorProps_t m_useFlagTsProps;
+    float m_useFlagQuantScale;
+    int32_t m_useFlagQuantOffset;
+    TensorDescriptor_t m_useFlagTs;
 
     bool m_stop;
 

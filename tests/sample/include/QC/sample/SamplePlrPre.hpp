@@ -41,6 +41,12 @@ public:
     /// @return QC_STATUS_OK on success, others on failure
     QCStatus_e Deinit();
 
+#ifdef QC_ENABLE_HS
+    /// @brief Get the runnable callback for HeteroScheduler
+    /// @return The runnable callback function
+    std::function<void( const std::uint32_t *, std::size_t )> GetRunnableCallback() override;
+#endif
+
     /**
      * @brief Retrieves the version identifier of the Node Voxelization.
      */
@@ -48,7 +54,12 @@ public:
 
 private:
     void ThreadMain();
+    void Execute();
     QCStatus_e ParseConfig( SampleConfig_t &config );
+
+#ifdef QC_ENABLE_HS
+    void RunnableCallback( const std::uint32_t *rids, std::size_t count );
+#endif
 
 private:
     QC::Node::Voxelization m_voxel;
@@ -82,4 +93,3 @@ private:
 }   // namespace QC
 
 #endif   // _QC_SAMPLE_NODE_PLRPRE_HPP_
-

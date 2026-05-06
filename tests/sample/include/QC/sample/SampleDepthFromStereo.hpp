@@ -43,6 +43,12 @@ public:
     /// @return QC_STATUS_OK on success, others on failure
     QCStatus_e Deinit();
 
+#ifdef QC_ENABLE_HS
+    /// @brief Get the runnable callback for HeteroScheduler
+    /// @return The runnable callback function
+    std::function<void( const std::uint32_t *, std::size_t )> GetRunnableCallback() override;
+#endif
+
     /**
      * @brief Retrieves the version identifier of the Node DepthFromStereo.
      */
@@ -51,6 +57,11 @@ public:
 private:
     QCStatus_e ParseConfig( SampleConfig_t &config );
     void ThreadMain();
+    void Execute();
+
+#ifdef QC_ENABLE_HS
+    void RunnableCallback( const std::uint32_t *rids, std::size_t count );
+#endif
 
 private:
     DataTree m_config;

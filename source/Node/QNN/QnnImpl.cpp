@@ -1037,7 +1037,6 @@ QCStatus_e QnnImpl::CreateFromBinaryFile( std::string modelFile )
             QC_ERROR( "Failed to read binary data." );
             status = QC_STATUS_FAIL;
         }
-        (void) fclose( pFile );
     }
 
     if ( QC_STATUS_OK == status )
@@ -1052,6 +1051,11 @@ QCStatus_e QnnImpl::CreateFromBinaryFile( std::string modelFile )
     if ( nullptr != pBuffer )
     {
         free( pBuffer );
+    }
+
+    if ( nullptr != pFile )
+    {
+        (void) fclose( pFile );
     }
 
     return status;

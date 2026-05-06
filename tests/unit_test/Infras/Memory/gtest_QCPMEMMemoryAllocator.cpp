@@ -3,6 +3,11 @@
 
 #include "QC/Infras/Memory/PMEMAllocator.hpp"
 #include "gtest/gtest.h"
+#include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <thread>
 
 using namespace QC;
 using namespace QC::Memory;
@@ -290,4 +295,114 @@ TEST_F( Test_PMEMAllocator, SANITY_multiple_allocations_2 )
 
     status = allocatorIfs->Allocate( badRequest, response[1] );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+}
+
+
+// Stability
+
+TEST_F( Test_PMEMAllocator, ST_PMEM_AllocFree_128_Loop_100000 )
+{
+    const int iters = 10000000;
+
+    for ( int i = 0; i < iters; ++i )
+    {
+        if ( ( i % 10000 ) == 0 )
+        {
+            printf( "ST_PMEM_AllocFree_128_Loop_100000 %d iters %d\n", i, iters );
+        }
+
+        QCBufferPropBase_t request;
+        request.size = 128;
+        request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+        request.cache = QC_CACHEABLE;
+
+        QCBufferDescriptorBase_t response;
+
+        QCStatus_e status = allocatorIfs->Allocate( request, response );
+        ASSERT_EQ( QC_STATUS_OK, status );
+        ASSERT_NE( response.pBuf, nullptr );
+        ASSERT_EQ( (long long unsigned int) response.pBuf,
+                   (long long unsigned int) response.pBuf & ( ~( request.alignment - 1 ) ) );
+        ASSERT_EQ( response.size, 128 );
+        ASSERT_EQ( response.cache, QC_CACHEABLE );
+
+        status = allocatorIfs->Free( response );
+        ASSERT_EQ( QC_STATUS_OK, status );
+    }
+}
+
+
+TEST_F( Test_PMEMAllocator, Concurrency_PMEM_AllocFree_ProducerConsumer_2Threads_128_Loop_100000 )
+{
+    const int iters = 10000000;
+
+    // Thread-safe queue of buffer descriptors
+    std::deque<QCBufferDescriptorBase_t> q;
+    std::mutex m;
+    std::condition_variable cv;
+    std::atomic<int> produced{ 0 };
+    std::atomic<int> consumed{ 0 };
+    std::atomic<bool> done{ false };
+
+    auto producer = [&] {
+        for ( int i = 0; i < iters; ++i )
+        {
+            if ( ( i % 10000 ) == 0 )
+            {
+                printf( "Concurrency_PMEM_AllocFree_ProducerConsumer_2Threads_128_Loop_100000 %d "
+                        "iters %d\n",
+                        i, iters );
+            }
+
+            QCBufferPropBase_t request{};
+            request.size = 128;
+            request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+            request.cache = QC_CACHEABLE;
+
+            QCBufferDescriptorBase_t resp{};
+            QCStatus_e st = allocatorIfs->Allocate( request, resp );
+            ASSERT_EQ( QC_STATUS_OK, st );
+            ASSERT_NE( resp.pBuf, nullptr );
+            ASSERT_EQ( resp.size, 128 );
+
+            {
+                std::lock_guard<std::mutex> lk( m );
+                q.push_back( resp );
+                ++produced;
+            }
+            cv.notify_one();
+        }
+        done.store( true );
+        cv.notify_all();
+    };
+
+    auto consumer = [&] {
+        while ( true )
+        {
+            QCBufferDescriptorBase_t item{};
+            {
+                std::unique_lock<std::mutex> lk( m );
+                cv.wait( lk, [&] { return !q.empty() || done.load(); } );
+                if ( q.empty() )
+                {
+                    // No more items and producer signaled done
+                    break;
+                }
+                item = q.front();
+                q.pop_front();
+            }
+
+            QCStatus_e st = allocatorIfs->Free( item );
+            ASSERT_EQ( QC_STATUS_OK, st );
+            ++consumed;
+        }
+    };
+
+    std::thread tProd( producer );
+    std::thread tCons( consumer );
+    tProd.join();
+    tCons.join();
+
+    ASSERT_EQ( produced.load(), iters );
+    ASSERT_EQ( consumed.load(), iters );
 }

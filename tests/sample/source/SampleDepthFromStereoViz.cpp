@@ -86,6 +86,21 @@ static const char *s_pSourceDispColor = KernelCode(   //
 SampleDepthFromStereoViz::SampleDepthFromStereoViz() {}
 SampleDepthFromStereoViz::~SampleDepthFromStereoViz() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )>
+SampleDepthFromStereoViz::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SampleDepthFromStereoViz::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SampleDepthFromStereoViz::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
+
 QCStatus_e SampleDepthFromStereoViz::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -196,7 +211,14 @@ QCStatus_e SampleDepthFromStereoViz::Start()
     if ( QC_STATUS_OK == ret )
     {
         m_stop = false;
-        m_thread = std::thread( &SampleDepthFromStereoViz::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        if ( !m_bOrchestratorEnabled )
+        {
+#endif
+            m_thread = std::thread( &SampleDepthFromStereoViz::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        }
+#endif
     }
 
     return ret;
@@ -381,56 +403,74 @@ QCStatus_e SampleDepthFromStereoViz::ConvertToRgbGPU( QCBufferDescriptorBase_t &
     return ret;
 }
 
-void SampleDepthFromStereoViz::ThreadMain()
+void SampleDepthFromStereoViz::Execute()
 {
     QCStatus_e ret;
-    while ( false == m_stop )
+    DataFrames_t frames;
+    uint32_t timeout = 1000;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
     {
-        DataFrames_t frames;
-        ret = m_sub.Receive( frames );
-        if ( QC_STATUS_OK == ret )
+        timeout = 0;
+    }
+#endif
+    ret = m_sub.Receive( frames, timeout );
+    if ( QC_STATUS_OK == ret )
+    {
+        QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
+                  frames.Timestamp( 0 ) );
+
+        std::shared_ptr<SharedBuffer_t> rgb = m_rgbPool.Get();
+        if ( nullptr != rgb )
         {
-            QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
-                      frames.Timestamp( 0 ) );
+            QCBufferDescriptorBase_t &disp = frames.GetBuffer( 0 );
+            QCBufferDescriptorBase_t &conf = frames.GetBuffer( 1 );
 
-            std::shared_ptr<SharedBuffer_t> rgb = m_rgbPool.Get();
-            if ( nullptr != rgb )
+            if ( QC_STATUS_OK == ret )
             {
-                QCBufferDescriptorBase_t &disp = frames.GetBuffer( 0 );
-                QCBufferDescriptorBase_t &conf = frames.GetBuffer( 1 );
-
+                PROFILER_BEGIN();
+                TRACE_BEGIN( frames.FrameId( 0 ) );
+                if ( QC_PROCESSOR_CPU == m_processor )
+                {
+                    ret = ConvertToRgbCPU( disp, conf, rgb->GetBuffer() );
+                }
+                else
+                {
+                    ret = ConvertToRgbGPU( disp, conf, rgb->GetBuffer() );
+                }
                 if ( QC_STATUS_OK == ret )
                 {
-                    PROFILER_BEGIN();
-                    TRACE_BEGIN( frames.FrameId( 0 ) );
-                    if ( QC_PROCESSOR_CPU == m_processor )
-                    {
-                        ret = ConvertToRgbCPU( disp, conf, rgb->GetBuffer() );
-                    }
-                    else
-                    {
-                        ret = ConvertToRgbGPU( disp, conf, rgb->GetBuffer() );
-                    }
-                    if ( QC_STATUS_OK == ret )
-                    {
-                        PROFILER_END();
-                        TRACE_END( frames.FrameId( 0 ) );
-                        DataFrames_t outFrames;
-                        DataFrame_t frame;
-                        frame.buffer = rgb;
-                        frame.frameId = frames.FrameId( 0 );
-                        frame.timestamp = frames.Timestamp( 0 );
-                        outFrames.Add( frame );
-                        m_pub.Publish( outFrames );
-                    }
-                    else
-                    {
-                        QC_ERROR( "DepthFromStereoViz failed for %" PRIu64 " : %d",
-                                  frames.FrameId( 0 ), ret );
-                    }
+                    PROFILER_END();
+                    TRACE_END( frames.FrameId( 0 ) );
+                    DataFrames_t outFrames;
+                    DataFrame_t frame;
+                    frame.buffer = rgb;
+                    frame.frameId = frames.FrameId( 0 );
+                    frame.timestamp = frames.Timestamp( 0 );
+                    outFrames.Add( frame );
+                    m_pub.Publish( outFrames );
+                }
+                else
+                {
+                    QC_ERROR( "DepthFromStereoViz failed for %" PRIu64 " : %d", frames.FrameId( 0 ),
+                              ret );
                 }
             }
         }
+    }
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "DepthFromStereoViz receive failed : %d", ret );
+    }
+#endif
+}
+
+void SampleDepthFromStereoViz::ThreadMain()
+{
+    while ( false == m_stop )
+    {
+        Execute();
     }
 }
 
@@ -439,10 +479,17 @@ QCStatus_e SampleDepthFromStereoViz::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     PROFILER_SHOW();
 

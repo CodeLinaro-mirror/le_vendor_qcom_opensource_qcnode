@@ -9,7 +9,12 @@
   - [3.2 QCNode Configuration Interfaces](#32-qcnode-configuration-interfaces)
 - [4. Typical Optical Flow API Usage Examples](#4-typical-optical-flow-api-usage-examples)
   - [4.1 Basic Forward Optical Flow in Synchronous Mode](#41-basic-forward-optical-flow-in-synchronous-mode)
-- [5. References](#5-references)
+- [5. Functional Safety](#5-functional-safety)
+  - [5.1 ASIL](#51-asil)
+  - [5.2 Assumptions of Use (SWAOU)](#52-assumptions-of-use-swaou)
+    - [QCNODE-OFL-SWAOU-1](#qcnode-ofl-swaou-1)
+    - [QCNODE-OFL-SWAOU-2](#qcnode-ofl-swaou-2)
+- [6. References](#6-references)
 
 
 # 1. Overview
@@ -73,8 +78,7 @@
 | `motionVarianceMetric` | false | uint32_t | Motion variance importance metric. <br> Range: [0, 100] <br> Default: `100` |
 | `occlusionMetric` | false | uint32_t | Occlusion consistency importance metric. <br> Range: [0, 100] <br> Default: `100` |
 | `segmentationThreshold` | false | float32_t | Segmentation bias threshold. <br> Range: [0.0, 1.0] <br> Default: `0.5` |
-| `globalMotionDetailThreshold` | false | float32_t | Global motion threshold for textured regions. <br> Range: [0.0, 1.0] <br> Default: `0.66` |
-| `imageSharpnessThreshold` | false | float32_t | Image sharpness threshold for edge detection. <br> Range: [0.0, 1.0] <br> Default: `0.4` (or `0.0` if chromaProcEn is true) |
+| `imageSharpnessThreshold` | false | float32_t | Image sharpness threshold for edge detection. <br> Range: [0.0, 1.0] <br> Default: `0.4` (or `0.0` if `chromaProcEn` is `true`) |
 | `mvEdgeThreshold` | false | float32_t | Motion vector edge selection threshold. <br> Range: [0.0, 1.0] <br> Default: `0.43` |
 | `refinementThreshold` | false | float32_t | Refinement threshold for motion vectors. <br> Range: [0.0, 1.0] <br> Default: `0.75` |
 | `textureThreshold` | false | float32_t | Texture threshold for low-texture region detection. <br> Range: [0.0, 1.0] <br> Default: `0.167` |
@@ -163,6 +167,8 @@ Dynamic configuration is currently not supported for Optical Flow. All configura
 
 - [OpticalFlow::DeInitialize](../include/QC/Node/OpticalFlow.hpp#L374) Deinitialize the Optical Flow node
 
+- [OpticalFlow::GetState](../include/QC/Node/OpticalFlow.hpp#L380) Get the current state of the Optical Flow node
+
 ## 3.2 QCNode Configuration Interfaces
 
 - [OpticalFlowConfigIfs::GetOptions](../include/QC/Node/OpticalFlow.hpp#L279) Get Configuration Options
@@ -170,10 +176,11 @@ Dynamic configuration is currently not supported for Optical Flow. All configura
     - Below is an example output:
       ```json
       {
-        "version": 1
+        "version": 131072
       }
       ```
       The version is encoded as: `(MAJOR << 16) | (MINOR << 8) | PATCH`
+      The current version is **2.0.0** (`(2 << 16) | (0 << 8) | 0 = 131072`).
 
 # 4. Typical Optical Flow API Usage Examples
 
@@ -286,7 +293,43 @@ public:
 };
 ```
 
-# 5. References
+# 5. Functional Safety
+
+This section provides an overview of QCNode Optical Flow usage for functional safety use cases.
+
+## 5.1 ASIL
+
+| Node         | ASIL (or equivalent) | Supported Platforms |
+|--------------|----------------------|---------------------|
+| OpticalFlow  | ASIL B               |      SA8797         |
+
+## 5.2 Assumptions of Use (SWAOU)
+**SWAOU:** Software Assumption of Use.
+
+### QCNODE-OFL-SWAOU-1
+
+- **Assumption:**  
+  All SV Auto libraries and artifacts must be obtained from a single SDK version.
+
+- **Sample of "How AoU can be met?":**  
+  Enforced by system integration/configuration management and verified during integration/release packaging.
+
+- **SW AoU Rationale:**  
+  Avoids incompatible library/artifact combinations that can lead to incorrect outputs, runtime errors, or initialization failures due to ABI/API mismatches—i.e., prevents a systematic integration fault from cascading into QCNode EVA misbehavior.
+
+### QCNODE-OFL-SWAOU-2
+
+- **Assumption:**  
+  The system integrator shall implement a timeout mechanism when invoking blocking QCNode APIs, including `Initialize`, `Start`, `Stop`, `DeInitialize`, and `ProcessFrameDescriptor`, to prevent indefinite blocking in the event of a failure.
+
+- **Sample of "How AoU can be met?":**  
+  Implemented at the integration layer (caller/application/framework) and validated with fault-injection / negative testing (e.g., induced SDK non-response).
+
+- **SW AoU Rationale:**  
+  Prevents QCNode EVA init/execute/deinit from becoming stuck (deadlock/livelock/indefinite wait) and causing system-level timing/resource starvation. Ensures the caller can regain control and transition the system to a safe state (abort/retry/reset) if a dependent component or underlying execution hangs.
+
+
+# 6. References
 
 - [OpticalFlow Header](../include/QC/Node/OpticalFlow.hpp)
 - [OpticalFlow Implementation](../source/Node/OpticalFlow/OpticalFlow.cpp)

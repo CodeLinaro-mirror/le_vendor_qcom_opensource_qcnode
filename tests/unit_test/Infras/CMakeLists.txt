@@ -1,5 +1,5 @@
 add_subdirectory(Log)
-add_subdirectory(Memory)
 
-
-
+if(NOT ENABLE_SIMNODE)
+    add_subdirectory(Memory)
+endif()

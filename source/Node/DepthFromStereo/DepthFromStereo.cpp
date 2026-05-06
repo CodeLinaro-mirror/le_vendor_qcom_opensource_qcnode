@@ -19,7 +19,6 @@ DepthFromStereo_Config::DepthFromStereo_Config()
     this->frameRate = 30;
     this->confidenceOutputEn = false;
     this->processingMode = PROCESSING_MODE_AUTO;
-    this->isFirstRequest = true;
     this->noiseOffsetPri = 0.0f;
     this->noiseOffsetAux = 0.0f;
     this->modelType = 1;
@@ -335,6 +334,8 @@ QCStatus_e DepthFromStereoConfigIfs::ParseStaticConfig( DataTree &dt, std::strin
 
     if ( QC_STATUS_OK == status )
     {
+        m_config.nodeId.name = dt.Get<std::string>( "name", "" );
+        m_config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
 
         m_config.imageFormat = dt.GetImageFormat( "format", QC_IMAGE_FORMAT_NV12 );
         m_config.disparityFormat = static_cast<DisparityFormat_e>(
@@ -345,7 +346,6 @@ QCStatus_e DepthFromStereoConfigIfs::ParseStaticConfig( DataTree &dt, std::strin
         m_config.confidenceOutputEn = dt.Get<bool>( "confidenceOutputEn", false );
         m_config.processingMode = static_cast<ProcessingMode_e>(
                 dt.Get<uint8_t>( "processingMode", PROCESSING_MODE_AUTO ) );
-        m_config.isFirstRequest = dt.Get<bool>( "isFirstRequest", true );
         m_config.noiseOffsetPri = dt.Get<float32_t>( "noiseOffsetPrimary", 0.0f );
         m_config.noiseOffsetAux = dt.Get<float32_t>( "noiseOffsetAux", 0.0f );
         m_config.modelType = dt.Get<uint8_t>( "modelType", 1 );
@@ -483,35 +483,128 @@ PixelFormat DepthFromStereo::GetDisparityMapFormat( DisparityFormat_e disparityF
     return format;
 }
 
-void DepthFromStereo::UpdateIconfig( StereoDisparity::ConfigMap &configMap,
-                                     const DepthFromStereo_Config_t &configuration )
+QCStatus_e DepthFromStereo::UpdateIconfig( StereoDisparity::ConfigMap &configMap,
+                                           const DepthFromStereo_Config_t &configuration )
 {
+    QCStatus_e ret = QC_STATUS_OK;
+    ConfigMapStatus status = ConfigMapStatus::SUCCESS;
 
-    configMap.Set( StereoDisparity::ConfigId::AVERAGE_FPS,
-                   static_cast<uint32_t>( configuration.frameRate ) );
-    configMap.Set( StereoDisparity::ConfigId::PRIMARY_IMAGE_INFO, &m_imageInfo );
-    configMap.Set( StereoDisparity::ConfigId::AUXILIARY_IMAGE_INFO, &m_imageInfo );
-    configMap.Set( StereoDisparity::ConfigId::CONFIDENCE_OUTPUT_EN,
-                   configuration.confidenceOutputEn );
-    configMap.Set( StereoDisparity::ConfigId::OCCLUSION_OUTPUT_EN,
-                   configuration.occlusionOutputEn );
-    configMap.Set( StereoDisparity::ConfigId::DISPARITY_STATS_EN, configuration.disparityStatsEn );
-    configMap.Set( StereoDisparity::ConfigId::RECTIFICATION_ERROR_STATS_EN,
-                   configuration.rectificationErrorStatsEn );
-    configMap.Set( StereoDisparity::ConfigId::DISPARITY_MAP_FORMAT,
-                   GetDisparityMapFormat( configuration.disparityFormat ) );
-    if ( configuration.processingMode == PROCESSING_MODE_AUTO )
+    status = configMap.Set( StereoDisparity::ConfigId::AVERAGE_FPS,
+                            static_cast<uint32_t>( configuration.frameRate ) );
+    if ( status != ConfigMapStatus::SUCCESS )
     {
-        configMap.Set( StereoDisparity::ConfigId::MODE, StereoDisparity::Mode::AUTO );
+        QC_ERROR( "DepthFromStereo: Failed to set AVERAGE_FPS: %d", status );
+        ret = QC_STATUS_FAIL;
     }
-    else if ( configuration.processingMode == PROCESSING_MODE_DL )
+
+    if ( QC_STATUS_OK == ret )
     {
-        configMap.Set( StereoDisparity::ConfigId::MODE, StereoDisparity::Mode::DL );
+        status = configMap.Set( StereoDisparity::ConfigId::PRIMARY_IMAGE_INFO, &m_imageInfo );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set PRIMARY_IMAGE_INFO: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
     }
-    else
+
+    if ( QC_STATUS_OK == ret )
     {
-        configMap.Set( StereoDisparity::ConfigId::MODE, StereoDisparity::Mode::SGM );
+        status = configMap.Set( StereoDisparity::ConfigId::AUXILIARY_IMAGE_INFO, &m_imageInfo );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set AUXILIARY_IMAGE_INFO: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
     }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMap.Set( StereoDisparity::ConfigId::CONFIDENCE_OUTPUT_EN,
+                                configuration.confidenceOutputEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set CONFIDENCE_OUTPUT_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMap.Set( StereoDisparity::ConfigId::OCCLUSION_OUTPUT_EN,
+                                configuration.occlusionOutputEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set OCCLUSION_OUTPUT_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMap.Set( StereoDisparity::ConfigId::DISPARITY_STATS_EN,
+                                configuration.disparityStatsEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set DISPARITY_STATS_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMap.Set( StereoDisparity::ConfigId::RECTIFICATION_ERROR_STATS_EN,
+                                configuration.rectificationErrorStatsEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set RECTIFICATION_ERROR_STATS_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMap.Set( StereoDisparity::ConfigId::DISPARITY_MAP_FORMAT,
+                                GetDisparityMapFormat( configuration.disparityFormat ) );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set DISPARITY_MAP_FORMAT: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        if ( configuration.processingMode == PROCESSING_MODE_AUTO )
+        {
+            status = configMap.Set( StereoDisparity::ConfigId::MODE,
+                                    StereoDisparity::Mode::AUTO );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set MODE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else if ( configuration.processingMode == PROCESSING_MODE_DL )
+        {
+            status = configMap.Set( StereoDisparity::ConfigId::MODE, StereoDisparity::Mode::DL );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set MODE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMap.Set( StereoDisparity::ConfigId::MODE, StereoDisparity::Mode::SGM );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set MODE: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+    }
+
+    return ret;
 }
 
 
@@ -553,9 +646,12 @@ QCStatus_e DepthFromStereo::ValidateImageDesc( const ImageDescriptor_t &imgDesc,
 }
 
 
-void DepthFromStereo::SetInitialFrameConfig( StereoDisparity::ConfigMap &configMapFrame,
-                                             const DepthFromStereo_Config_t &configuration )
+QCStatus_e DepthFromStereo::SetInitialFrameConfig( StereoDisparity::ConfigMap &configMapFrame,
+                                                   const DepthFromStereo_Config_t &configuration )
 {
+    QCStatus_e ret = QC_STATUS_OK;
+    ConfigMapStatus status = ConfigMapStatus::SUCCESS;
+
     noiseToleranceOffset.nOffsetPri = configuration.noiseOffsetPri;
     noiseToleranceOffset.nOffsetAux = configuration.noiseOffsetAux;
     noiseToleranceScale.nScalePri = configuration.noiseScalePri;
@@ -565,84 +661,315 @@ void DepthFromStereo::SetInitialFrameConfig( StereoDisparity::ConfigMap &configM
     penalties.nSmoothnessPenalty = configuration.smoothnessPenalty;
     penalties.nNeighborPenalty = configuration.neighborPenalty;
 
-    configMapFrame.Set( StereoDisparity::ConfigId::MAX_DISPARITY_RANGE,
-                        configuration.maxDisparityRange );
-    if ( configuration.disparityMapPrecision == DISP_MAP_PRECISION_FRAC_6BIT )
+    status = configMapFrame.Set( StereoDisparity::ConfigId::MAX_DISPARITY_RANGE,
+                                 configuration.maxDisparityRange );
+    if ( status != ConfigMapStatus::SUCCESS )
     {
-        configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_MAP_PRECISION,
-                            StereoDisparity::Precision::FRAC_6BIT );
-    }
-    else if ( configuration.disparityMapPrecision == DISP_MAP_PRECISION_FRAC_4BIT )
-    {
-        configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_MAP_PRECISION,
-                            StereoDisparity::Precision::FRAC_4BIT );
-    }
-    else
-    {
-        configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_MAP_PRECISION,
-                            StereoDisparity::Precision::INT );
+        QC_ERROR( "DepthFromStereo: Failed to set MAX_DISPARITY_RANGE: %d", status );
+        ret = QC_STATUS_FAIL;
     }
 
-    if ( configuration.refinementLevel == REFINEMENT_LEVEL_NONE )
+    if ( QC_STATUS_OK == ret )
     {
-        configMapFrame.Set( StereoDisparity::ConfigId::REFINEMENT_LEVEL,
-                            StereoDisparity::RefinementLevel::NONE );
-    }
-    else if ( configuration.refinementLevel == REFINEMENT_LEVEL_REFINED_L1 )
-    {
-        configMapFrame.Set( StereoDisparity::ConfigId::REFINEMENT_LEVEL,
-                            StereoDisparity::RefinementLevel::REFINED_L1 );
-    }
-    else
-    {
-        configMapFrame.Set( StereoDisparity::ConfigId::REFINEMENT_LEVEL,
-                            StereoDisparity::RefinementLevel::REFINED_L2 );
+        if ( configuration.disparityMapPrecision == DISP_MAP_PRECISION_FRAC_6BIT )
+        {
+            status = configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_MAP_PRECISION,
+                                         StereoDisparity::Precision::FRAC_6BIT );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set DISPARITY_MAP_PRECISION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else if ( configuration.disparityMapPrecision == DISP_MAP_PRECISION_FRAC_4BIT )
+        {
+            status = configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_MAP_PRECISION,
+                                         StereoDisparity::Precision::FRAC_4BIT );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set DISPARITY_MAP_PRECISION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_MAP_PRECISION,
+                                         StereoDisparity::Precision::INT );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set DISPARITY_MAP_PRECISION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
     }
 
-    configMapFrame.Set( StereoDisparity::ConfigId::CHROMA_PROC_EN, configuration.chromaProcEN );
-    configMapFrame.Set( StereoDisparity::ConfigId::NOISE_TOLERANCE_SCALE, &noiseToleranceScale );
-    configMapFrame.Set( StereoDisparity::ConfigId::NOISE_TOLERANCE_OFFSET, &noiseToleranceOffset );
-    configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_VARIANCE_TOLERANCE,
-                        configuration.disparityVarianceTolerance );
-    configMapFrame.Set( StereoDisparity::ConfigId::OCCLUSION_TOLERANCE,
-                        configuration.occlusionTolerance );
-    configMapFrame.Set( StereoDisparity::ConfigId::PENALTIES, &penalties );
-    configMapFrame.Set( StereoDisparity::ConfigId::MATCHING_COST_METRIC,
-                        configuration.matchingCostMetric );
-    configMapFrame.Set( StereoDisparity::ConfigId::TEXTURE_METRIC, configuration.textureMetric );
-    configMapFrame.Set( StereoDisparity::ConfigId::EDGE_ALIGN_METRIC,
-                        configuration.edgeAlignMetric );
-    configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_VARIANCE_METRIC,
-                        configuration.disparityVarianceMetric );
-    configMapFrame.Set( StereoDisparity::ConfigId::OCCLUSION_METRIC,
-                        configuration.occlusionMetric );
-    configMapFrame.Set( StereoDisparity::ConfigId::SEGMENTATION_THRESHOLD,
-                        configuration.segmentationThreshold );
-    configMapFrame.Set( StereoDisparity::ConfigId::IMAGE_SHARPNESS_THRESHOLD,
-                        configuration.imageSharpnessThreshold );
-    configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_EDGE_THRESHOLD,
-                        configuration.disparityEdgeThreshold );
-    configMapFrame.Set( StereoDisparity::ConfigId::REFINEMENT_THRESHOLD,
-                        configuration.refinementThreshold );
-    configMapFrame.Set( StereoDisparity::ConfigId::TEXTURE_THRESHOLD,
-                        configuration.textureThreshold );
-    configMapFrame.Set( StereoDisparity::ConfigId::MASK_LOW_TEXTURE_EN,
-                        configuration.maskLowTextureEn );
-    configMapFrame.Set( StereoDisparity::ConfigId::RECTIFICATION_ERR_TOLERANCE,
-                        configuration.rectificationErrTolerance );
-    if ( configuration.searchDirection == SEARCH_DIRECTION_L2R )
+    if ( QC_STATUS_OK == ret )
     {
-        configMapFrame.Set( StereoDisparity::ConfigId::SEARCH_DIRECTION,
-                            StereoDisparity::SearchDir::L2R );
+        if ( configuration.refinementLevel == REFINEMENT_LEVEL_NONE )
+        {
+            status = configMapFrame.Set( StereoDisparity::ConfigId::REFINEMENT_LEVEL,
+                                         StereoDisparity::RefinementLevel::NONE );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set REFINEMENT_LEVEL: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else if ( configuration.refinementLevel == REFINEMENT_LEVEL_REFINED_L1 )
+        {
+            status = configMapFrame.Set( StereoDisparity::ConfigId::REFINEMENT_LEVEL,
+                                         StereoDisparity::RefinementLevel::REFINED_L1 );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set REFINEMENT_LEVEL: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMapFrame.Set( StereoDisparity::ConfigId::REFINEMENT_LEVEL,
+                                         StereoDisparity::RefinementLevel::REFINED_L2 );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set REFINEMENT_LEVEL: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
     }
-    else
+
+    if ( QC_STATUS_OK == ret )
     {
-        configMapFrame.Set( StereoDisparity::ConfigId::SEARCH_DIRECTION,
-                            StereoDisparity::SearchDir::R2L );
+        status = configMapFrame.Set( StereoDisparity::ConfigId::CHROMA_PROC_EN,
+                                     configuration.chromaProcEN );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set CHROMA_PROC_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
     }
-    configMapFrame.Set( StereoDisparity::ConfigId::FAR_AWAY_DISPARITY_LIMIT,
-                        configuration.farAwayDisparityLimit );
-    configMapFrame.Set( StereoDisparity::ConfigId::IS_FIRST_REQUEST, configuration.isFirstRequest );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::NOISE_TOLERANCE_SCALE,
+                                     &noiseToleranceScale );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set NOISE_TOLERANCE_SCALE: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::NOISE_TOLERANCE_OFFSET,
+                                     &noiseToleranceOffset );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set NOISE_TOLERANCE_OFFSET: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_VARIANCE_TOLERANCE,
+                                     configuration.disparityVarianceTolerance );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set DISPARITY_VARIANCE_TOLERANCE: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::OCCLUSION_TOLERANCE,
+                                     configuration.occlusionTolerance );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set OCCLUSION_TOLERANCE: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::PENALTIES, &penalties );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set PENALTIES: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::MATCHING_COST_METRIC,
+                                     configuration.matchingCostMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set MATCHING_COST_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::TEXTURE_METRIC,
+                                     configuration.textureMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set TEXTURE_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::EDGE_ALIGN_METRIC,
+                                     configuration.edgeAlignMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set EDGE_ALIGN_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_VARIANCE_METRIC,
+                                     configuration.disparityVarianceMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set DISPARITY_VARIANCE_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::OCCLUSION_METRIC,
+                                     configuration.occlusionMetric );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set OCCLUSION_METRIC: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::SEGMENTATION_THRESHOLD,
+                                     configuration.segmentationThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set SEGMENTATION_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::IMAGE_SHARPNESS_THRESHOLD,
+                                     configuration.imageSharpnessThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set IMAGE_SHARPNESS_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::DISPARITY_EDGE_THRESHOLD,
+                                     configuration.disparityEdgeThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set DISPARITY_EDGE_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::REFINEMENT_THRESHOLD,
+                                     configuration.refinementThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set REFINEMENT_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::TEXTURE_THRESHOLD,
+                                     configuration.textureThreshold );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set TEXTURE_THRESHOLD: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::MASK_LOW_TEXTURE_EN,
+                                     configuration.maskLowTextureEn );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set MASK_LOW_TEXTURE_EN: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::RECTIFICATION_ERR_TOLERANCE,
+                                     configuration.rectificationErrTolerance );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set RECTIFICATION_ERR_TOLERANCE: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        if ( configuration.searchDirection == SEARCH_DIRECTION_L2R )
+        {
+            status = configMapFrame.Set( StereoDisparity::ConfigId::SEARCH_DIRECTION,
+                                         StereoDisparity::SearchDir::L2R );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set SEARCH_DIRECTION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+        else
+        {
+            status = configMapFrame.Set( StereoDisparity::ConfigId::SEARCH_DIRECTION,
+                                         StereoDisparity::SearchDir::R2L );
+            if ( status != ConfigMapStatus::SUCCESS )
+            {
+                QC_ERROR( "DepthFromStereo: Failed to set SEARCH_DIRECTION: %d", status );
+                ret = QC_STATUS_FAIL;
+            }
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        status = configMapFrame.Set( StereoDisparity::ConfigId::FAR_AWAY_DISPARITY_LIMIT,
+                                     configuration.farAwayDisparityLimit );
+        if ( status != ConfigMapStatus::SUCCESS )
+        {
+            QC_ERROR( "DepthFromStereo: Failed to set FAR_AWAY_DISPARITY_LIMIT: %d", status );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    return ret;
 }
 
 QCStatus_e DepthFromStereo::RegisterMemory( const BufferDescriptor_t &bufferDesc, Buffer &pBuff )
@@ -755,8 +1082,15 @@ QCStatus_e DepthFromStereo::Initialize( QCNodeInit_t &config )
 
     if ( ret == QC_STATUS_OK )
     {
-        UpdateIconfig( configMap, configuration );
-        m_state = QC_OBJECT_STATE_READY;
+        ret = UpdateIconfig( configMap, configuration );
+        if ( ret == QC_STATUS_OK )
+        {
+            m_state = QC_OBJECT_STATE_READY;
+        }
+        else
+        {
+            QC_ERROR( "DepthFromStereo: UpdateIconfig failed" );
+        }
     }
 
 
@@ -803,8 +1137,15 @@ QCStatus_e DepthFromStereo::Start()
         }
         if ( ret == QC_STATUS_OK )
         {
-            SetInitialFrameConfig( configMap, configuration );
-            m_state = QC_OBJECT_STATE_RUNNING;
+            ret = SetInitialFrameConfig( configMap, configuration );
+            if ( ret == QC_STATUS_OK )
+            {
+                m_state = QC_OBJECT_STATE_RUNNING;
+            }
+            else
+            {
+                QC_ERROR( "DepthFromStereo: SetInitialFrameConfig failed" );
+            }
         }
     }
 

@@ -31,11 +31,7 @@ set_property( TARGET QCNodeVideoCodec PROPERTY LINKER_LANGUAGE CXX )
 set_property( TARGET QCNodeVideoCodec PROPERTY POSITION_INDEPENDENT_CODE ON )
 
 target_include_directories( QCNodeVideoCodec PUBLIC ${HEADERS_DIR} )
-
 target_link_libraries( QCNodeVideoCodec PUBLIC ${TARGET_LIBRARIES} )
-
 target_compile_options( QCNodeVideoCodec PRIVATE -Wno-error=deprecated-declarations )
-
 install(TARGETS QCNodeVideoCodec DESTINATION lib)
-
 install( FILES ${VIDEOCODEC_HEADERS} DESTINATION include/QC/Library/VideoCodec )

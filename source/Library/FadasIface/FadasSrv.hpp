@@ -11,9 +11,9 @@
 #pragma weak remote_session_control
 #include "AEEStdErr.h"
 #include <remote.h>
+#include "FadasIfaceSafe.hpp"
 extern "C"
 {
-#include "FadasIface.h"
 #include "fastrpc_api.h"
 }
 #include <dlfcn.h>

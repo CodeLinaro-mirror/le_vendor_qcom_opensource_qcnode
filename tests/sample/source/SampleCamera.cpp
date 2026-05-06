@@ -11,6 +11,30 @@ namespace sample
 SampleCamera::SampleCamera() {}
 SampleCamera ::~SampleCamera() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )> SampleCamera::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SampleCamera::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SampleCamera::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    CameraFrameDescriptor_t camFrameDesc;
+    std::unique_lock<std::mutex> lck( m_mutex );
+    m_condVar.wait( lck );
+
+    if ( !m_camFrameQueue.empty() )
+    {
+        camFrameDesc = m_camFrameQueue.front();
+        m_camFrameQueue.pop();
+        lck.unlock();
+        ProcessFrame( &camFrameDesc );
+    }
+}
+#endif
+
 void SampleCamera::ProcessDoneCb( const QCNodeEventInfo_t &eventInfo )
 {
     QCStatus_e status = QC_STATUS_OK;
@@ -276,7 +300,14 @@ QCStatus_e SampleCamera::Start()
     if ( QC_STATUS_OK == ret )
     {
         m_stop = false;
-        m_thread = std::thread( &SampleCamera::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        if ( !m_bOrchestratorEnabled )
+        {
+#endif
+            m_thread = std::thread( &SampleCamera::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        }
+#endif
     }
 
     return ret;
@@ -387,10 +418,18 @@ QCStatus_e SampleCamera::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+    m_condVar.notify_all();
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     CameraFrameDescriptor_t camFrameDesc;
     while ( !m_camFrameQueue.empty() )

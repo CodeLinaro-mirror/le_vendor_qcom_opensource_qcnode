@@ -113,7 +113,10 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    const virtual std::string& GetOptions( );
+    const virtual std::string& GetOptions( )
+    {
+        return m_options;
+    }
 
     /**
      * @brief Get the Configuration Structure.
@@ -126,7 +129,6 @@ public:
 
 private:
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors );
-    QCStatus_e ApplyDynamicConfig( DataTree &dt, std::string &errors );
 
     VideoDecoder_Config_t m_config;
     std::string m_options = "{}";

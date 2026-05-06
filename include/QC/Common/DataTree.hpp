@@ -241,6 +241,7 @@ T DataTree::Get( const std::string &key, T dv )
         else
         {
             bHasKey = false;
+            break;
         }
     }
 
@@ -284,6 +285,7 @@ std::vector<T> DataTree::Get( const std::string &key, std::vector<T> dv )
         else
         {
             bHasKey = false;
+            break;
         }
     }
 

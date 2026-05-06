@@ -159,14 +159,27 @@ void SampleFrameSync::threadWindowMain()
                         outFrames.Add( frame );
                     }
                 }
-                if ( m_perms.size() == outFrames.frames.size() )
+                if ( ( m_perms.size() > 0 ) && ( m_perms.size() <= outFrames.frames.size() ) )
                 {
                     DataFrames_t newFrames;
                     for ( auto i : m_perms )
                     {
-                        newFrames.Add( outFrames.frames[i] );
+                        if ( i < outFrames.frames.size() )
+                        {
+                            newFrames.Add( outFrames.frames[i] );
+                        }
+                        else
+                        {
+                            QC_ERROR( "perms index %" PRIu32 " out of range %" PRIu64, i,
+                                      outFrames.frames.size() );
+                            ret = QC_STATUS_OUT_OF_BOUND;
+                            break;
+                        }
                     }
-                    m_pub.Publish( newFrames );
+                    if ( QC_STATUS_OK == ret )
+                    {
+                        m_pub.Publish( newFrames );
+                    }
                 }
                 else
                 {

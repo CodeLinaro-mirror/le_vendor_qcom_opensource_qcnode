@@ -918,18 +918,21 @@ void FadasSrv::DeregBuf( void *pBuffer )
                     QC_ERROR( "Failed to FadasIface_FadasDeregBuf %p(%d, %llu): ret = %x\n", ptr,
                               fd, size, retVal );
                 }
+
                 retVal = FadasIface_munmap( handle64, fd, (uint32_t) size );
                 if ( AEE_SUCCESS != retVal )
                 {
                     QC_ERROR( "Failed to FadasIface_munmap %p(%d, %llu): ret = %x\n", ptr, fd, size,
                               retVal );
-                    retVal = fastrpc_munmap( extDomainId, fd, ptr, size );
-                    if ( AEE_SUCCESS != retVal )
-                    {
-                        QC_ERROR( "Failed to fastrpc_munmap %p(%d, %llu): ret = %x\n", ptr, fd,
-                                  size, retVal );
-                    }
                 }
+
+                retVal = fastrpc_munmap( extDomainId, fd, ptr, size );
+                if ( AEE_SUCCESS != retVal )
+                {
+                    QC_ERROR( "Failed to fastrpc_munmap %p(%d, %llu): ret = %x\n", ptr, fd, size,
+                              retVal );
+                }
+
                 remote_register_buf_v2( extDomainId, ptr, size, -1 );
             }
             else if ( QC_PROCESSOR_GPU == m_processor )

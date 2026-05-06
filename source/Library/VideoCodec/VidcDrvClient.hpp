@@ -89,8 +89,8 @@ typedef void ( *VideoCodec_InFrameCallback_t )( VideoFrameDescriptor &inFrameDes
 typedef void ( *VideoCodec_OutFrameCallback_t )( VideoFrameDescriptor &outFrameDesc,
                                                  void *pPrivData );
 /** @brief callback for event */
-typedef void ( *VideoCodec_EventCallback_t )( VideoCodec_EventType_e eventId,
-                                              const void *pEvent, void *pPrivData );
+typedef void ( *VideoCodec_EventCallback_t )( VideoCodec_EventType_e eventId, const void *pEvent,
+                                              void *pPrivData );
 
 typedef struct VidcNodeBase_Config VidcNodeBase_Config_t;
 
@@ -104,7 +104,7 @@ public:
     ~VidcDrvClient() = default;
 
     void Init( const string &name, Logger_Level_e level, VideoEncDecType_e type,
-               const VidcNodeBase_Config_t &config);
+               const VidcNodeBase_Config_t &config );
 
     /**
      * @brief open driver and register callback
@@ -120,7 +120,7 @@ public:
 
     QCStatus_e InitDriver( const VidcCodecMeta_t &meta );
 
-    QCStatus_e GetDrvProperty( uint32_t id, uint32_t nPktSize, const uint8_t &pkt );
+    QCStatus_e GetDrvProperty( uint32_t id, uint32_t nPktSize, uint8_t &pkt );
     QCStatus_e SetDrvProperty( uint32_t id, uint32_t nPktSize, const uint8_t &pkt );
 
     QCStatus_e LoadResources();
@@ -136,8 +136,9 @@ public:
      *       from the driver.
      * @note API type: Synchronous
      */
-    QCStatus_e SetBuffer( VideoCodec_BufType_e bufferType,
-                          const std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> &buffers );
+    QCStatus_e
+    SetBuffer( VideoCodec_BufType_e bufferType,
+               const std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> &buffers );
 
     /**
      * @brief: Passing an input video buffer (frame) for processing.
@@ -155,12 +156,13 @@ public:
     QCStatus_e FillBuffer( VideoFrameDescriptor &frameDesc );
 
     /**
-    * @brief: Request freeing/de-registering of a single buffer.
-    *         Driver would de-register buffer address from driver buffer pool.
-    * @note:  API type: Synchronous.
-    */
-    QCStatus_e FreeBuffers( VideoCodec_BufType_e bufferType,
-                            const std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> &buffers );
+     * @brief: Request freeing/de-registering of a single buffer.
+     *         Driver would de-register buffer address from driver buffer pool.
+     * @note:  API type: Synchronous.
+     */
+    QCStatus_e
+    FreeBuffers( VideoCodec_BufType_e bufferType,
+                 const std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> &buffers );
 
     QCStatus_e StopDecoder();
     QCStatus_e StopEncoder();
@@ -168,7 +170,8 @@ public:
     void CloseDriver();
 
     QCStatus_e SetDynamicMode( VideoCodec_BufType_e type, bool mode );
-    QCStatus_e NegotiateBufferReq( VideoCodec_BufType_e bufType, uint32_t &bufNum, uint32_t &bufSize );
+    QCStatus_e NegotiateBufferReq( VideoCodec_BufType_e bufType, uint32_t &bufNum,
+                                   uint32_t &bufSize );
     void PrintCodecConfig();
 
     VideoEncDecType_e GetType() const { return m_encDecType; }
@@ -220,13 +223,15 @@ private:
     typedef struct
     {
         VideoFrameDescriptor_t inFrameDesc;
-        bool bUsedFlag = false; /**< indicate whether sharedBuffer is using by driver or available */
+        bool bUsedFlag =
+                false; /**< indicate whether sharedBuffer is using by driver or available */
     } VideoCodec_InputInfo_t;
 
     typedef struct
     {
         VideoFrameDescriptor_t outFrameDesc;
-        bool bUsedFlag = false; /**< indicate whether sharedBuffer is using by driver or available */
+        bool bUsedFlag =
+                false; /**< indicate whether sharedBuffer is using by driver or available */
     } VideoCodec_OutputInfo_t;
 
     uint32_t m_bufNum[VIDEO_CODEC_BUF_TYPE_NUM] = { 0, 0 };
@@ -243,8 +248,14 @@ private:
 
 private:
     QC_DECLARE_LOGGER();
+
+public:
+    static int CallDeviceCallback( uint8_t *pMsg, uint32_t length, void *pCdata );
 };
 
+//#if !defined NDEBUG
+extern void vidc_print_all_error_messages();
+//#endif
 }   // namespace Node
 }   // namespace QC
 

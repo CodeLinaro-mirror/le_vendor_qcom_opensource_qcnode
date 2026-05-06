@@ -14,6 +14,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define _QAIC_FARF(level, fmt, ...) \
+    do { \
+        printf(fmt, ##__VA_ARGS__); \
+    } while (0)
+
 typedef struct _heap _heap;
 struct _heap
 {
@@ -259,7 +264,7 @@ struct Parameter
 };
 
 #define SLIM_IFPTR32( is32, is64 ) ( sizeof( uintptr_t ) == 4 ? ( is32 ) : ( is64 ) )
-#define SLIM_SCALARS_IS_DYNAMIC( u ) ( ( ( u ) & 0x00ffffff ) == 0x00ffffff )
+#define SLIM_SCALARS_IS_DYNAMIC( u ) ( ( (u) &0x00ffffff ) == 0x00ffffff )
 
 typedef struct Method Method;
 struct Method
@@ -317,11 +322,11 @@ static const Type types[10] = {
         { 0x8, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x8 },
         { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4 },
         { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4 },
-        { 0x30, { { (const uintptr_t) &( structTypes[0] ), 0 } }, 6, 0x4 },
+        { 0x30, { { ( const uintptr_t ) & ( structTypes[0] ), 0 } }, 6, 0x4 },
         { 0x4, { { 0, 0 } }, 3, 0x4 },
-        { 0x10, { { (const uintptr_t) &( types[3] ), (const uintptr_t) 0x4 } }, 8, 0x4 },
-        { 0x10, { { (const uintptr_t) &( structTypes[3] ), 0 } }, 6, 0x4 },
-        { 0xc, { { (const uintptr_t) &( structTypes[1] ), 0 } }, 6, 0x4 },
+        { 0x10, { { ( const uintptr_t ) & ( types[3] ), (const uintptr_t) 0x4 } }, 8, 0x4 },
+        { 0x10, { { ( const uintptr_t ) & ( structTypes[3] ), 0 } }, 6, 0x4 },
+        { 0xc, { { ( const uintptr_t ) & ( structTypes[1] ), 0 } }, 6, 0x4 },
         { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4 } };
 static const Parameter parameters[26] = {
         { SLIM_IFPTR32( 0x8, 0x10 ),
@@ -343,172 +348,181 @@ static const Parameter parameters[26] = {
           0,
           0 },
         { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4, 3, 0 },
+        { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4, 3, 0 },
         { SLIM_IFPTR32( 0x8, 0x10 ),
-          { { (const uintptr_t) &( types[0] ), (const uintptr_t) 0x0 } },
+          { { ( const uintptr_t ) & ( types[0] ), (const uintptr_t) 0x0 } },
           9,
           SLIM_IFPTR32( 0x4, 0x8 ),
           3,
           0 },
-        { 0x8, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x8, 4, 0 },
         { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4, 0, 0 },
+        { 0x8, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x8, 4, 0 },
         { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4, 0, 0 },
         { 0x4, { { 0, 0 } }, 3, 0x4, 0, 0 },
         { 0x1, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x1, 0, 0 },
         { 0x8, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x8, 0, 0 },
         { SLIM_IFPTR32( 0x8, 0x10 ),
-          { { (const uintptr_t) &( types[1] ), (const uintptr_t) 0x0 } },
+          { { ( const uintptr_t ) & ( types[1] ), (const uintptr_t) 0x0 } },
           9,
           SLIM_IFPTR32( 0x4, 0x8 ),
           0,
           0 },
         { SLIM_IFPTR32( 0x8, 0x10 ),
-          { { (const uintptr_t) &( types[2] ), (const uintptr_t) 0x0 } },
+          { { ( const uintptr_t ) & ( types[2] ), (const uintptr_t) 0x0 } },
           9,
           SLIM_IFPTR32( 0x4, 0x8 ),
           0,
           0 },
         { SLIM_IFPTR32( 0x8, 0x10 ),
-          { { (const uintptr_t) &( types[3] ), (const uintptr_t) 0x0 } },
+          { { ( const uintptr_t ) & ( types[3] ), (const uintptr_t) 0x0 } },
           9,
           SLIM_IFPTR32( 0x4, 0x8 ),
           0,
           0 },
         { SLIM_IFPTR32( 0x8, 0x10 ),
-          { { (const uintptr_t) &( types[4] ), (const uintptr_t) 0x0 } },
+          { { ( const uintptr_t ) & ( types[4] ), (const uintptr_t) 0x0 } },
           9,
           SLIM_IFPTR32( 0x4, 0x8 ),
           0,
           0 },
-        { 0x30, { { (const uintptr_t) &( structTypes[0] ), 0 } }, 6, 0x4, 0, 0 },
+        { 0x30, { { ( const uintptr_t ) & ( structTypes[0] ), 0 } }, 6, 0x4, 0, 0 },
         { SLIM_IFPTR32( 0x8, 0x10 ),
-          { { (const uintptr_t) &( types[7] ), (const uintptr_t) 0x0 } },
+          { { ( const uintptr_t ) & ( types[7] ), (const uintptr_t) 0x0 } },
           9,
           SLIM_IFPTR32( 0x4, 0x8 ),
           0,
           0 },
         { SLIM_IFPTR32( 0x8, 0x10 ),
-          { { (const uintptr_t) &( types[8] ), (const uintptr_t) 0x0 } },
+          { { ( const uintptr_t ) & ( types[8] ), (const uintptr_t) 0x0 } },
           9,
           SLIM_IFPTR32( 0x4, 0x8 ),
           0,
           0 },
         { 0x4, { { 0, 0 } }, 3, 0x4, 0, 0 },
-        { 0xc, { { (const uintptr_t) &( structTypes[1] ), 0 } }, 6, 0x4, 0, 0 },
+        { 0xc, { { ( const uintptr_t ) & ( structTypes[1] ), 0 } }, 6, 0x4, 0, 0 },
         { 0x8, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x8, 3, 0 },
         { 0x8, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x8, 0, 0 },
-        { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4, 3, 0 },
-        { 0x18, { { (const uintptr_t) &( structTypes[2] ), 0 } }, 6, 0x4, 0, 0 },
+        { 0x18, { { ( const uintptr_t ) & ( structTypes[2] ), 0 } }, 6, 0x4, 0, 0 },
         { 0x4, { { (const uintptr_t) 0, (const uintptr_t) 1 } }, 2, 0x4, 0, 0 },
         { SLIM_IFPTR32( 0x8, 0x10 ),
-          { { (const uintptr_t) &( types[0] ), (const uintptr_t) 0x0 } },
+          { { ( const uintptr_t ) & ( types[0] ), (const uintptr_t) 0x0 } },
           9,
           SLIM_IFPTR32( 0x4, 0x8 ),
           0,
           0 } };
-static const Parameter *const parameterArrays[86] = {
+static const Parameter *const parameterArrays[106] = {
         ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[6] ) ),
         ( &( parameters[6] ) ),  ( &( parameters[23] ) ), ( &( parameters[24] ) ),
         ( &( parameters[24] ) ), ( &( parameters[24] ) ), ( &( parameters[24] ) ),
         ( &( parameters[24] ) ), ( &( parameters[24] ) ), ( &( parameters[24] ) ),
         ( &( parameters[24] ) ), ( &( parameters[25] ) ), ( &( parameters[6] ) ),
-        ( &( parameters[20] ) ), ( &( parameters[21] ) ), ( &( parameters[6] ) ),
-        ( &( parameters[7] ) ),  ( &( parameters[6] ) ),  ( &( parameters[6] ) ),
-        ( &( parameters[7] ) ),  ( &( parameters[6] ) ),  ( &( parameters[6] ) ),
-        ( &( parameters[7] ) ),  ( &( parameters[6] ) ),  ( &( parameters[6] ) ),
-        ( &( parameters[22] ) ), ( &( parameters[11] ) ), ( &( parameters[11] ) ),
-        ( &( parameters[12] ) ), ( &( parameters[13] ) ), ( &( parameters[14] ) ),
-        ( &( parameters[7] ) ),  ( &( parameters[6] ) ),  ( &( parameters[15] ) ),
-        ( &( parameters[16] ) ), ( &( parameters[17] ) ), ( &( parameters[5] ) ),
+        ( &( parameters[21] ) ), ( &( parameters[6] ) ),  ( &( parameters[4] ) ),
+        ( &( parameters[22] ) ), ( &( parameters[6] ) ),  ( &( parameters[8] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[8] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[8] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[4] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[4] ) ),  ( &( parameters[7] ) ),
         ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[6] ) ),
-        ( &( parameters[6] ) ),  ( &( parameters[7] ) ),  ( &( parameters[7] ) ),
-        ( &( parameters[6] ) ),  ( &( parameters[8] ) ),  ( &( parameters[9] ) ),
-        ( &( parameters[19] ) ), ( &( parameters[19] ) ), ( &( parameters[19] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[8] ) ),  ( &( parameters[8] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[9] ) ),  ( &( parameters[10] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[4] ) ),  ( &( parameters[20] ) ),
+        ( &( parameters[20] ) ), ( &( parameters[20] ) ), ( &( parameters[6] ) ),
         ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[6] ) ),
-        ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[20] ) ),
-        ( &( parameters[21] ) ), ( &( parameters[6] ) ),  ( &( parameters[12] ) ),
-        ( &( parameters[13] ) ), ( &( parameters[13] ) ), ( &( parameters[9] ) ),
-        ( &( parameters[9] ) ),  ( &( parameters[22] ) ), ( &( parameters[5] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[21] ) ), ( &( parameters[6] ) ),
+        ( &( parameters[4] ) ),  ( &( parameters[12] ) ), ( &( parameters[12] ) ),
+        ( &( parameters[13] ) ), ( &( parameters[14] ) ), ( &( parameters[15] ) ),
+        ( &( parameters[8] ) ),  ( &( parameters[6] ) ),  ( &( parameters[16] ) ),
+        ( &( parameters[17] ) ), ( &( parameters[18] ) ), ( &( parameters[6] ) ),
+        ( &( parameters[22] ) ), ( &( parameters[6] ) ),  ( &( parameters[13] ) ),
+        ( &( parameters[14] ) ), ( &( parameters[14] ) ), ( &( parameters[10] ) ),
+        ( &( parameters[10] ) ), ( &( parameters[4] ) ),  ( &( parameters[6] ) ),
+        ( &( parameters[4] ) ),  ( &( parameters[7] ) ),  ( &( parameters[6] ) ),
         ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[6] ) ),
-        ( &( parameters[6] ) ),  ( &( parameters[8] ) ),  ( &( parameters[9] ) ),
-        ( &( parameters[18] ) ), ( &( parameters[7] ) ),  ( &( parameters[6] ) ),
-        ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[5] ) ),
-        ( &( parameters[6] ) ),  ( &( parameters[8] ) ),  ( &( parameters[0] ) ),
-        ( &( parameters[1] ) ),  ( &( parameters[10] ) ), ( &( parameters[4] ) ),
-        ( &( parameters[3] ) ),  ( &( parameters[2] ) ) };
+        ( &( parameters[9] ) ),  ( &( parameters[10] ) ), ( &( parameters[6] ) ),
+        ( &( parameters[4] ) ),  ( &( parameters[19] ) ), ( &( parameters[8] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[6] ) ),  ( &( parameters[6] ) ),
+        ( &( parameters[6] ) ),  ( &( parameters[7] ) ),  ( &( parameters[6] ) ),
+        ( &( parameters[9] ) ),  ( &( parameters[6] ) ),  ( &( parameters[4] ) ),
+        ( &( parameters[5] ) ),  ( &( parameters[6] ) ),  ( &( parameters[4] ) ),
+        ( &( parameters[11] ) ), ( &( parameters[6] ) ),  ( &( parameters[3] ) ),
+        ( &( parameters[4] ) ),  ( &( parameters[0] ) ),  ( &( parameters[1] ) ),
+        ( &( parameters[2] ) ) };
 static const Method methods[18] = {
         { REMOTE_SCALARS_MAKEX( 0, 0, 0x2, 0x0, 0x0, 0x1 ), 0x4, 0x0, 2, 2,
-          ( &( parameterArrays[80] ) ), 0x4, 0x1 },
+          ( &( parameterArrays[103] ) ), 0x4, 0x1 },
         { REMOTE_SCALARS_MAKEX( 0, 0, 0x0, 0x0, 0x1, 0x0 ), 0x0, 0x0, 1, 1,
-          ( &( parameterArrays[85] ) ), 0x1, 0x0 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x0, 0x1, 0x0, 0x0 ), 0x0, 0x4, 1, 1,
-          ( &( parameterArrays[84] ) ), 0x1, 0x4 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x4, 0x0, 3, 1,
-          ( &( parameterArrays[83] ) ), 0x4, 0x1 },
+          ( &( parameterArrays[105] ) ), 0x1, 0x0 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x0, 0x1, 0x0, 0x0 ), 0x0, 0x8, 2, 2,
+          ( &( parameterArrays[101] ) ), 0x1, 0x4 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x2, 0x0, 0x0 ), 0x8, 0x4, 5, 3,
+          ( &( parameterArrays[96] ) ), 0x4, 0x4 },
         { REMOTE_SCALARS_MAKEX( 0, 0, 0x0, 0x0, 0x0, 0x0 ), 0x0, 0x0, 0, 0, 0, 0x0, 0x0 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x29, 0x8, 10, 10,
-          ( &( parameterArrays[38] ) ), 0x8, 0x8 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x1d, 0x8, 7, 7,
-          ( &( parameterArrays[65] ) ), 0x8, 0x8 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0x8, 0x0, 3, 1,
-          ( &( parameterArrays[82] ) ), 0x8, 0x0 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x10, 0x8, 3, 3,
-          ( &( parameterArrays[77] ) ), 0x8, 0x8 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x8, 0x0, 0x0, 0x0 ), 0x54, 0x0, 17, 10,
-          ( &( parameterArrays[28] ) ), 0x4, 0x0 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0x8, 0x0, 2, 2,
-          ( &( parameterArrays[18] ) ), 0x4, 0x0 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x30, 0xc, 12, 12,
+          ( &( parameterArrays[32] ) ), 0x8, 0x8 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x24, 0xc, 9, 9,
+          ( &( parameterArrays[76] ) ), 0x8, 0x8 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0xc, 0x0, 4, 2,
+          ( &( parameterArrays[99] ) ), 0x8, 0x0 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x14, 0xc, 5, 5,
+          ( &( parameterArrays[91] ) ), 0x8, 0x8 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x8, 0x0, 0x0, 0x0 ), 0x58, 0x0, 18, 11,
+          ( &( parameterArrays[55] ) ), 0x4, 0x0 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0xc, 0x0, 3, 3,
+          ( &( parameterArrays[20] ) ), 0x4, 0x0 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0x18, 0x0, 6, 6,
+          ( &( parameterArrays[85] ) ), 0x4, 0x0 },
         { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0x14, 0x0, 5, 5,
-          ( &( parameterArrays[72] ) ), 0x4, 0x0 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0x10, 0x0, 4, 4,
-          ( &( parameterArrays[73] ) ), 0x4, 0x0 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x38, 0x8, 9, 9,
-          ( &( parameterArrays[48] ) ), 0x4, 0x8 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x30, 0x4, 14, 12,
-          ( &( parameterArrays[16] ) ), 0x8, 0x4 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0x8, 0x0, 3, 1,
-          ( &( parameterArrays[16] ) ), 0x8, 0x0 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x2, 0x1, 0x0, 0x0 ), 0x50, 0x8, 17, 16,
+          ( &( parameterArrays[86] ) ), 0x4, 0x0 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x3c, 0xc, 11, 11,
+          ( &( parameterArrays[44] ) ), 0x4, 0x8 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x1, 0x0, 0x0 ), 0x34, 0x8, 16, 14,
+          ( &( parameterArrays[18] ) ), 0x8, 0x4 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x1, 0x0, 0x0, 0x0 ), 0xc, 0x0, 4, 2,
+          ( &( parameterArrays[18] ) ), 0x8, 0x0 },
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x2, 0x1, 0x0, 0x0 ), 0x54, 0xc, 19, 18,
           ( &( parameterArrays[0] ) ), 0x4, 0x8 },
-        { REMOTE_SCALARS_MAKEX( 0, 0, 0x4, 0x1, 0x0, 0x0 ), 0x1a, 0x4, 13, 8,
-          ( &( parameterArrays[57] ) ), 0x8, 0x4 } };
+        { REMOTE_SCALARS_MAKEX( 0, 0, 0x4, 0x1, 0x0, 0x0 ), 0x20, 0x8, 15, 10,
+          ( &( parameterArrays[66] ) ), 0x8, 0x4 } };
 static const Method *const methodArrays[21] = {
         &( methods[0] ),  &( methods[1] ),  &( methods[2] ),  &( methods[3] ),  &( methods[4] ),
         &( methods[5] ),  &( methods[6] ),  &( methods[7] ),  &( methods[8] ),  &( methods[7] ),
         &( methods[9] ),  &( methods[10] ), &( methods[10] ), &( methods[11] ), &( methods[12] ),
         &( methods[13] ), &( methods[14] ), &( methods[15] ), &( methods[16] ), &( methods[17] ),
         &( methods[15] ) };
-static const char strings[1132] =
-        "FadasRemap_CreateMapNoUndistortion\0FadasRemap_CreateMapFromMap\0FadasRemap_"
-        "DestroyWorkers\0FadasRemap_CreateWorkers\0FadasRemap_"
-        "DestroyMap\0ExtractBBoxDestroy\0PointPillarDestroy\0ExtractBBoxCreate\0PointPillarCreate\0"
-        "outFeatureOffset\0numOutFeatureDim\0FadasRemap_"
-        "RunMT\0maxNumPtsPerPlr\0numInFeatureDim\0ExtractBBoxRun\0outFeatureSize\0PointPillarRun\0b"
-        "MapPtsToBBox\0outPlrsOffset\0FadasDeregBuf\0maxNumFilter\0maxNumDetOut\0fdOutFeature\0actu"
-        "alHeight\0FadasVersion\0bBBoxFilter\0labelSelect\0threshScore\0pNumOutPlrs\0outPlrsSize\0i"
-        "nPtsOffset\0maxNumInPts\0FadasRegBuf\0borderConst\0FadasDeInit\0pNumDetOut\0phPostProc\0ma"
-        "xCentreZ\0maxCentreY\0maxCentreX\0minCentreZ\0minCentreY\0minCentreX\0maxNumPlrs\0workerPt"
-        "rs\0worker_"
+static const char strings[1222] =
+        "FadasRemap_CreateMapNoUndistortionSafe\0FadasRemap_CreateMapFromMapSafe\0FadasRemap_"
+        "DestroyWorkersSafe\0FadasRemap_CreateWorkersSafe\0FadasRemap_"
+        "DestroyMapSafe\0ExtractBBoxDestroySafe\0PointPillarDestroySafe\0ExtractBBoxCreateSafe\0Poi"
+        "ntPillarCreateSafe\0FadasRemap_"
+        "RunMTSafe\0ExtractBBoxRunSafe\0PointPillarRunSafe\0FadasDeregBufSafe\0outFeatureOffset\0nu"
+        "mOutFeatureDim\0FadasVersionSafe\0maxNumPtsPerPlr\0numInFeatureDim\0FadasRegBufSafe\0Fadas"
+        "DeInitSafe\0outFeatureSize\0bMapPtsToBBox\0outPlrsOffset\0FadasInitSafe\0maxNumFilter\0max"
+        "NumDetOut\0fdOutFeature\0actualHeight\0bBBoxFilter\0labelSelect\0threshScore\0pNumOutPlrs"
+        "\0outPlrsSize\0inPtsOffset\0maxNumInPts\0borderConst\0pNumDetOut\0phPostProc\0maxCentreZ\0"
+        "maxCentreY\0maxCentreX\0minCentreZ\0minCentreY\0minCentreX\0maxNumPlrs\0munmapSafe\0worker"
+        "Ptrs\0worker_"
         "ptr\0threshIOU\0cellSizeY\0cellSizeX\0fdOutPlrs\0inPtsSize\0phPreProc\0pMaxRange\0pMinRang"
-        "e\0batchSize\0bufOffset\0numPlanes\0imgFormat\0mapStride\0mapHeight\0camHeight\0FadasInit"
-        "\0numClass\0pPlrSize\0dstProps\0srcProps\0nThreads\0mapWidth\0camWidth\0fdInPts\0bufType\0"
-        "bufSize\0dstROIs\0offsets\0mapPtrs\0version\0numPts\0munmap\0normlz\0dstLen\0stride\0forma"
-        "t\0height\0srcFds\0mapYFd\0mapXFd\0mapPtr\0status\0sizes\0pGrid\0bufFd\0dstFd\0width\0clos"
-        "e\0mmap\0open\0fds\0brY\0brX\0tlY\0tlX\0add\0mul\0sub\0uri\0";
-static const uint16_t methodStrings[152] = {
-        244,  664,  949,  1014, 941,  873,  1073, 1007, 1000, 993,  786,  419,  1067, 986,
-        864,  1073, 1007, 1000, 993,  786,  419,  933,  350,  153,  1073, 1007, 979,  1123,
-        1119, 1115, 174,  517,  277,  393,  846,  1055, 1111, 1107, 1103, 1099, 706,  696,
-        469,  686,  642,  631,  620,  609,  598,  587,  457,  380,  576,  192,  855,  350,
-        153,  984,  756,  350,  153,  984,  746,  350,  153,  984,  517,  277,  653,  261,
-        227,  736,  323,  737,  965,  909,  505,  726,  716,  352,  493,  406,  210,  308,
-        481,  35,   1035, 900,  826,  891,  816,  1028, 1021, 806,  796,  541,  293,  577,
-        965,  1095, 941,  1049, 338,  445,  565,  0,    1035, 900,  826,  891,  816,  796,
-        541,  529,  917,  1061, 925,  776,  766,  366,  1061, 925,  776,  766,  89,   675,
-        882,  796,  972,  1061, 925,  1085, 1061, 925,  1090, 1127, 898,  136,  577,  155,
-        737,  63,   675,  114,  1035, 432,  957,  836,  1042, 1079, 898,  553 };
-static const uint16_t methodStringsArrays[21] = { 134, 149, 147, 145, 151, 85,  105,
-                                                  143, 124, 141, 0,   131, 128, 113,
-                                                  119, 53,  72,  139, 30,  96,  137 };
+        "e\0batchSize\0bufOffset\0numPlanes\0imgFormat\0mapStride\0mapHeight\0camHeight\0numClass\0"
+        "pPlrSize\0mmapSafe\0dstProps\0srcProps\0nThreads\0mapWidth\0camWidth\0fdInPts\0bufType\0bu"
+        "fSize\0dstROIs\0offsets\0mapPtrs\0version\0numPts\0normlz\0dstLen\0stride\0format\0height"
+        "\0srcFds\0mapYFd\0mapXFd\0mapPtr\0status\0sizes\0pGrid\0bufFd\0dstFd\0width\0crcTx\0crcRx"
+        "\0close\0open\0fds\0brY\0brX\0tlY\0tlX\0add\0mul\0sub\0uri\0y\0";
+static const uint16_t methodStrings[178] = {
+        246,  753,  1037, 1095, 1029, 961,  1154, 1088, 1081, 1074, 875,  534,  1148, 1067, 952,
+        1154, 1088, 1081, 1074, 875,  534,  1021, 465,  1219, 1154, 1088, 1060, 1211, 1207, 1203,
+        1160, 202,  619,  390,  508,  925,  1136, 1199, 1195, 1191, 1187, 795,  785,  571,  775,
+        720,  709,  698,  687,  676,  665,  559,  495,  654,  1160, 1166, 224,  934,  465,  1219,
+        1065, 845,  465,  1219, 1065, 835,  465,  1219, 1065, 619,  390,  731,  374,  340,  825,
+        1160, 1166, 286,  826,  1053, 997,  607,  815,  805,  467,  595,  521,  323,  438,  583,
+        1160, 1166, 39,   1116, 988,  915,  979,  905,  1109, 1102, 895,  885,  631,  1160, 1166,
+        267,  655,  1053, 1183, 1029, 1130, 453,  547,  643,  1160, 1166, 0,    1116, 988,  915,
+        979,  905,  885,  631,  1160, 1166, 406,  1005, 1142, 1013, 865,  855,  1160, 305,  1142,
+        1013, 865,  855,  1160, 101,  764,  970,  885,  1160, 1166, 742,  1142, 1013, 1160, 943,
+        1142, 1013, 1160, 357,  1045, 1160, 1166, 156,  655,  1160, 179,  826,  1160, 71,   764,
+        1160, 130,  1116, 1160, 481,  1123, 1166, 1178, 1215, 986,  1172, 986,  422 };
+static const uint16_t methodStringsArrays[21] = { 172, 175, 169, 153, 177, 92,  116,
+                                                  166, 139, 163, 0,   149, 145, 126,
+                                                  133, 56,  77,  160, 31,  105, 157 };
 __QAIC_SLIM_EXPORT const Interface __QAIC_SLIM( FadasIface_slim ) = {
         21, &( methodArrays[0] ), 0, 0, &( methodStringsArrays[0] ), methodStrings, strings };
 #endif   //_FADASIFACE_SLIM_H
@@ -528,11 +542,12 @@ extern "C"
     {
         return __QAIC_REMOTE( remote_handle64_close )( h );
     }
-    static __inline int _stub_method( remote_handle64 _handle, uint32_t _mid, uint32_t _rout0[1] )
+    static __inline int _stub_method( remote_handle64 _handle, uint32_t _mid, uint32_t _rout0[1],
+                                      uint32_t _rout1[1] )
     {
         int _numIn[1] = { 0 };
         remote_arg _pra[1] = { 0 };
-        uint32_t _primROut[1] = { 0 };
+        uint32_t _primROut[2] = { 0 };
         int _nErr = 0;
         _numIn[0] = 0;
         _pra[( _numIn[0] + 0 )].buf.pv = (void *) _primROut;
@@ -540,42 +555,63 @@ extern "C"
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 0, 1, 0, 0 ), _pra ) );
         _COPY( _rout0, 0, _primROut, 0, 4 );
-        _CATCH_FARF( _nErr ) {}
+        _COPY( _rout1, 0, _primROut, 4, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 0, 1, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasInit )(
-            remote_handle64 _handle, int32_t *status ) __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasInitSafe )(
+            remote_handle64 _handle, int32_t *status, uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 2;
-        return _stub_method( _handle, _mid, (uint32_t *) status );
+        return _stub_method( _handle, _mid, (uint32_t *) status, (uint32_t *) crcRx );
     }
     static __inline int _stub_method_1( remote_handle64 _handle, uint32_t _mid, char *_rout0[1],
-                                        uint32_t _rout0Len[1] )
+                                        uint32_t _rout0Len[1], uint32_t _in1[1],
+                                        uint32_t _rout2[1] )
     {
         int _numIn[1] = { 0 };
-        remote_arg _pra[2] = { 0 };
-        uint32_t _primIn[1] = { 0 };
+        remote_arg _pra[3] = { 0 };
+        uint32_t _primIn[2] = { 0 };
+        uint32_t _primROut[1] = { 0 };
         remote_arg *_praIn = 0;
         remote_arg *_praROut = 0;
         int _nErr = 0;
         _numIn[0] = 0;
         _pra[0].buf.pv = (void *) _primIn;
         _pra[0].buf.nLen = sizeof( _primIn );
+        _pra[( _numIn[0] + 1 )].buf.pv = (void *) _primROut;
+        _pra[( _numIn[0] + 1 )].buf.nLen = sizeof( _primROut );
         _COPY( _primIn, 0, _rout0Len, 0, 4 );
         _praIn = ( _pra + 1 );
-        _praROut = ( _praIn + _numIn[0] + 0 );
+        _praROut = ( _praIn + _numIn[0] + 1 );
         _praROut[0].buf.pv = _rout0[0];
         _praROut[0].buf.nLen = ( 1 * _rout0Len[0] );
+        _COPY( _primIn, 4, _in1, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
-                                  _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _pra ) );
-        _CATCH_FARF( _nErr ) {}
+                                  _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 2, 0, 0 ), _pra ) );
+        _COPY( _rout2, 0, _primROut, 0, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 2, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasVersion )(
-            remote_handle64 _handle, uint8_t *version, int versionLen ) __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasVersionSafe )(
+            remote_handle64 _handle, uint8_t *version, int versionLen, uint32_t crcTx,
+            uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 3;
-        return _stub_method_1( _handle, _mid, (char **) &version, (uint32_t *) &versionLen );
+        return _stub_method_1( _handle, _mid, (char **) &version, (uint32_t *) &versionLen,
+                               (uint32_t *) &crcTx, (uint32_t *) crcRx );
     }
     static __inline int _stub_method_2( remote_handle64 _handle, uint32_t _mid )
     {
@@ -583,11 +619,17 @@ extern "C"
         int _nErr = 0;
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 0, 0, 0, 0 ), _pra ) );
-        _CATCH_FARF( _nErr ) {}
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 0, 0, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasDeInit )( remote_handle64 _handle )
-            __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult
+    __QAIC_STUB( FadasIface_FadasDeInitSafe )( remote_handle64 _handle ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 4;
         return _stub_method_2( _handle, _mid );
@@ -596,12 +638,12 @@ extern "C"
                                         uint64_t _rout0[1], uint32_t _in1[1], uint32_t _in2[1],
                                         uint32_t _in3[1], uint32_t _in4[1], uint32_t _in5[1],
                                         uint32_t _in6[1], uint32_t _in7[1], uint32_t _in8[1],
-                                        uint8_t _in9[1] )
+                                        uint8_t _in9[1], uint32_t _in10[1], uint32_t _rout11[1] )
     {
         int _numIn[1] = { 0 };
         remote_arg _pra[2] = { 0 };
         uint64_t _primIn[6] = { 0 };
-        uint64_t _primROut[1] = { 0 };
+        uint64_t _primROut[2] = { 0 };
         int _nErr = 0;
         _numIn[0] = 0;
         _pra[0].buf.pv = (void *) _primIn;
@@ -618,34 +660,43 @@ extern "C"
         _COPY( _primIn, 32, _in7, 0, 4 );
         _COPY( _primIn, 36, _in8, 0, 4 );
         _COPY( _primIn, 40, _in9, 0, 1 );
+        _COPY( _primIn, 44, _in10, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _pra ) );
         _COPY( _rout0, 0, _primROut, 0, 8 );
-        _CATCH_FARF( _nErr ) {}
+        _COPY( _rout11, 0, _primROut, 8, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_CreateMapFromMap )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_CreateMapFromMapSafe )(
             remote_handle64 _handle, uint64 *mapPtr, uint32_t camWidth, uint32_t camHeight,
             uint32_t mapWidth, uint32_t mapHeight, int32_t mapXFd, int32_t mapYFd,
-            uint32_t mapStride, FadasIface_FadasRemapPipeline_e imgFormat,
-            uint8_t borderConst ) __QAIC_STUB_ATTRIBUTE
+            uint32_t mapStride, FadasIface_FadasRemapPipeline_e imgFormat, uint8_t borderConst,
+            uint32_t crcTx, uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 5;
         return _stub_method_3( _handle, _mid, (uint64_t *) mapPtr, (uint64_t *) mapPtr,
                                (uint32_t *) &camWidth, (uint32_t *) &camHeight,
                                (uint32_t *) &mapWidth, (uint32_t *) &mapHeight,
                                (uint32_t *) &mapXFd, (uint32_t *) &mapYFd, (uint32_t *) &mapStride,
-                               (uint32_t *) &imgFormat, (uint8_t *) &borderConst );
+                               (uint32_t *) &imgFormat, (uint8_t *) &borderConst,
+                               (uint32_t *) &crcTx, (uint32_t *) crcRx );
     }
     static __inline int _stub_method_4( remote_handle64 _handle, uint32_t _mid, uint64_t _in0[1],
                                         uint64_t _rout0[1], uint32_t _in1[1], uint32_t _in2[1],
                                         uint32_t _in3[1], uint32_t _in4[1], uint32_t _in5[1],
-                                        uint8_t _in6[1] )
+                                        uint8_t _in6[1], uint32_t _in7[1], uint32_t _rout8[1] )
     {
         int _numIn[1] = { 0 };
         remote_arg _pra[2] = { 0 };
-        uint64_t _primIn[4] = { 0 };
-        uint64_t _primROut[1] = { 0 };
+        uint64_t _primIn[5] = { 0 };
+        uint64_t _primROut[2] = { 0 };
         int _nErr = 0;
         _numIn[0] = 0;
         _pra[0].buf.pv = (void *) _primIn;
@@ -659,49 +710,67 @@ extern "C"
         _COPY( _primIn, 20, _in4, 0, 4 );
         _COPY( _primIn, 24, _in5, 0, 4 );
         _COPY( _primIn, 28, _in6, 0, 1 );
+        _COPY( _primIn, 32, _in7, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _pra ) );
         _COPY( _rout0, 0, _primROut, 0, 8 );
-        _CATCH_FARF( _nErr ) {}
+        _COPY( _rout8, 0, _primROut, 8, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_CreateMapNoUndistortion )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_CreateMapNoUndistortionSafe )(
             remote_handle64 _handle, uint64 *mapPtr, uint32_t camWidth, uint32_t camHeight,
             uint32_t mapWidth, uint32_t mapHeight, FadasIface_FadasRemapPipeline_e imgFormat,
-            uint8_t borderConst ) __QAIC_STUB_ATTRIBUTE
+            uint8_t borderConst, uint32_t crcTx, uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 6;
         return _stub_method_4( _handle, _mid, (uint64_t *) mapPtr, (uint64_t *) mapPtr,
                                (uint32_t *) &camWidth, (uint32_t *) &camHeight,
                                (uint32_t *) &mapWidth, (uint32_t *) &mapHeight,
-                               (uint32_t *) &imgFormat, (uint8_t *) &borderConst );
+                               (uint32_t *) &imgFormat, (uint8_t *) &borderConst,
+                               (uint32_t *) &crcTx, (uint32_t *) crcRx );
     }
-    static __inline int _stub_method_5( remote_handle64 _handle, uint32_t _mid, uint64_t _in0[1] )
+    static __inline int _stub_method_5( remote_handle64 _handle, uint32_t _mid, uint64_t _in0[1],
+                                        uint32_t _in1[1] )
     {
         remote_arg _pra[1] = { 0 };
-        uint64_t _primIn[1] = { 0 };
+        uint64_t _primIn[2] = { 0 };
         int _nErr = 0;
         _pra[0].buf.pv = (void *) _primIn;
         _pra[0].buf.nLen = sizeof( _primIn );
         _COPY( _primIn, 0, _in0, 0, 8 );
+        _COPY( _primIn, 8, _in1, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _pra ) );
-        _CATCH_FARF( _nErr ) {}
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_DestroyMap )(
-            remote_handle64 _handle, uint64 mapPtr ) __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_DestroyMapSafe )(
+            remote_handle64 _handle, uint64 mapPtr, uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 7;
-        return _stub_method_5( _handle, _mid, (uint64_t *) &mapPtr );
+        return _stub_method_5( _handle, _mid, (uint64_t *) &mapPtr, (uint32_t *) &crcTx );
     }
     static __inline int _stub_method_6( remote_handle64 _handle, uint32_t _mid, uint64_t _in0[1],
-                                        uint64_t _rout0[1], uint32_t _in1[1], uint32_t _in2[1] )
+                                        uint64_t _rout0[1], uint32_t _in1[1], uint32_t _in2[1],
+                                        uint32_t _in3[1], uint32_t _rout4[1] )
     {
         int _numIn[1] = { 0 };
         remote_arg _pra[2] = { 0 };
-        uint64_t _primIn[2] = { 0 };
-        uint64_t _primROut[1] = { 0 };
+        uint64_t _primIn[3] = { 0 };
+        uint64_t _primROut[2] = { 0 };
         int _nErr = 0;
         _numIn[0] = 0;
         _pra[0].buf.pv = (void *) _primIn;
@@ -711,25 +780,35 @@ extern "C"
         _COPY( _primIn, 0, _in0, 0, 8 );
         _COPY( _primIn, 8, _in1, 0, 4 );
         _COPY( _primIn, 12, _in2, 0, 4 );
+        _COPY( _primIn, 16, _in3, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _pra ) );
         _COPY( _rout0, 0, _primROut, 0, 8 );
-        _CATCH_FARF( _nErr ) {}
+        _COPY( _rout4, 0, _primROut, 8, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_CreateWorkers )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_CreateWorkersSafe )(
             remote_handle64 _handle, uint64 *worker_ptr, uint32_t nThreads,
-            FadasIface_FadasRemapPipeline_e imgFormat ) __QAIC_STUB_ATTRIBUTE
+            FadasIface_FadasRemapPipeline_e imgFormat, uint32_t crcTx,
+            uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 8;
         return _stub_method_6( _handle, _mid, (uint64_t *) worker_ptr, (uint64_t *) worker_ptr,
-                               (uint32_t *) &nThreads, (uint32_t *) &imgFormat );
+                               (uint32_t *) &nThreads, (uint32_t *) &imgFormat, (uint32_t *) &crcTx,
+                               (uint32_t *) crcRx );
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_DestroyWorkers )(
-            remote_handle64 _handle, uint64 worker_ptr ) __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_DestroyWorkersSafe )(
+            remote_handle64 _handle, uint64 worker_ptr, uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 9;
-        return _stub_method_5( _handle, _mid, (uint64_t *) &worker_ptr );
+        return _stub_method_5( _handle, _mid, (uint64_t *) &worker_ptr, (uint32_t *) &crcTx );
     }
     static __inline int _stub_method_7( remote_handle64 _handle, uint32_t _mid, char *_in0[1],
                                         uint32_t _in0Len[1], char *_in1[1], uint32_t _in1Len[1],
@@ -737,10 +816,10 @@ extern "C"
                                         uint32_t _in3Len[1], char *_in4[1], uint32_t _in4Len[1],
                                         uint32_t _in5[1], uint32_t _in6[1], uint32_t _in7[12],
                                         char *_in8[1], uint32_t _in8Len[1], char *_in9[1],
-                                        uint32_t _in9Len[1] )
+                                        uint32_t _in9Len[1], uint32_t _in10[1] )
     {
         remote_arg _pra[8] = { 0 };
-        uint32_t _primIn[21] = { 0 };
+        uint32_t _primIn[22] = { 0 };
         remote_arg *_praIn = 0;
         int _nErr = 0;
         _pra[0].buf.pv = (void *) _primIn;
@@ -770,19 +849,26 @@ extern "C"
         _COPY( _primIn, 80, _in9Len, 0, 4 );
         _praIn[6].buf.pv = (void *) _in9[0];
         _praIn[6].buf.nLen = ( 12 * _in9Len[0] );
+        _COPY( _primIn, 84, _in10, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 8, 0, 0, 0 ), _pra ) );
-        _CATCH_FARF( _nErr ) {}
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 8, 0, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_RunMT )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRemap_RunMTSafe )(
             remote_handle64 _handle, const uint64 *workerPtrs, int workerPtrsLen,
             const uint64 *mapPtrs, int mapPtrsLen, const int32_t *srcFds, int srcFdsLen,
             const uint32_t *offsets, int offsetsLen, const FadasIface_FadasImgProps_t *srcProps,
             int srcPropsLen, int32_t dstFd, uint32_t dstLen,
             const FadasIface_FadasImgProps_t *dstProps, const FadasIface_FadasROI_t *dstROIs,
-            int dstROIsLen, const FadasIface_FadasNormlzParams_t *normlz,
-            int normlzLen ) __QAIC_STUB_ATTRIBUTE
+            int dstROIsLen, const FadasIface_FadasNormlzParams_t *normlz, int normlzLen,
+            uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 10;
         return _stub_method_7( _handle, _mid, (char **) &workerPtrs, (uint32_t *) &workerPtrsLen,
@@ -791,38 +877,85 @@ extern "C"
                                (uint32_t *) &offsetsLen, (char **) &srcProps,
                                (uint32_t *) &srcPropsLen, (uint32_t *) &dstFd, (uint32_t *) &dstLen,
                                (uint32_t *) dstProps, (char **) &dstROIs, (uint32_t *) &dstROIsLen,
-                               (char **) &normlz, (uint32_t *) &normlzLen );
+                               (char **) &normlz, (uint32_t *) &normlzLen, (uint32_t *) &crcTx );
     }
     static __inline int _stub_method_8( remote_handle64 _handle, uint32_t _mid, uint32_t _in0[1],
-                                        uint32_t _in1[1] )
+                                        uint32_t _in1[1], uint32_t _in2[1] )
     {
         remote_arg _pra[1] = { 0 };
-        uint32_t _primIn[2] = { 0 };
+        uint32_t _primIn[3] = { 0 };
         int _nErr = 0;
         _pra[0].buf.pv = (void *) _primIn;
         _pra[0].buf.nLen = sizeof( _primIn );
         _COPY( _primIn, 0, _in0, 0, 4 );
         _COPY( _primIn, 4, _in1, 0, 4 );
+        _COPY( _primIn, 8, _in2, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _pra ) );
-        _CATCH_FARF( _nErr ) {}
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_mmap )(
-            remote_handle64 _handle, int32_t bufFd, uint32_t bufSize ) __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult
+    __QAIC_STUB( FadasIface_mmapSafe )( remote_handle64 _handle, int32_t bufFd, uint32_t bufSize,
+                                        uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 11;
-        return _stub_method_8( _handle, _mid, (uint32_t *) &bufFd, (uint32_t *) &bufSize );
+        return _stub_method_8( _handle, _mid, (uint32_t *) &bufFd, (uint32_t *) &bufSize,
+                               (uint32_t *) &crcTx );
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_munmap )(
-            remote_handle64 _handle, int32_t bufFd, uint32_t bufSize ) __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult
+    __QAIC_STUB( FadasIface_munmapSafe )( remote_handle64 _handle, int32_t bufFd, uint32_t bufSize,
+                                          uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 12;
-        return _stub_method_8( _handle, _mid, (uint32_t *) &bufFd, (uint32_t *) &bufSize );
+        return _stub_method_8( _handle, _mid, (uint32_t *) &bufFd, (uint32_t *) &bufSize,
+                               (uint32_t *) &crcTx );
     }
     static __inline int _stub_method_9( remote_handle64 _handle, uint32_t _mid, uint32_t _in0[1],
                                         uint32_t _in1[1], uint32_t _in2[1], uint32_t _in3[1],
-                                        uint32_t _in4[1] )
+                                        uint32_t _in4[1], uint32_t _in5[1] )
+    {
+        remote_arg _pra[1] = { 0 };
+        uint32_t _primIn[6] = { 0 };
+        int _nErr = 0;
+        _pra[0].buf.pv = (void *) _primIn;
+        _pra[0].buf.nLen = sizeof( _primIn );
+        _COPY( _primIn, 0, _in0, 0, 4 );
+        _COPY( _primIn, 4, _in1, 0, 4 );
+        _COPY( _primIn, 8, _in2, 0, 4 );
+        _COPY( _primIn, 12, _in3, 0, 4 );
+        _COPY( _primIn, 16, _in4, 0, 4 );
+        _COPY( _primIn, 20, _in5, 0, 4 );
+        _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
+                                  _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _pra ) );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _mid,
+                        __func__ );
+        }
+        return _nErr;
+    }
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRegBufSafe )(
+            remote_handle64 _handle, FadasIface_FadasBufType_e bufType, int32_t bufFd,
+            uint32_t bufSize, uint32_t bufOffset, uint32_t batchSize,
+            uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
+    {
+        uint32_t _mid = 13;
+        return _stub_method_9( _handle, _mid, (uint32_t *) &bufType, (uint32_t *) &bufFd,
+                               (uint32_t *) &bufSize, (uint32_t *) &bufOffset,
+                               (uint32_t *) &batchSize, (uint32_t *) &crcTx );
+    }
+    static __inline int _stub_method_10( remote_handle64 _handle, uint32_t _mid, uint32_t _in0[1],
+                                         uint32_t _in1[1], uint32_t _in2[1], uint32_t _in3[1],
+                                         uint32_t _in4[1] )
     {
         remote_arg _pra[1] = { 0 };
         uint32_t _primIn[5] = { 0 };
@@ -836,52 +969,34 @@ extern "C"
         _COPY( _primIn, 16, _in4, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _pra ) );
-        _CATCH_FARF( _nErr ) {}
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasRegBuf )(
-            remote_handle64 _handle, FadasIface_FadasBufType_e bufType, int32_t bufFd,
-            uint32_t bufSize, uint32_t bufOffset, uint32_t batchSize ) __QAIC_STUB_ATTRIBUTE
-    {
-        uint32_t _mid = 13;
-        return _stub_method_9( _handle, _mid, (uint32_t *) &bufType, (uint32_t *) &bufFd,
-                               (uint32_t *) &bufSize, (uint32_t *) &bufOffset,
-                               (uint32_t *) &batchSize );
-    }
-    static __inline int _stub_method_10( remote_handle64 _handle, uint32_t _mid, uint32_t _in0[1],
-                                         uint32_t _in1[1], uint32_t _in2[1], uint32_t _in3[1] )
-    {
-        remote_arg _pra[1] = { 0 };
-        uint32_t _primIn[4] = { 0 };
-        int _nErr = 0;
-        _pra[0].buf.pv = (void *) _primIn;
-        _pra[0].buf.nLen = sizeof( _primIn );
-        _COPY( _primIn, 0, _in0, 0, 4 );
-        _COPY( _primIn, 4, _in1, 0, 4 );
-        _COPY( _primIn, 8, _in2, 0, 4 );
-        _COPY( _primIn, 12, _in3, 0, 4 );
-        _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
-                                  _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 0, 0, 0 ), _pra ) );
-        _CATCH_FARF( _nErr ) {}
-        return _nErr;
-    }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasDeregBuf )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_FadasDeregBufSafe )(
             remote_handle64 _handle, int32_t bufFd, uint32_t bufSize, uint32_t bufOffset,
-            uint32_t batchSize ) __QAIC_STUB_ATTRIBUTE
+            uint32_t batchSize, uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 14;
         return _stub_method_10( _handle, _mid, (uint32_t *) &bufFd, (uint32_t *) &bufSize,
-                                (uint32_t *) &bufOffset, (uint32_t *) &batchSize );
+                                (uint32_t *) &bufOffset, (uint32_t *) &batchSize,
+                                (uint32_t *) &crcTx );
     }
     static __inline int _stub_method_11( remote_handle64 _handle, uint32_t _mid, uint32_t _in0[3],
                                          uint32_t _in1[3], uint32_t _in2[3], uint32_t _in3[1],
                                          uint32_t _in4[1], uint32_t _in5[1], uint32_t _in6[1],
-                                         uint32_t _in7[1], uint64_t _rout8[1] )
+                                         uint32_t _in7[1], uint64_t _rout8[1], uint32_t _in9[1],
+                                         uint32_t _rout10[1] )
     {
         int _numIn[1] = { 0 };
         remote_arg _pra[2] = { 0 };
-        uint32_t _primIn[14] = { 0 };
-        uint64_t _primROut[1] = { 0 };
+        uint32_t _primIn[15] = { 0 };
+        uint64_t _primROut[2] = { 0 };
         int _nErr = 0;
         _numIn[0] = 0;
         _pra[0].buf.pv = (void *) _primIn;
@@ -896,36 +1011,45 @@ extern "C"
         _COPY( _primIn, 44, _in5, 0, 4 );
         _COPY( _primIn, 48, _in6, 0, 4 );
         _COPY( _primIn, 52, _in7, 0, 4 );
+        _COPY( _primIn, 56, _in9, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _pra ) );
         _COPY( _rout8, 0, _primROut, 0, 8 );
-        _CATCH_FARF( _nErr ) {}
+        _COPY( _rout10, 0, _primROut, 8, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_PointPillarCreate )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_PointPillarCreateSafe )(
             remote_handle64 _handle, const FadasIface_Pt3D_t *pPlrSize,
             const FadasIface_Pt3D_t *pMinRange, const FadasIface_Pt3D_t *pMaxRange,
             uint32_t maxNumInPts, uint32_t numInFeatureDim, uint32_t maxNumPlrs,
-            uint32_t maxNumPtsPerPlr, uint32_t numOutFeatureDim,
-            uint64_t *phPreProc ) __QAIC_STUB_ATTRIBUTE
+            uint32_t maxNumPtsPerPlr, uint32_t numOutFeatureDim, uint64_t *phPreProc,
+            uint32_t crcTx, uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 15;
         return _stub_method_11( _handle, _mid, (uint32_t *) pPlrSize, (uint32_t *) pMinRange,
                                 (uint32_t *) pMaxRange, (uint32_t *) &maxNumInPts,
                                 (uint32_t *) &numInFeatureDim, (uint32_t *) &maxNumPlrs,
                                 (uint32_t *) &maxNumPtsPerPlr, (uint32_t *) &numOutFeatureDim,
-                                (uint64_t *) phPreProc );
+                                (uint64_t *) phPreProc, (uint32_t *) &crcTx, (uint32_t *) crcRx );
     }
     static __inline int _stub_method_12( remote_handle64 _handle, uint32_t _mid, uint64_t _in0[1],
                                          uint32_t _in1[1], uint32_t _in2[1], uint32_t _in3[1],
                                          uint32_t _in4[1], uint32_t _in5[1], uint32_t _in6[1],
                                          uint32_t _in7[1], uint32_t _in8[1], uint32_t _in9[1],
-                                         uint32_t _in10[1], uint32_t _rout11[1] )
+                                         uint32_t _in10[1], uint32_t _rout11[1], uint32_t _in12[1],
+                                         uint32_t _rout13[1] )
     {
         int _numIn[1] = { 0 };
         remote_arg _pra[2] = { 0 };
-        uint64_t _primIn[6] = { 0 };
-        uint32_t _primROut[1] = { 0 };
+        uint64_t _primIn[7] = { 0 };
+        uint32_t _primROut[2] = { 0 };
         int _nErr = 0;
         _numIn[0] = 0;
         _pra[0].buf.pv = (void *) _primIn;
@@ -943,31 +1067,40 @@ extern "C"
         _COPY( _primIn, 36, _in8, 0, 4 );
         _COPY( _primIn, 40, _in9, 0, 4 );
         _COPY( _primIn, 44, _in10, 0, 4 );
+        _COPY( _primIn, 48, _in12, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _pra ) );
         _COPY( _rout11, 0, _primROut, 0, 4 );
-        _CATCH_FARF( _nErr ) {}
+        _COPY( _rout13, 0, _primROut, 4, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 1, 1, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_PointPillarRun )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_PointPillarRunSafe )(
             remote_handle64 _handle, uint64_t hPreProc, uint32_t numPts, int32_t fdInPts,
             uint32_t inPtsOffset, uint32_t inPtsSize, int32_t fdOutPlrs, uint32_t outPlrsOffset,
             uint32_t outPlrsSize, int32_t fdOutFeature, uint32_t outFeatureOffset,
-            uint32_t outFeatureSize, uint32_t *pNumOutPlrs ) __QAIC_STUB_ATTRIBUTE
+            uint32_t outFeatureSize, uint32_t *pNumOutPlrs, uint32_t crcTx,
+            uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 16;
-        return _stub_method_12( _handle, _mid, (uint64_t *) &hPreProc, (uint32_t *) &numPts,
-                                (uint32_t *) &fdInPts, (uint32_t *) &inPtsOffset,
-                                (uint32_t *) &inPtsSize, (uint32_t *) &fdOutPlrs,
-                                (uint32_t *) &outPlrsOffset, (uint32_t *) &outPlrsSize,
-                                (uint32_t *) &fdOutFeature, (uint32_t *) &outFeatureOffset,
-                                (uint32_t *) &outFeatureSize, (uint32_t *) pNumOutPlrs );
+        return _stub_method_12(
+                _handle, _mid, (uint64_t *) &hPreProc, (uint32_t *) &numPts, (uint32_t *) &fdInPts,
+                (uint32_t *) &inPtsOffset, (uint32_t *) &inPtsSize, (uint32_t *) &fdOutPlrs,
+                (uint32_t *) &outPlrsOffset, (uint32_t *) &outPlrsSize, (uint32_t *) &fdOutFeature,
+                (uint32_t *) &outFeatureOffset, (uint32_t *) &outFeatureSize,
+                (uint32_t *) pNumOutPlrs, (uint32_t *) &crcTx, (uint32_t *) crcRx );
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_PointPillarDestroy )(
-            remote_handle64 _handle, uint64_t hPreProc ) __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_PointPillarDestroySafe )(
+            remote_handle64 _handle, uint64_t hPreProc, uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 17;
-        return _stub_method_5( _handle, _mid, (uint64_t *) &hPreProc );
+        return _stub_method_5( _handle, _mid, (uint64_t *) &hPreProc, (uint32_t *) &crcTx );
     }
     static __inline int _stub_method_13( remote_handle64 _handle, uint32_t _mid, uint32_t _in0[1],
                                          uint32_t _in1[1], uint32_t _in2[1], uint32_t _in3[1],
@@ -975,12 +1108,13 @@ extern "C"
                                          float _in7[1], float _in8[1], float _in9[1],
                                          float _in10[1], float _in11[1], float _in12[1],
                                          char *_in13[1], uint32_t _in13Len[1], uint32_t _in14[1],
-                                         uint64_t _rout15[1] )
+                                         uint64_t _rout15[1], uint32_t _in16[1],
+                                         uint32_t _rout17[1] )
     {
         int _numIn[1] = { 0 };
         remote_arg _pra[3] = { 0 };
-        uint32_t _primIn[20] = { 0 };
-        uint64_t _primROut[1] = { 0 };
+        uint32_t _primIn[21] = { 0 };
+        uint64_t _primROut[2] = { 0 };
         remote_arg *_praIn = 0;
         int _nErr = 0;
         _numIn[0] = 1;
@@ -1006,39 +1140,48 @@ extern "C"
         _praIn[0].buf.pv = (void *) _in13[0];
         _praIn[0].buf.nLen = ( 1 * _in13Len[0] );
         _COPY( _primIn, 76, _in14, 0, 4 );
+        _COPY( _primIn, 80, _in16, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 2, 1, 0, 0 ), _pra ) );
         _COPY( _rout15, 0, _primROut, 0, 8 );
-        _CATCH_FARF( _nErr ) {}
+        _COPY( _rout17, 0, _primROut, 8, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 2, 1, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_ExtractBBoxCreate )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_ExtractBBoxCreateSafe )(
             remote_handle64 _handle, uint32_t maxNumInPts, uint32_t numInFeatureDim,
             uint32_t maxNumDetOut, uint32_t numClass, const FadasIface_Grid2D_t *pGrid,
             float threshScore, float threshIOU, float minCentreX, float minCentreY,
             float minCentreZ, float maxCentreX, float maxCentreY, float maxCentreZ,
             const uint8_t *labelSelect, int labelSelectLen, uint32_t maxNumFilter,
-            uint64_t *phPostProc ) __QAIC_STUB_ATTRIBUTE
+            uint64_t *phPostProc, uint32_t crcTx, uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 18;
-        return _stub_method_13(
-                _handle, _mid, (uint32_t *) &maxNumInPts, (uint32_t *) &numInFeatureDim,
-                (uint32_t *) &maxNumDetOut, (uint32_t *) &numClass, (uint32_t *) pGrid,
-                (float *) &threshScore, (float *) &threshIOU, (float *) &minCentreX,
-                (float *) &minCentreY, (float *) &minCentreZ, (float *) &maxCentreX,
-                (float *) &maxCentreY, (float *) &maxCentreZ, (char **) &labelSelect,
-                (uint32_t *) &labelSelectLen, (uint32_t *) &maxNumFilter, (uint64_t *) phPostProc );
+        return _stub_method_13( _handle, _mid, (uint32_t *) &maxNumInPts,
+                                (uint32_t *) &numInFeatureDim, (uint32_t *) &maxNumDetOut,
+                                (uint32_t *) &numClass, (uint32_t *) pGrid, (float *) &threshScore,
+                                (float *) &threshIOU, (float *) &minCentreX, (float *) &minCentreY,
+                                (float *) &minCentreZ, (float *) &maxCentreX, (float *) &maxCentreY,
+                                (float *) &maxCentreZ, (char **) &labelSelect,
+                                (uint32_t *) &labelSelectLen, (uint32_t *) &maxNumFilter,
+                                (uint64_t *) phPostProc, (uint32_t *) &crcTx, (uint32_t *) crcRx );
     }
     static __inline int _stub_method_14( remote_handle64 _handle, uint32_t _mid, uint64_t _in0[1],
                                          uint32_t _in1[1], char *_in2[1], uint32_t _in2Len[1],
                                          char *_in3[1], uint32_t _in3Len[1], char *_in4[1],
                                          uint32_t _in4Len[1], uint8_t _in5[1], uint8_t _in6[1],
-                                         uint32_t _rout7[1] )
+                                         uint32_t _rout7[1], uint32_t _in8[1], uint32_t _rout9[1] )
     {
         int _numIn[1] = { 0 };
         remote_arg _pra[5] = { 0 };
         uint64_t _primIn[4] = { 0 };
-        uint32_t _primROut[1] = { 0 };
+        uint32_t _primROut[2] = { 0 };
         remote_arg *_praIn = 0;
         int _nErr = 0;
         _numIn[0] = 3;
@@ -1060,30 +1203,38 @@ extern "C"
         _praIn[2].buf.nLen = ( 4 * _in4Len[0] );
         _COPY( _primIn, 24, _in5, 0, 1 );
         _COPY( _primIn, 25, _in6, 0, 1 );
+        _COPY( _primIn, 28, _in8, 0, 4 );
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 4, 1, 0, 0 ), _pra ) );
         _COPY( _rout7, 0, _primROut, 0, 4 );
-        _CATCH_FARF( _nErr ) {}
+        _COPY( _rout9, 0, _primROut, 4, 4 );
+        _CATCH_FARF( _nErr )
+        {
+            _QAIC_FARF( RUNTIME_ERROR,
+                        "ERROR 0x%x: handle=0x%" PRIx64 ", scalar=0x%x, method ID=%d: %s failed\n",
+                        _nErr, _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 4, 1, 0, 0 ), _mid,
+                        __func__ );
+        }
         return _nErr;
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_ExtractBBoxRun )(
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_ExtractBBoxRunSafe )(
             remote_handle64 _handle, uint64_t hPostProc, uint32_t numPts, const int32_t *fds,
             int fdsLen, const uint32_t *offsets, int offsetsLen, const uint32_t *sizes,
-            int sizesLen, uint8_t bMapPtsToBBox, uint8_t bBBoxFilter,
-            uint32_t *pNumDetOut ) __QAIC_STUB_ATTRIBUTE
+            int sizesLen, uint8_t bMapPtsToBBox, uint8_t bBBoxFilter, uint32_t *pNumDetOut,
+            uint32_t crcTx, uint32_t *crcRx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 19;
         return _stub_method_14( _handle, _mid, (uint64_t *) &hPostProc, (uint32_t *) &numPts,
                                 (char **) &fds, (uint32_t *) &fdsLen, (char **) &offsets,
                                 (uint32_t *) &offsetsLen, (char **) &sizes, (uint32_t *) &sizesLen,
                                 (uint8_t *) &bMapPtsToBBox, (uint8_t *) &bBBoxFilter,
-                                (uint32_t *) pNumDetOut );
+                                (uint32_t *) pNumDetOut, (uint32_t *) &crcTx, (uint32_t *) crcRx );
     }
-    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_ExtractBBoxDestroy )(
-            remote_handle64 _handle, uint64_t hPostProc ) __QAIC_STUB_ATTRIBUTE
+    __QAIC_STUB_EXPORT AEEResult __QAIC_STUB( FadasIface_ExtractBBoxDestroySafe )(
+            remote_handle64 _handle, uint64_t hPostProc, uint32_t crcTx ) __QAIC_STUB_ATTRIBUTE
     {
         uint32_t _mid = 20;
-        return _stub_method_5( _handle, _mid, (uint64_t *) &hPostProc );
+        return _stub_method_5( _handle, _mid, (uint64_t *) &hPostProc, (uint32_t *) &crcTx );
     }
 #ifdef __cplusplus
 }

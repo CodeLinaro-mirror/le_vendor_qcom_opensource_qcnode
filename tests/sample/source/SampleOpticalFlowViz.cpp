@@ -82,6 +82,21 @@ static const char *s_pSourceMvColor = KernelCode(
 SampleOpticalFlowViz::SampleOpticalFlowViz() {}
 SampleOpticalFlowViz::~SampleOpticalFlowViz() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )>
+SampleOpticalFlowViz::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SampleOpticalFlowViz::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SampleOpticalFlowViz::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
+
 QCStatus_e SampleOpticalFlowViz::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -316,7 +331,14 @@ QCStatus_e SampleOpticalFlowViz::Start()
     if ( QC_STATUS_OK == ret )
     {
         m_stop = false;
-        m_thread = std::thread( &SampleOpticalFlowViz::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        if ( !m_bOrchestratorEnabled )
+        {
+#endif
+            m_thread = std::thread( &SampleOpticalFlowViz::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        }
+#endif
     }
 
     return ret;
@@ -519,56 +541,74 @@ QCStatus_e SampleOpticalFlowViz::ConvertToRgbGPU( QCBufferDescriptorBase_t &Mv,
     return ret;
 }
 
-void SampleOpticalFlowViz::ThreadMain()
+void SampleOpticalFlowViz::Execute()
 {
     QCStatus_e ret;
-    while ( false == m_stop )
+    DataFrames_t frames;
+    uint32_t timeout = 1000;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
     {
-        DataFrames_t frames;
-        ret = m_sub.Receive( frames );
-        if ( QC_STATUS_OK == ret )
+        timeout = 0;
+    }
+#endif
+    ret = m_sub.Receive( frames, timeout );
+    if ( QC_STATUS_OK == ret )
+    {
+        QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
+                  frames.Timestamp( 0 ) );
+
+        std::shared_ptr<SharedBuffer_t> rgb = m_rgbPool.Get();
+        if ( nullptr != rgb )
         {
-            QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
-                      frames.Timestamp( 0 ) );
+            QCBufferDescriptorBase_t &mv = frames.GetBuffer( 0 );
+            QCBufferDescriptorBase_t &mvConf = frames.GetBuffer( 1 );
 
-            std::shared_ptr<SharedBuffer_t> rgb = m_rgbPool.Get();
-            if ( nullptr != rgb )
+            if ( QC_STATUS_OK == ret )
             {
-                QCBufferDescriptorBase_t &mv = frames.GetBuffer( 0 );
-                QCBufferDescriptorBase_t &mvConf = frames.GetBuffer( 1 );
-
+                PROFILER_BEGIN();
+                TRACE_BEGIN( frames.FrameId( 0 ) );
+                if ( QC_PROCESSOR_CPU == m_processor )
+                {
+                    ret = ConvertToRgbCPU( mv, mvConf, rgb->GetBuffer() );
+                }
+                else
+                {
+                    ret = ConvertToRgbGPU( mv, mvConf, rgb->GetBuffer() );
+                }
                 if ( QC_STATUS_OK == ret )
                 {
-                    PROFILER_BEGIN();
-                    TRACE_BEGIN( frames.FrameId( 0 ) );
-                    if ( QC_PROCESSOR_CPU == m_processor )
-                    {
-                        ret = ConvertToRgbCPU( mv, mvConf, rgb->GetBuffer() );
-                    }
-                    else
-                    {
-                        ret = ConvertToRgbGPU( mv, mvConf, rgb->GetBuffer() );
-                    }
-                    if ( QC_STATUS_OK == ret )
-                    {
-                        PROFILER_END();
-                        TRACE_END( frames.FrameId( 0 ) );
-                        DataFrames_t outFrames;
-                        DataFrame_t frame;
-                        frame.buffer = rgb;
-                        frame.frameId = frames.FrameId( 0 );
-                        frame.timestamp = frames.Timestamp( 0 );
-                        outFrames.Add( frame );
-                        m_pub.Publish( outFrames );
-                    }
-                    else
-                    {
-                        QC_ERROR( "OpticalFlowViz failed for %" PRIu64 " : %d", frames.FrameId( 0 ),
-                                  ret );
-                    }
+                    PROFILER_END();
+                    TRACE_END( frames.FrameId( 0 ) );
+                    DataFrames_t outFrames;
+                    DataFrame_t frame;
+                    frame.buffer = rgb;
+                    frame.frameId = frames.FrameId( 0 );
+                    frame.timestamp = frames.Timestamp( 0 );
+                    outFrames.Add( frame );
+                    m_pub.Publish( outFrames );
+                }
+                else
+                {
+                    QC_ERROR( "OpticalFlowViz failed for %" PRIu64 " : %d", frames.FrameId( 0 ),
+                              ret );
                 }
             }
         }
+    }
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "OpticalFlowViz receive failed : %d", ret );
+    }
+#endif
+}
+
+void SampleOpticalFlowViz::ThreadMain()
+{
+    while ( false == m_stop )
+    {
+        Execute();
     }
 }
 
@@ -577,10 +617,17 @@ QCStatus_e SampleOpticalFlowViz::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     PROFILER_SHOW();
 

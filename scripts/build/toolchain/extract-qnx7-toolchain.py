@@ -240,7 +240,10 @@ merge_directories( srcIncDir + "/amss/multimedia/fadas", tcIncDir )
 print( "Creating rt symlink (hack)\n" )
 make_symlink( "libshutdown.a",  tcRootPath + "/target/qnx7/aarch64le/lib/librt.a" )
 
-incList = [ "protected/pmem.h", "qcamera/camera_qcx/cdk_qcx/api/qcarcam/qcarcam.h", "qcamera/camera_qcx/cdk_qcx/api/qcarcam/qcarcam_types.h","qcamera/camera_qcx/cdk_qcx/api/qcarcam/qcarcam_diag_types.h" ]
+incList = [ "protected/pmem.h",
+            "qcamera/camera_qcx/cdk_qcx/api/qcarcam/qcarcam.h",
+            "qcamera/camera_qcx/cdk_qcx/api/qcarcam/qcarcam_types.h",
+            "qcamera/camera_qcx/cdk_qcx/api/qcarcam/qcarcam_diag_types.h" ]
 
 for inc in incList:
     print( "Copying header file: " + inc + " to: " + tcIncDir )
@@ -290,6 +293,8 @@ incList = [ srcIncDir + "/amss/core/comdef.h",
             inputDir  + "/qnx_ap/AMSS/inc/aosal_error.h",
             inputDir  + "/qnx_ap/AMSS/inc/remote.h",
             inputDir  + "/qnx_ap/AMSS/inc/rpcmem.h",
+            inputDir  + "/qnx_ap/AMSS/inc/HAP_farf.h",
+            inputDir  + "/qnx_ap/AMSS/inc/HAP_debug.h",
             inputDir  + "/qnx_ap/AMSS/multimedia/eva/epl/public/amss/multimedia/eva/eva_mem.h",
             inputDir  + "/qnx_ap/AMSS/multimedia/eva/epl/public/amss/multimedia/eva/eva_of.h",
             inputDir  + "/qnx_ap/AMSS/multimedia/eva/epl/public/amss/multimedia/eva/eva_session.h",
@@ -300,6 +305,15 @@ incList = [ srcIncDir + "/amss/core/comdef.h",
             inputDir  + "/qnx_ap/AMSS/multimedia/common/source/qnx/aosal/inc/aosal_qnx_utils.h",
             inputDir  + "/qnx_ap/AMSS/platform/utilities/sysprofiler/sysprofiler.h",
             inputDir  + "/qnx_ap/AMSS/inc/c2c.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/qcarcam.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/qcarcam_types.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/qcarcam_metadata.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/camera_vendor_tags.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/camera_metadata.h",
+            srcIncDir + "/amss/multimedia/camera_qcx/camera_metadata_tags.h",
+            srcIncDir + "/amss/crc32.h",
+            srcIncDir + "/amss/crc.h",
+            srcIncDir + "/amss/safetylibs_types.h",
           ]
 
 for inc in incList:
@@ -318,6 +332,8 @@ copy_file( mm_video_path + "source/filedemux/FileBaseLib/inc/parserinternaldefs.
 make_directory( tcIncDir + "/WF" )
 copy_file( srcPatchIncDir + "/WF/wfdplatform.h", tcIncDir + "/WF" )
 
+libListC2C = [ "libc2c.so", "libep_client.so", "librc_client.so", "libmhi_client.so" ]
+libListXml = [ "libsafe_xml.so", "libxml2_no_sock.so", "libsafe_xml_c.so" ]
 libListVidc  = [ "libvidc.so", "libFileSource.so", "libioctlClient.so", "libOSAbstraction.so", "libopenwfd.so", "libpool.so", "libss_drv_util.so", "libhwio.so.1", "libtzss_drv.so", "libssloader.so", "libioctlServer.so", "libpil_client.so" ]
 libListC2d   = [ "libc2d30.so" ]
 libListPmem  = [ "libpmem_client.so", "libpmemext.so" ]
@@ -325,8 +341,9 @@ libListQgptp = [ "libqgptp.so", "libdal.so", "libdalconfig.so.1" ]
 libListFastADAS = [ "libfadas.so", "libfastrpc.so", "libfastrpc_pmem.so" ]
 libListFastCV = [ "libfastcvopt.so", "libOSUser.so", "libGSLUser.so", "libOpenCL.so", "libcdsprpc.so", "libfastrpc.so", "libfastrpc_pmem.so", "libsmmu_client.so" ]
 libListEva = [ "libclock_client.so", "libdevioClient.so", "libevaEpl.so", "libevaPlatform.so" ]
-libListQcx = [ "libqcxclient.so", "libqcxosal.so" ]
+libListQcx = [ "libqcxclient.so", "libqcxosal.so", "libcamera_metadata.a" ]
 libListRSM = [ "librsm_client.so" ]
+libListFuSa = [ "libFuSa-CRC32.so" ]
 libList = libListVidc + libListFastCV + libListC2d + libListPmem + libListQgptp + libListFastADAS + libListEva + libListQcx + [
         "libcommonUtils.so", "libioctlClient_shim.so", "libplanedef.so", "libfdt_utils.so.1", "libcdsprpcS.a", "libcdsprpc.so", "libapdf.so", "libaosal.so",
         "libfastrpc_pmem.so.1", "libfastcvopt.so.1",
@@ -334,15 +351,15 @@ libList = libListVidc + libListFastCV + libListC2d + libListPmem + libListQgptp 
         "libsysprofiler.so", "libQProfilerInterface.so", "libfdt_utils.so", "libtzbsplib.so", "libtzbsplib.so.1",
         "libsmmu_clientS.a", "libfastcvopt.a", "libfastcvoptS.a",
         "liblibstd.so", "libmmap_peer.so", "libxml_config.so", "libOpenCL_Adreno.so",
-        "libicb_client.so", "libnpa_client.so", "libc2c.so", "libep_client.so", "librc_client.so",
-        "libsafe_xml.so", "libsafe_xml_c.so"
-    ] + libListRSM
+        "libicb_client.so", "libnpa_client.so",
+    ] + libListRSM + libListXml + libListC2C + libListFuSa
 
 targetLibDirs = [
         inputDir + '/qnx_ap/install/aarch64le',
         inputDir + '/qnx_ap/AMSS/qaic/prebuilt/lib64'
     ]
 
+AllowMissingLibs = libListXml + libListC2C
 
 for lib in libList:
     print( "Copying library/symbol file: " + lib + " to: " + tcLibDir )
@@ -354,7 +371,10 @@ for lib in libList:
             copied = True
             break
     if not copied:
-        sys.exit("Failed to copy: " + lib )
+        if lib not in AllowMissingLibs:
+            sys.exit("Failed to copy: " + lib )
+        else:
+            print(f"\nWARNING: {lib} missing\n")
 
 # multimedia dependent libraries
 mm_build_path = mm_video_path + "build"

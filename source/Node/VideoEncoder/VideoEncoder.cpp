@@ -122,8 +122,7 @@ static const ProfileLevel_t s_profileLevelHevcMain10Table[] = {
         { 8912896, 1069547520, 60000000, VIDC_LEVEL_HEVC_52, VIDC_PROFILE_HEVC_MAIN10 },
         { 35651584, 1069547520, 60000000, VIDC_LEVEL_HEVC_6, VIDC_PROFILE_HEVC_MAIN10 } };
 
-static const ProfileLevelTableRef_t s_profileLevelTables[] =
-                {
+static const ProfileLevelTableRef_t s_profileLevelTables[] = {
         { s_profileLevelH264BaseLineTable, ARRAY_SIZE( s_profileLevelH264BaseLineTable ) },
         { s_profileLevelH264HighTable, ARRAY_SIZE( s_profileLevelH264HighTable ) },
         { s_profileLevelH264MainTable, ARRAY_SIZE( s_profileLevelH264MainTable ) },
@@ -168,9 +167,10 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
 
     if ( QC_STATUS_OK == status )
     {
-        status = ValidateConfig( );
+        status = ValidateConfig();
     }
-    else {
+    else
+    {
         QC_ERROR( "video-encoder %s vidcnodebase init error: %d", m_name.c_str(), status );
     }
 
@@ -189,7 +189,7 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
     if ( QC_STATUS_OK == status )
     {
         m_drvClient.Init( m_name.c_str(), m_logger.GetLevel(), VIDEO_ENC, *m_pConfig );
-        status = m_drvClient.OpenDriver(InFrameCallback, OutFrameCallback, EventCallback, this);
+        status = m_drvClient.OpenDriver( InFrameCallback, OutFrameCallback, EventCallback, this );
     }
     else
     {
@@ -208,7 +208,9 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
     if ( QC_STATUS_OK == status )
     {
         status = GetInputInformation();
-    } else {
+    }
+    else
+    {
         QC_ERROR( "Something wrong happened in driver InitDrvProperty error %d, Deiniting vidc",
                   status );
         m_state = QC_OBJECT_STATE_ERROR;
@@ -217,7 +219,9 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
     if ( QC_STATUS_OK == status )
     {
         status = NegotiateBufferReq( VIDEO_CODEC_BUF_INPUT );
-    } else {
+    }
+    else
+    {
         QC_ERROR( "Something wrong happened in driver GetInputInformation error %d, Deiniting vidc",
                   status );
         m_state = QC_OBJECT_STATE_ERROR;
@@ -229,74 +233,72 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
     }
     else
     {
-        QC_ERROR( "Something wrong happened in driver NegotiateBufferReq for input, Deiniting vidc" );
+        QC_ERROR(
+                "Something wrong happened in driver NegotiateBufferReq for input, Deiniting vidc" );
         m_state = QC_OBJECT_STATE_ERROR;
     }
 
     if ( QC_STATUS_OK == status )
     {
-        status = AllocateBuffer(config.buffers, 0, VIDEO_CODEC_BUF_INPUT);
-        if ( QC_STATUS_OK == status ) {
+        status = AllocateBuffer( config.buffers, 0, VIDEO_CODEC_BUF_INPUT );
+        if ( QC_STATUS_OK == status )
+        {
             for ( auto &buffer : m_inputBufferList )
             {
-                status = CheckBuffer(buffer, VIDEO_CODEC_BUF_INPUT);
-                if (QC_STATUS_OK != status)
+                status = CheckBuffer( buffer, VIDEO_CODEC_BUF_INPUT );
+                if ( QC_STATUS_OK != status )
+                {
+                    m_state = QC_OBJECT_STATE_ERROR;
                     break;
-            }
-
-            if (QC_STATUS_OK != status)
-            {
-                QC_ERROR( "Input buffer descriptors are not properly initialized, Diniting vidc");
-                m_state = QC_OBJECT_STATE_ERROR;
+                }
             }
         }
 
-        if (QC_STATUS_OK == status)
+        if ( QC_STATUS_OK == status )
         {
-            status = AllocateBuffer(config.buffers,
-                                    m_pConfig->bInputDynamicMode ? 0 : m_pConfig->numInputBufferReq,
-                                    VIDEO_CODEC_BUF_OUTPUT);
-            if ( QC_STATUS_OK == status ) {
+            status = AllocateBuffer(
+                    config.buffers, m_pConfig->bInputDynamicMode ? 0 : m_pConfig->numInputBufferReq,
+                    VIDEO_CODEC_BUF_OUTPUT );
+            if ( QC_STATUS_OK == status )
+            {
                 for ( auto &buffer : m_outputBufferList )
                 {
-                    status = CheckBuffer(buffer, VIDEO_CODEC_BUF_OUTPUT);
-                    if (QC_STATUS_OK != status)
+                    status = CheckBuffer( buffer, VIDEO_CODEC_BUF_OUTPUT );
+                    if ( QC_STATUS_OK != status )
+                    {
+                        m_state = QC_OBJECT_STATE_ERROR;
                         break;
-                }
-
-                if (QC_STATUS_OK != status)
-                {
-                    QC_ERROR( "Output buffer descriptors are not properly initializded, Diniting vidc");
-                    m_state = QC_OBJECT_STATE_ERROR;
+                    }
                 }
             }
         }
 
-        if (QC_STATUS_OK == status)
+        if ( QC_STATUS_OK == status )
         {
-            status = SetBuffer(VIDEO_CODEC_BUF_INPUT);
-            if (QC_STATUS_OK == status)
+            status = SetBuffer( VIDEO_CODEC_BUF_INPUT );
+            if ( QC_STATUS_OK == status )
             {
-                status = SetBuffer(VIDEO_CODEC_BUF_OUTPUT);
+                status = SetBuffer( VIDEO_CODEC_BUF_OUTPUT );
             }
         }
     }
     else
     {
-        QC_ERROR( "Something wrong happened in driver NegotiateBufferReq for output, Deiniting vidc" );
+        QC_ERROR( "Something wrong happened in driver NegotiateBufferReq for output, Deiniting "
+                  "vidc" );
         m_state = QC_OBJECT_STATE_ERROR;
     }
 
     if ( QC_STATUS_OK == status )
     {
-        status = PostInit( );
+        status = PostInit();
         PrintEncoderConfig();
         QC_INFO( "video-encoder init done" );
     }
 
     if ( QC_STATUS_OK == status )
     {
-        status = ValidateBuffers( );
+        status = ValidateBuffers();
     }
     else
     {
@@ -304,23 +306,15 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
         m_state = QC_OBJECT_STATE_ERROR;
     }
 
-    if (QC_STATUS_OK != status)
+    if ( QC_STATUS_OK != status )
     {
         QC_ERROR( "video-encoder initialization failed, cleaning up resources" );
 
         // Clean up buffers first
-        if ( !m_outputBufferList.empty() )
-        {
-            (void) FreeOutputBuffers();
-            m_outputBufferList.clear();
-        }
-        if ( !m_inputBufferList.empty() )
-        {
-            (void) FreeInputBuffers();
-            m_inputBufferList.clear();
-        }
-
-        m_drvClient.CloseDriver();
+        (void) FreeOutputBuffers();
+        m_outputBufferList.clear();
+        (void) FreeInputBuffers();
+        m_inputBufferList.clear();
 
         m_state = QC_OBJECT_STATE_ERROR;
 
@@ -328,6 +322,11 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
         {
             (void) VidcNodeBase::DeInitialize();
         }
+    }
+
+    if ( QC_STATUS_OK != status )
+    {
+        m_state = QC_OBJECT_STATE_ERROR;
     }
 
     return status;
@@ -339,12 +338,14 @@ QCStatus_e VideoEncoder::Start()
 
     if ( ( QC_STATUS_OK == ret ) && ( !m_outputBufferList.empty() ) )
     {
-        QC_INFO( "submit non-dynamic output frame begin, cnt:%u", m_outputBufferList.size() );
+        QC_INFO( "submit non-dynamic output frame begin, cnt:%zu", m_outputBufferList.size() );
         for ( VideoFrameDescriptor_t buffer : m_outputBufferList )
         {
             ret = ValidateBuffer( buffer, VIDEO_CODEC_BUF_OUTPUT );
-            if (QC_STATUS_OK == ret)
+            if ( QC_STATUS_OK == ret )
+            {
                 ret = m_drvClient.FillBuffer( buffer );
+            }
         }
         QC_INFO( "submit non-dynamic output frame done" );
     }
@@ -378,30 +379,33 @@ QCStatus_e VideoEncoder::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frame
     QCStatus_e status = QC_STATUS_OK;
 
     // INPUT:
-    QCBufferDescriptorBase_t &inBufDesc = frameDesc.GetBuffer( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID );
-    VideoFrameDescriptor_t *pInSharedBuffer = dynamic_cast<VideoFrameDescriptor_t*>( &inBufDesc );
+    QCBufferDescriptorBase_t &inBufDesc =
+            frameDesc.GetBuffer( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID );
+    VideoFrameDescriptor_t *pInSharedBuffer = dynamic_cast<VideoFrameDescriptor_t *>( &inBufDesc );
 
     // OUTPUT:
-    QCBufferDescriptorBase_t &outBufDesc = frameDesc.GetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID );
-    VideoFrameDescriptor_t *pOutSharedBuffer = dynamic_cast<VideoFrameDescriptor_t*>( &outBufDesc );
+    QCBufferDescriptorBase_t &outBufDesc =
+            frameDesc.GetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID );
+    VideoFrameDescriptor_t *pOutSharedBuffer =
+            dynamic_cast<VideoFrameDescriptor_t *>( &outBufDesc );
 
-    if ((nullptr == pInSharedBuffer) && (nullptr == pOutSharedBuffer))
+    if ( ( nullptr == pInSharedBuffer ) && ( nullptr == pOutSharedBuffer ) )
     {
         status = QC_STATUS_INVALID_BUF;
     }
 
-    if (QC_STATUS_OK == status)
+    if ( QC_STATUS_OK == status )
     {
-        if (nullptr != pInSharedBuffer)
+        if ( nullptr != pInSharedBuffer )
         {
             status = SubmitInputFrame( *pInSharedBuffer );
             QC_DEBUG( "submit input frame done: status=%d", status );
         }
     }
 
-    if (QC_STATUS_OK == status)
+    if ( QC_STATUS_OK == status )
     {
-        if (nullptr != pOutSharedBuffer)
+        if ( nullptr != pOutSharedBuffer )
         {
             status = SubmitOutputFrame( *pOutSharedBuffer );
             QC_DEBUG( "submit output frame done: status=%d", status );
@@ -416,29 +420,12 @@ QCStatus_e VideoEncoder::SubmitInputFrame( VideoFrameDescriptor_t &inFrameDesc )
     QC_DEBUG( "submit input frame descriptor begin: type=%d, size=%zu", inFrameDesc.type,
               inFrameDesc.size );
 
-    QCStatus_e ret = ValidateFrameSubmission( inFrameDesc, VIDEO_CODEC_BUF_INPUT, true);
+    QCStatus_e ret = ValidateFrameSubmission( inFrameDesc, VIDEO_CODEC_BUF_INPUT, true );
 
     if ( QC_STATUS_OK == ret )
     {
         ret = CheckBuffer( inFrameDesc, VIDEO_CODEC_BUF_INPUT );
     }
-
-    /* TODO: Check out Configure() and pOnTheFlyCmd */
-#if 0
-    if ( ( QC_STATUS_OK == ret ) && ( nullptr != inFrameDesc->pOnTheFlyCmd ) )
-    {
-        int32_t i;
-        for ( i = 0; i < inFrameDesc->numCmd; i++ )
-        {
-            ret = Configure( &inFrameDesc->pOnTheFlyCmd[i] );
-            if ( QC_STATUS_OK != ret )
-            {
-                QC_ERROR( "config propID %d failed", inFrameDesc->pOnTheFlyCmd[i].propID );
-                break;
-            }
-        }
-    }
-#endif
 
     if ( QC_STATUS_OK == ret )
     {
@@ -453,7 +440,7 @@ QCStatus_e VideoEncoder::SubmitOutputFrame( VideoFrameDescriptor_t &outFrameDesc
     QC_DEBUG( "submit output frame descriptor begin: type=%d, size=%zu", outFrameDesc.type,
               outFrameDesc.size );
 
-    QCStatus_e ret = ValidateFrameSubmission( outFrameDesc, VIDEO_CODEC_BUF_OUTPUT, false);
+    QCStatus_e ret = ValidateFrameSubmission( outFrameDesc, VIDEO_CODEC_BUF_OUTPUT, false );
 
     if ( QC_STATUS_OK == ret )
     {
@@ -492,7 +479,7 @@ QCStatus_e VideoEncoder::InitDrvProperty()
     {
         /**< The encoder rate control type */
         vidc_rate_control_mode_type rateControl =
-                        static_cast<vidc_rate_control_mode_type>( m_pConfig->rateControlMode );
+                static_cast<vidc_rate_control_mode_type>( m_pConfig->rateControlMode );
 
         QC_INFO( "Setting VIDC_I_ENC_RATE_CONTROL 0x%x", rateControl );
         ret = m_drvClient.SetDrvProperty( VIDC_I_ENC_RATE_CONTROL,
@@ -516,7 +503,7 @@ QCStatus_e VideoEncoder::InitDrvProperty()
     {
         m_vidcEncoderData.iPeriod.p_frames = m_pConfig->gop;
         m_vidcEncoderData.iPeriod.b_frames = VIDEO_ENCODER_DEFAULT_NUM_B_BET_2I;
-        QC_INFO( "Setting GOP %d",  m_pConfig->gop);
+        QC_INFO( "Setting GOP %d", m_pConfig->gop );
         ret = m_drvClient.SetDrvProperty( VIDC_I_ENC_INTRA_PERIOD, sizeof( vidc_iperiod_type ),
                                           (uint8_t &) ( m_vidcEncoderData.iPeriod ) );
     }
@@ -524,7 +511,7 @@ QCStatus_e VideoEncoder::InitDrvProperty()
     if ( QC_STATUS_OK == ret )
     {
         m_vidcEncoderData.idrPeriod.idr_period = VIDEO_ENCODER_DEFAULT_IDR_PERIOD;
-        QC_INFO( "Setting ENC_IDR_PERIOD %d", m_vidcEncoderData.idrPeriod );
+        QC_INFO( "Setting ENC_IDR_PERIOD %u", m_vidcEncoderData.idrPeriod.idr_period );
         ret = m_drvClient.SetDrvProperty( VIDC_I_ENC_IDR_PERIOD, sizeof( vidc_idr_period_type ),
                                           (uint8_t &) ( m_vidcEncoderData.idrPeriod ) );
     }
@@ -532,7 +519,7 @@ QCStatus_e VideoEncoder::InitDrvProperty()
     if ( QC_STATUS_OK == ret )
     {
         m_vidcEncoderData.bitrate.target_bitrate = m_pConfig->bitRate;
-        QC_INFO( "Setting VIDC_I_TARGET_BITRATE %d", m_vidcEncoderData.bitrate);
+        QC_INFO( "Setting VIDC_I_TARGET_BITRATE %u", m_vidcEncoderData.bitrate.target_bitrate );
         ret = m_drvClient.SetDrvProperty( VIDC_I_TARGET_BITRATE, sizeof( vidc_target_bitrate_type ),
                                           (uint8_t &) ( m_vidcEncoderData.bitrate ) );
     }
@@ -540,21 +527,22 @@ QCStatus_e VideoEncoder::InitDrvProperty()
     if ( QC_STATUS_OK == ret )
     {
         m_vidcEncoderData.enableSyncFrameSeq.enable = m_pConfig->bSyncFrameSeqHdr;
-        QC_INFO( "Setting VIDC_I_ENC_SYNC_FRAME_SEQ_HDR %d", m_vidcEncoderData.enableSyncFrameSeq.enable );
+        QC_INFO( "Setting VIDC_I_ENC_SYNC_FRAME_SEQ_HDR %d",
+                 m_vidcEncoderData.enableSyncFrameSeq.enable );
         ret = m_drvClient.SetDrvProperty( VIDC_I_ENC_SYNC_FRAME_SEQ_HDR, sizeof( vidc_enable_type ),
                                           (uint8_t &) ( m_vidcEncoderData.enableSyncFrameSeq ) );
     }
 
     if ( QC_STATUS_OK == ret )
     {
-        QC_INFO( "Setting VIDC_I_PROFILE %d", m_vidcEncoderData.profile);
+        QC_INFO( "Setting VIDC_I_PROFILE %d", m_vidcEncoderData.profile.profile );
         ret = m_drvClient.SetDrvProperty( VIDC_I_PROFILE, sizeof( vidc_profile_type ),
                                           (uint8_t &) ( m_vidcEncoderData.profile ) );
     }
 
     if ( QC_STATUS_OK == ret )
     {
-        QC_INFO( "Setting VIDC_I_LEVEL %d", m_vidcEncoderData.level );
+        QC_INFO( "Setting VIDC_I_LEVEL %u", m_vidcEncoderData.level.level );
         ret = m_drvClient.SetDrvProperty( VIDC_I_LEVEL, sizeof( vidc_level_type ),
                                           (uint8_t &) ( m_vidcEncoderData.level ) );
     }
@@ -570,55 +558,6 @@ QCStatus_e VideoEncoder::InitDrvProperty()
 
     return ret;
 }
-
-#if 0
-QCStatus_e VideoEncoder::Configure( const VideoEncoder_OnTheFlyCmd_t *pCmd )
-{
-    QCStatus_e ret = QC_STATUS_OK;
-
-    if ( ( QC_OBJECT_STATE_RUNNING != m_state ) && ( QC_OBJECT_STATE_READY != m_state ) )
-    {
-        QC_WARN( "Not Configure since encoder is not ready or running!" );
-        ret = QC_STATUS_BAD_STATE;
-    }
-
-    if ( ( QC_STATUS_OK == ret ) && ( nullptr == pCmd ) )
-    {
-        QC_ERROR( "pCmd is NULL pointer!" );
-        ret = QC_STATUS_BAD_ARGUMENTS;
-    }
-
-    if ( QC_STATUS_OK == ret )
-    {
-        QC_INFO( "Configuring vidc" );
-        switch ( pCmd->propID )
-        {
-            case VIDEO_ENCODER_PROP_BITRATE:
-                QC_DEBUG( "Setting VIDC_I_TARGET_BITRATE %" PRIu32, m_bitRate );
-                m_bitRate = pCmd->value;
-                m_vidcEncoderData.bitrate.target_bitrate = m_bitRate;
-                ret = m_drvClient.SetDrvProperty( VIDC_I_TARGET_BITRATE,
-                                                  sizeof( vidc_target_bitrate_type ),
-                                                  (uint8_t *) ( &m_vidcEncoderData.bitrate ) );
-                break;
-            case VIDEO_ENCODER_PROP_FRAME_RATE:
-                m_frameRate = pCmd->value;
-                QC_DEBUG( "Setting VIDC_I_FRAME_RATE.VIDC_BUFFER_OUTPUT %" PRIu32, m_frameRate );
-                m_vidcEncoderData.frameRate.buf_type = VIDC_BUFFER_OUTPUT;
-                m_vidcEncoderData.frameRate.fps_numerator = m_frameRate;
-                m_vidcEncoderData.frameRate.fps_denominator = 1;
-                ret = m_drvClient.SetDrvProperty( VIDC_I_FRAME_RATE, sizeof( vidc_frame_rate_type ),
-                                                  (uint8_t *) ( &m_vidcEncoderData.frameRate ) );
-                break;
-            default:
-                QC_ERROR( "propID %d not supported", pCmd->propID );
-                ret = QC_STATUS_BAD_ARGUMENTS;
-                break;
-        }
-    }
-    return ret;
-}
-#endif
 
 void VideoEncoder::PrintEncoderConfig()
 {
@@ -721,7 +660,7 @@ QCStatus_e VideoEncoder::SetVidcProfileLevel( VideoEncoder_Profile_e profile )
     return ret;
 }
 
-QCStatus_e VideoEncoder::ValidateConfig( )
+QCStatus_e VideoEncoder::ValidateConfig()
 {
     QCStatus_e ret = QC_STATUS_OK;
 
@@ -738,9 +677,9 @@ QCStatus_e VideoEncoder::ValidateConfig( )
              ( m_pConfig->width > VIDEO_ENCODER_MAX_RESOLUTION ) ||
              ( m_pConfig->height > VIDEO_ENCODER_MAX_RESOLUTION ) )
         {
-            QC_ERROR( "width %" PRIu32 " height %" PRIu32 " not in [%s, %d] ",
-                      m_pConfig->width, m_pConfig->height,
-                      VIDEO_ENCODER_MIN_RESOLUTION, VIDEO_ENCODER_MAX_RESOLUTION);
+            QC_ERROR( "width %" PRIu32 " height %" PRIu32 " not in [%d, %d] ", m_pConfig->width,
+                      m_pConfig->height, VIDEO_ENCODER_MIN_RESOLUTION,
+                      VIDEO_ENCODER_MAX_RESOLUTION );
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
     }
@@ -765,8 +704,9 @@ QCStatus_e VideoEncoder::ValidateConfig( )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    if ( ( QC_STATUS_OK == ret ) && ( ( m_pConfig->numInputBufferReq > VIDEO_ENCODER_MAX_BUFFER_REQ ) ||
-                                      ( m_pConfig->numInputBufferReq < VIDEO_ENCODER_MIN_BUFFER_REQ ) ) )
+    if ( ( QC_STATUS_OK == ret ) &&
+         ( ( m_pConfig->numInputBufferReq > VIDEO_ENCODER_MAX_BUFFER_REQ ) ||
+           ( m_pConfig->numInputBufferReq < VIDEO_ENCODER_MIN_BUFFER_REQ ) ) )
     {
         QC_ERROR( "numInputBufferReq: %" PRIu32 " too small or too large! (MIN_BUFFER_REQ %d, "
                   "MAX_BUFFER_REQ %d) ",
@@ -775,8 +715,9 @@ QCStatus_e VideoEncoder::ValidateConfig( )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    if ( ( QC_STATUS_OK == ret ) && ( ( m_pConfig->numOutputBufferReq > VIDEO_ENCODER_MAX_BUFFER_REQ ) ||
-                                      ( m_pConfig->numOutputBufferReq < VIDEO_ENCODER_MIN_BUFFER_REQ ) ) )
+    if ( ( QC_STATUS_OK == ret ) &&
+         ( ( m_pConfig->numOutputBufferReq > VIDEO_ENCODER_MAX_BUFFER_REQ ) ||
+           ( m_pConfig->numOutputBufferReq < VIDEO_ENCODER_MIN_BUFFER_REQ ) ) )
     {
         QC_ERROR( "numOutputBufferReq: %" PRIu32 " too small or too large! (MIN_BUFFER_REQ %d, "
                   "MAX_BUFFER_REQ %d) ",
@@ -801,8 +742,8 @@ QCStatus_e VideoEncoder::CheckBuffer( const VideoFrameDescriptor_t &vidFrmDesc,
     {
         if ( bufferType == VIDEO_CODEC_BUF_INPUT )
         {
-            if ( ( (int32_t)vidFrmDesc.stride[0] != m_vidcEncoderData.planeDefY.actual_stride ) ||
-                 ( (int32_t)vidFrmDesc.stride[1] != m_vidcEncoderData.planeDefUV.actual_stride ) )
+            if ( ( (int32_t) vidFrmDesc.stride[0] != m_vidcEncoderData.planeDefY.actual_stride ) ||
+                 ( (int32_t) vidFrmDesc.stride[1] != m_vidcEncoderData.planeDefUV.actual_stride ) )
             {
                 QC_ERROR( "pBuffer stride [%" PRIu32 "][%" PRIu32
                           "] is not same with actual stride [%" PRIu32 "][%" PRIu32 "] ",
@@ -813,8 +754,8 @@ QCStatus_e VideoEncoder::CheckBuffer( const VideoFrameDescriptor_t &vidFrmDesc,
             }
             if ( (size_t) m_bufSize[VIDEO_CODEC_BUF_INPUT] > vidFrmDesc.size )
             {
-                QC_ERROR( "pBuffer size %zu is smaller than Input BufSize %" PRIu32, vidFrmDesc.size,
-                          m_bufSize[VIDEO_CODEC_BUF_INPUT] );
+                QC_ERROR( "pBuffer size %zu is smaller than Input BufSize %" PRIu32,
+                          vidFrmDesc.size, m_bufSize[VIDEO_CODEC_BUF_INPUT] );
                 ret = QC_STATUS_INVALID_BUF;
             }
         }
@@ -830,26 +771,30 @@ QCStatus_e VideoEncoder::GetInputInformation()
     m_vidcEncoderData.frameRate.buf_type = VIDC_BUFFER_INPUT;
     ret = m_drvClient.GetDrvProperty( VIDC_I_FRAME_RATE, sizeof( vidc_frame_rate_type ),
                                       (uint8_t &) ( m_vidcEncoderData.frameRate ) );
-    if ( m_vidcEncoderData.frameRate.fps_numerator != m_pConfig->frameRate )
-    {
-        QC_ERROR( " frameRate: set:%u, get:%u is different! ", m_pConfig->frameRate,
-                  m_vidcEncoderData.frameRate.fps_numerator );
-        ret = QC_STATUS_FAIL;
-    }
 
     if ( QC_STATUS_OK == ret )
     {
-        m_vidcEncoderData.planeDefY.buf_type = VIDC_BUFFER_INPUT;
-        m_vidcEncoderData.planeDefY.plane_index = 1;
-        ret = m_drvClient.GetDrvProperty( VIDC_I_PLANE_DEF, sizeof( vidc_plane_def_type ),
-                                          (uint8_t &) ( m_vidcEncoderData.planeDefY ) );
-    }
-    if ( QC_STATUS_OK == ret )
-    {
-        m_vidcEncoderData.planeDefUV.buf_type = VIDC_BUFFER_INPUT;
-        m_vidcEncoderData.planeDefUV.plane_index = 2;
-        ret = m_drvClient.GetDrvProperty( VIDC_I_PLANE_DEF, sizeof( vidc_plane_def_type ),
-                                          (uint8_t &) ( m_vidcEncoderData.planeDefUV ) );
+        if ( m_vidcEncoderData.frameRate.fps_numerator != m_pConfig->frameRate )
+        {
+            QC_ERROR( " frameRate: set:%u, get:%u is different! ", m_pConfig->frameRate,
+                      m_vidcEncoderData.frameRate.fps_numerator );
+            ret = QC_STATUS_FAIL;
+        }
+
+        if ( QC_STATUS_OK == ret )
+        {
+            m_vidcEncoderData.planeDefY.buf_type = VIDC_BUFFER_INPUT;
+            m_vidcEncoderData.planeDefY.plane_index = 1;
+            ret = m_drvClient.GetDrvProperty( VIDC_I_PLANE_DEF, sizeof( vidc_plane_def_type ),
+                                              (uint8_t &) ( m_vidcEncoderData.planeDefY ) );
+        }
+        if ( QC_STATUS_OK == ret )
+        {
+            m_vidcEncoderData.planeDefUV.buf_type = VIDC_BUFFER_INPUT;
+            m_vidcEncoderData.planeDefUV.plane_index = 2;
+            ret = m_drvClient.GetDrvProperty( VIDC_I_PLANE_DEF, sizeof( vidc_plane_def_type ),
+                                              (uint8_t &) ( m_vidcEncoderData.planeDefUV ) );
+        }
     }
 
     return ret;
@@ -857,7 +802,8 @@ QCStatus_e VideoEncoder::GetInputInformation()
 
 void VideoEncoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 {
-    if ( m_callback ) {
+    if ( m_callback )
+    {
         NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID + 1 );
         frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID, inFrameDesc );
 
@@ -868,7 +814,8 @@ void VideoEncoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 
 void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
 {
-    if ( m_callback ) {
+    if ( m_callback )
+    {
         NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID + 1 );
         frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, outFrameDesc );
 
@@ -881,7 +828,8 @@ void VideoEncoder::EventCallback( VideoEncoder_EventType_e eventId, const void *
 {
     VidcNodeBase::EventCallback( eventId, pEvent );
 
-    if ( m_callback ) {
+    if ( m_callback )
+    {
         NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_EVENT_BUFF_ID + 1 );
         QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );
 
@@ -903,23 +851,23 @@ QCStatus_e VideoEncoderConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
     m_config.gop = dt.Get<uint32_t>( "gop", VIDEO_ENCODER_DEFAULT_NUM_P_BET_2I );
 
     std::string rateCtlMode = dt.Get<std::string>( "rateControlMode", "CBR_CFR" );
-    if ("CBR_CFR" == rateCtlMode)
+    if ( "CBR_CFR" == rateCtlMode )
     {
         m_config.rateControlMode = VIDEO_ENCODER_RCM_CBR_CFR;
     }
-    else if ("CBR_VFR" == rateCtlMode)
+    else if ( "CBR_VFR" == rateCtlMode )
     {
         m_config.rateControlMode = VIDEO_ENCODER_RCM_CBR_VFR;
     }
-    else if ("VBR_CFR" == rateCtlMode)
+    else if ( "VBR_CFR" == rateCtlMode )
     {
         m_config.rateControlMode = VIDEO_ENCODER_RCM_VBR_CFR;
     }
-    else if ("VBR_VFR" == rateCtlMode)
+    else if ( "VBR_VFR" == rateCtlMode )
     {
         m_config.rateControlMode = VIDEO_ENCODER_RCM_VBR_VFR;
     }
-    else if ("UNUSED" == rateCtlMode)
+    else if ( "UNUSED" == rateCtlMode )
     {
         m_config.rateControlMode = VIDEO_ENCODER_RCM_UNUSED;
     }
@@ -930,45 +878,41 @@ QCStatus_e VideoEncoderConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
     }
 
     std::string profile = dt.Get<std::string>( "profile", "HEVC_MAIN" );
-    if ("H264_BASELINE" == profile) {
+    if ( "H264_BASELINE" == profile )
+    {
         m_config.profile = VIDEO_ENCODER_PROFILE_H264_BASELINE;
     }
-    else if ("H264_HIGH" == profile)
+    else if ( "H264_HIGH" == profile )
     {
         m_config.profile = VIDEO_ENCODER_PROFILE_H264_HIGH;
     }
-    else if ("H264_MAIN" == profile)
+    else if ( "H264_MAIN" == profile )
     {
         m_config.profile = VIDEO_ENCODER_PROFILE_H264_MAIN;
     }
-    else if ("HEVC_MAIN" == profile)
+    else if ( "HEVC_MAIN" == profile )
     {
         m_config.profile = VIDEO_ENCODER_PROFILE_HEVC_MAIN;
     }
-    else if ("HEVC_MAIN10" == profile)
+    else if ( "HEVC_MAIN10" == profile )
     {
         m_config.profile = VIDEO_ENCODER_PROFILE_HEVC_MAIN10;
-    } else {
+    }
+    else
+    {
         errors += "the video profile is invalid, ";
         status = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    if (QC_STATUS_OK != status)
-        QC_ERROR("errors: %s", errors.c_str());
+    if ( QC_STATUS_OK != status ) QC_ERROR( "errors: %s", errors.c_str() );
 
-    QC_INFO( "enc-init: w:%u, h:%u, fps:%u, bitRate:%u, gop:%u, inbuf: dynamicMode:%d, num:%u; outbuf: "
+    QC_INFO( "enc-init: w:%u, h:%u, fps:%u, bitRate:%u, gop:%u, inbuf: dynamicMode:%d, num:%u; "
+             "outbuf: "
              "dynamicMode:%d, num:%u",
              m_config.width, m_config.height, m_config.frameRate, m_config.bitRate, m_config.gop,
-             m_config.bInputDynamicMode, m_config.numInputBufferReq,
-             m_config.bOutputDynamicMode, m_config.numOutputBufferReq);
+             m_config.bInputDynamicMode, m_config.numInputBufferReq, m_config.bOutputDynamicMode,
+             m_config.numOutputBufferReq );
 
-    return status;
-}
-
-QCStatus_e VideoEncoderConfigIfs::ApplyDynamicConfig( DataTree &dt, std::string &errors )
-{
-    // TBD in phase 2
-    QCStatus_e status = QC_STATUS_OK;
     return status;
 }
 
@@ -984,58 +928,48 @@ QCStatus_e VideoEncoderConfigIfs::VerifyAndSet( const std::string config, std::s
         {
             status = ParseStaticConfig( dt, errors );
         }
-        else
-        {
-            status = m_dataTree.Get( "dynamic", dt );
-            if ( QC_STATUS_OK == status )
-            {
-                status = ApplyDynamicConfig( dt, errors );
-            }
-        }
     }
 
     return status;
 }
 
-void VideoEncoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc,
-                                    void *pPrivData )
+void VideoEncoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc, void *pPrivData )
 {
     VideoEncoder *pNve = static_cast<VideoEncoder *>( pPrivData );
-    if ( pNve != nullptr )
+    if( pNve != nullptr )
     {
         pNve->InFrameCallback( inFrameDesc );
     }
     else
     {
-        QC_LOG_ERROR( "VideoEncoder_InFrameCallback: pPrivData param is invalid" );
+        QC_LOG_ERROR( "pPrivData of InFrameCallback is NULL");
     }
 }
 
-void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc,
-                                     void *pPrivData )
+void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc, void *pPrivData )
 {
     VideoEncoder *pNve = static_cast<VideoEncoder *>( pPrivData );
-    if ( pNve != nullptr )
+    if( pNve != nullptr )
     {
         pNve->OutFrameCallback( outFrameDesc );
     }
     else
     {
-        QC_LOG_ERROR( "VideoEncoder_OutFrameCallback: pPrivData param is invalid" );
+        QC_LOG_ERROR( "pPrivData of OutFrameCallback is NULL");
     }
 }
 
-void VideoEncoder::EventCallback( VideoCodec_EventType_e eventId,
-                                  const void *pEvent, void *pPrivData )
+void VideoEncoder::EventCallback( VideoCodec_EventType_e eventId, const void *pEvent,
+                                  void *pPrivData )
 {
     VideoEncoder *pNve = static_cast<VideoEncoder *>( pPrivData );
-    if ( pNve != nullptr )
+    if( pNve != nullptr )
     {
         pNve->EventCallback( eventId, pEvent );
     }
     else
     {
-        QC_LOG_ERROR( "VideoEncoder_EventCallback: pPrivData param is invalid" );
+        QC_LOG_ERROR( "pPrivData of EventCallback is NULL");
     }
 }
 

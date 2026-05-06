@@ -191,6 +191,23 @@ static __inline void _qaic_memmove( void *dst, void *src, int size )
 
 #include "AEEStdErr.h"
 
+#ifdef _WIN32
+#define _QAIC_FARF( level, msg, ... ) (void) 0
+#else
+#define _QAIC_FARF( level, msg, ... )                                                              \
+    do                                                                                             \
+    {                                                                                              \
+        if ( 0 == ( HAP_debug_v2 ) )                                                               \
+        {                                                                                          \
+            (void) 0;                                                                              \
+        }                                                                                          \
+        else                                                                                       \
+        {                                                                                          \
+            FARF( level, msg, ##__VA_ARGS__ );                                                     \
+        }                                                                                          \
+    } while ( 0 )
+#endif   //_WIN32 for _QAIC_FARF
+
 #define _TRY( ee, func )                                                                           \
     do                                                                                             \
     {                                                                                              \
@@ -402,73 +419,80 @@ extern "C"
         float cellSizeX;
         float cellSizeY;
     };
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasInit )(
-            remote_handle64 _h, int32_t *status ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasVersion )(
-            remote_handle64 _h, uint8_t *version, int versionLen ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasDeInit )( remote_handle64 _h )
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasInitSafe )(
+            remote_handle64 _h, int32_t *status, uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasVersionSafe )(
+            remote_handle64 _h, uint8_t *version, int versionLen, uint32_t crcTx,
+            uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasDeInitSafe )( remote_handle64 _h )
             __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_CreateMapFromMap )(
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_CreateMapFromMapSafe )(
             remote_handle64 _h, uint64 *mapPtr, uint32_t camWidth, uint32_t camHeight,
             uint32_t mapWidth, uint32_t mapHeight, int32_t mapXFd, int32_t mapYFd,
-            uint32_t mapStride, FadasIface_FadasRemapPipeline_e imgFormat,
-            uint8_t borderConst ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_CreateMapNoUndistortion )(
-            remote_handle64 _h, uint64 *mapPtr, uint32_t camWidth, uint32_t camHeight,
-            uint32_t mapWidth, uint32_t mapHeight, FadasIface_FadasRemapPipeline_e imgFormat,
-            uint8_t borderConst ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_DestroyMap )(
-            remote_handle64 _h, uint64 mapPtr ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_CreateWorkers )(
+            uint32_t mapStride, FadasIface_FadasRemapPipeline_e imgFormat, uint8_t borderConst,
+            uint32_t crcTx, uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT
+            AEEResult __QAIC_HEADER( FadasIface_FadasRemap_CreateMapNoUndistortionSafe )(
+                    remote_handle64 _h, uint64 *mapPtr, uint32_t camWidth, uint32_t camHeight,
+                    uint32_t mapWidth, uint32_t mapHeight,
+                    FadasIface_FadasRemapPipeline_e imgFormat, uint8_t borderConst, uint32_t crcTx,
+                    uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_DestroyMapSafe )(
+            remote_handle64 _h, uint64 mapPtr, uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_CreateWorkersSafe )(
             remote_handle64 _h, uint64 *worker_ptr, uint32_t nThreads,
-            FadasIface_FadasRemapPipeline_e imgFormat ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_DestroyWorkers )(
-            remote_handle64 _h, uint64 worker_ptr ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_RunMT )(
+            FadasIface_FadasRemapPipeline_e imgFormat, uint32_t crcTx,
+            uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_DestroyWorkersSafe )(
+            remote_handle64 _h, uint64 worker_ptr, uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRemap_RunMTSafe )(
             remote_handle64 _h, const uint64 *workerPtrs, int workerPtrsLen, const uint64 *mapPtrs,
             int mapPtrsLen, const int32_t *srcFds, int srcFdsLen, const uint32_t *offsets,
             int offsetsLen, const FadasIface_FadasImgProps_t *srcProps, int srcPropsLen,
             int32_t dstFd, uint32_t dstLen, const FadasIface_FadasImgProps_t *dstProps,
             const FadasIface_FadasROI_t *dstROIs, int dstROIsLen,
-            const FadasIface_FadasNormlzParams_t *normlz, int normlzLen ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT
-    AEEResult __QAIC_HEADER( FadasIface_mmap )( remote_handle64 _h, int32_t bufFd,
-                                                uint32_t bufSize ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_munmap )(
-            remote_handle64 _h, int32_t bufFd, uint32_t bufSize ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRegBuf )(
+            const FadasIface_FadasNormlzParams_t *normlz, int normlzLen,
+            uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_mmapSafe )(
+            remote_handle64 _h, int32_t bufFd, uint32_t bufSize,
+            uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_munmapSafe )(
+            remote_handle64 _h, int32_t bufFd, uint32_t bufSize,
+            uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasRegBufSafe )(
             remote_handle64 _h, FadasIface_FadasBufType_e bufType, int32_t bufFd, uint32_t bufSize,
-            uint32_t bufOffset, uint32_t batchSize ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasDeregBuf )(
+            uint32_t bufOffset, uint32_t batchSize, uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_FadasDeregBufSafe )(
             remote_handle64 _h, int32_t bufFd, uint32_t bufSize, uint32_t bufOffset,
-            uint32_t batchSize ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_PointPillarCreate )(
+            uint32_t batchSize, uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_PointPillarCreateSafe )(
             remote_handle64 _h, const FadasIface_Pt3D_t *pPlrSize,
             const FadasIface_Pt3D_t *pMinRange, const FadasIface_Pt3D_t *pMaxRange,
             uint32_t maxNumInPts, uint32_t numInFeatureDim, uint32_t maxNumPlrs,
-            uint32_t maxNumPtsPerPlr, uint32_t numOutFeatureDim,
-            uint64_t *phPreProc ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_PointPillarRun )(
+            uint32_t maxNumPtsPerPlr, uint32_t numOutFeatureDim, uint64_t *phPreProc,
+            uint32_t crcTx, uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_PointPillarRunSafe )(
             remote_handle64 _h, uint64_t hPreProc, uint32_t numPts, int32_t fdInPts,
             uint32_t inPtsOffset, uint32_t inPtsSize, int32_t fdOutPlrs, uint32_t outPlrsOffset,
             uint32_t outPlrsSize, int32_t fdOutFeature, uint32_t outFeatureOffset,
-            uint32_t outFeatureSize, uint32_t *pNumOutPlrs ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_PointPillarDestroy )(
-            remote_handle64 _h, uint64_t hPreProc ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_ExtractBBoxCreate )(
+            uint32_t outFeatureSize, uint32_t *pNumOutPlrs, uint32_t crcTx,
+            uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_PointPillarDestroySafe )(
+            remote_handle64 _h, uint64_t hPreProc, uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_ExtractBBoxCreateSafe )(
             remote_handle64 _h, uint32_t maxNumInPts, uint32_t numInFeatureDim,
             uint32_t maxNumDetOut, uint32_t numClass, const FadasIface_Grid2D_t *pGrid,
             float threshScore, float threshIOU, float minCentreX, float minCentreY,
             float minCentreZ, float maxCentreX, float maxCentreY, float maxCentreZ,
             const uint8_t *labelSelect, int labelSelectLen, uint32_t maxNumFilter,
-            uint64_t *phPostProc ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_ExtractBBoxRun )(
+            uint64_t *phPostProc, uint32_t crcTx, uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_ExtractBBoxRunSafe )(
             remote_handle64 _h, uint64_t hPostProc, uint32_t numPts, const int32_t *fds, int fdsLen,
             const uint32_t *offsets, int offsetsLen, const uint32_t *sizes, int sizesLen,
-            uint8_t bMapPtsToBBox, uint8_t bBBoxFilter,
-            uint32_t *pNumDetOut ) __QAIC_HEADER_ATTRIBUTE;
-    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_ExtractBBoxDestroy )(
-            remote_handle64 _h, uint64_t hPostProc ) __QAIC_HEADER_ATTRIBUTE;
+            uint8_t bMapPtsToBBox, uint8_t bBBoxFilter, uint32_t *pNumDetOut, uint32_t crcTx,
+            uint32_t *crcRx ) __QAIC_HEADER_ATTRIBUTE;
+    __QAIC_HEADER_EXPORT AEEResult __QAIC_HEADER( FadasIface_ExtractBBoxDestroySafe )(
+            remote_handle64 _h, uint64_t hPostProc, uint32_t crcTx ) __QAIC_HEADER_ATTRIBUTE;
 #ifndef FadasIface_URI
 #define FadasIface_URI "file:///libFadasIface_skel.so?FadasIface_skel_handle_invoke&_modver=1.0"
 #endif /*FadasIface_URI*/

@@ -14,6 +14,20 @@ namespace sample
 SamplePlrPost::SamplePlrPost() : m_plrPost( m_logger ) {}
 SamplePlrPost::~SamplePlrPost() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )> SamplePlrPost::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SamplePlrPost::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SamplePlrPost::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
+
 QCStatus_e SamplePlrPost::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -144,7 +158,14 @@ QCStatus_e SamplePlrPost::Start()
     if ( QC_STATUS_OK == ret )
     {
         m_stop = false;
-        m_thread = std::thread( &SamplePlrPost::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        if ( !m_bOrchestratorEnabled )
+        {
+#endif
+            m_thread = std::thread( &SamplePlrPost::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        }
+#endif
     }
 
     return ret;
@@ -195,102 +216,119 @@ Point2D_t SamplePlrPost::ProjectToImage( Point2D_t &pt, Point2D_t &center, float
     return imgPt;
 }
 
-void SamplePlrPost::ThreadMain()
+void SamplePlrPost::Execute()
 {
     QCStatus_e ret;
-    while ( false == m_stop )
+    DataFrames_t lidarFrames;
+    uint32_t timeout = 1000;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
     {
-        DataFrames_t lidarFrames;
-        ret = m_lidarSub.Receive( lidarFrames );
+        timeout = 0;
+    }
+#endif
+    ret = m_lidarSub.Receive( lidarFrames, timeout );
+    if ( QC_STATUS_OK == ret )
+    {
+        QC_DEBUG( "receive lidar frameId %" PRIu64 ", timestamp %" PRIu64 "\n",
+                  lidarFrames.FrameId( 0 ), lidarFrames.Timestamp( 0 ) );
+        DataFrames_t infFrames;
+        /* lidar frame inference generally in 10 fps */
+        ret = m_infSub.Receive( infFrames, 500 );
         if ( QC_STATUS_OK == ret )
         {
-            QC_DEBUG( "receive lidar frameId %" PRIu64 ", timestamp %" PRIu64 "\n",
-                      lidarFrames.FrameId( 0 ), lidarFrames.Timestamp( 0 ) );
-            DataFrames_t infFrames;
-            /* lidar frame inference generally in 10 fps */
-            ret = m_infSub.Receive( infFrames, 500 );
-            if ( QC_STATUS_OK == ret )
+            QC_DEBUG( "receive inference frameId %" PRIu64 ", timestamp %" PRIu64 "\n",
+                      infFrames.FrameId( 0 ), infFrames.Timestamp( 0 ) );
+            std::shared_ptr<SharedBuffer_t> detOut = m_objsPool.Get();
+            if ( nullptr != detOut )
             {
-                QC_DEBUG( "receive inference frameId %" PRIu64 ", timestamp %" PRIu64 "\n",
-                          infFrames.FrameId( 0 ), infFrames.Timestamp( 0 ) );
-                std::shared_ptr<SharedBuffer_t> detOut = m_objsPool.Get();
-                if ( nullptr != detOut )
-                {
-                    TensorDescriptor_t *pDetOutDesc =
-                            dynamic_cast<TensorDescriptor_t *>( &detOut->GetBuffer() );
-                    TensorDescriptor_t *pInPts =
-                            static_cast<TensorDescriptor_t *>( &lidarFrames.GetBuffer( 0 ) );
-                    TensorDescriptor_t *pHeatmap = static_cast<TensorDescriptor_t *>(
-                            &infFrames.GetBuffer( m_indexs[0] ) );
-                    TensorDescriptor_t *pXY = static_cast<TensorDescriptor_t *>(
-                            &infFrames.GetBuffer( m_indexs[1] ) );
-                    TensorDescriptor_t *pZ = static_cast<TensorDescriptor_t *>(
-                            &infFrames.GetBuffer( m_indexs[2] ) );
-                    TensorDescriptor_t *pSize = static_cast<TensorDescriptor_t *>(
-                            &infFrames.GetBuffer( m_indexs[3] ) );
-                    TensorDescriptor_t *pTheta = static_cast<TensorDescriptor_t *>(
-                            &infFrames.GetBuffer( m_indexs[4] ) );
+                TensorDescriptor_t *pDetOutDesc =
+                        dynamic_cast<TensorDescriptor_t *>( &detOut->GetBuffer() );
+                TensorDescriptor_t *pInPts =
+                        static_cast<TensorDescriptor_t *>( &lidarFrames.GetBuffer( 0 ) );
+                TensorDescriptor_t *pHeatmap =
+                        static_cast<TensorDescriptor_t *>( &infFrames.GetBuffer( m_indexs[0] ) );
+                TensorDescriptor_t *pXY =
+                        static_cast<TensorDescriptor_t *>( &infFrames.GetBuffer( m_indexs[1] ) );
+                TensorDescriptor_t *pZ =
+                        static_cast<TensorDescriptor_t *>( &infFrames.GetBuffer( m_indexs[2] ) );
+                TensorDescriptor_t *pSize =
+                        static_cast<TensorDescriptor_t *>( &infFrames.GetBuffer( m_indexs[3] ) );
+                TensorDescriptor_t *pTheta =
+                        static_cast<TensorDescriptor_t *>( &infFrames.GetBuffer( m_indexs[4] ) );
 
-                    ret = SampleIF::Lock();
+                ret = SampleIF::Lock();
+                if ( QC_STATUS_OK == ret )
+                {
+                    PROFILER_BEGIN();
+                    TRACE_BEGIN( infFrames.FrameId( 0 ) );
+                    pDetOutDesc->dims[0] = m_config.maxNumDetOut;
+                    ret = m_plrPost.Execute( pHeatmap, pXY, pZ, pSize, pTheta, pInPts,
+                                             pDetOutDesc );
                     if ( QC_STATUS_OK == ret )
                     {
-                        PROFILER_BEGIN();
-                        TRACE_BEGIN( infFrames.FrameId( 0 ) );
-                        pDetOutDesc->dims[0] = m_config.maxNumDetOut;
-                        ret = m_plrPost.Execute( pHeatmap, pXY, pZ, pSize, pTheta, pInPts,
-                                                 pDetOutDesc );
-                        if ( QC_STATUS_OK == ret )
+                        PROFILER_END();
+                        TRACE_END( infFrames.FrameId( 0 ) );
+                        Road2DObjects_t objs;
+                        PostCenterPoint_Object3D_t *pObj =
+                                (PostCenterPoint_Object3D_t *) pDetOutDesc->GetDataPtr();
+                        if ( m_bDebug )
                         {
-                            PROFILER_END();
-                            TRACE_END( infFrames.FrameId( 0 ) );
-                            Road2DObjects_t objs;
-                            PostCenterPoint_Object3D_t *pObj =
-                                    (PostCenterPoint_Object3D_t *) pDetOutDesc->GetDataPtr();
+                            printf( "lidar frameId %" PRIu64 ", number of detections %" PRIu32 "\n",
+                                    lidarFrames.FrameId( 0 ), pDetOutDesc->dims[0] );
+                        }
+                        for ( uint32_t i = 0; i < pDetOutDesc->dims[0]; i++ )
+                        {
+                            Road2DObject_t obj;
+                            obj.classId = pObj->label;
+                            obj.prob = pObj->score;
+                            Point2D_t center{ pObj->x, pObj->y };
+                            Point2D_t pt0{ -pObj->length / 2, pObj->width / 2 };
+                            Point2D_t pt1{ pObj->length / 2, pObj->width / 2 };
+                            Point2D_t pt2{ pObj->length / 2, -pObj->width / 2 };
+                            Point2D_t pt3{ -pObj->length / 2, -pObj->width / 2 };
+
+                            obj.points[0] = ProjectToImage( pt0, center, pObj->theta );
+                            obj.points[1] = ProjectToImage( pt1, center, pObj->theta );
+                            obj.points[2] = ProjectToImage( pt2, center, pObj->theta );
+                            obj.points[3] = ProjectToImage( pt3, center, pObj->theta );
+                            objs.objs.push_back( obj );
                             if ( m_bDebug )
                             {
-                                printf( "lidar frameId %" PRIu64 ", number of detections %" PRIu32
-                                        "\n",
-                                        lidarFrames.FrameId( 0 ), pDetOutDesc->dims[0] );
+                                printf( "  [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, "
+                                        "%d],\n",
+                                        pObj->x, pObj->y, pObj->z, pObj->length, pObj->width,
+                                        pObj->height, pObj->theta, pObj->score, pObj->label );
                             }
-                            for ( uint32_t i = 0; i < pDetOutDesc->dims[0]; i++ )
-                            {
-                                Road2DObject_t obj;
-                                obj.classId = pObj->label;
-                                obj.prob = pObj->score;
-                                Point2D_t center{ pObj->x, pObj->y };
-                                Point2D_t pt0{ -pObj->length / 2, pObj->width / 2 };
-                                Point2D_t pt1{ pObj->length / 2, pObj->width / 2 };
-                                Point2D_t pt2{ pObj->length / 2, -pObj->width / 2 };
-                                Point2D_t pt3{ -pObj->length / 2, -pObj->width / 2 };
-
-                                obj.points[0] = ProjectToImage( pt0, center, pObj->theta );
-                                obj.points[1] = ProjectToImage( pt1, center, pObj->theta );
-                                obj.points[2] = ProjectToImage( pt2, center, pObj->theta );
-                                obj.points[3] = ProjectToImage( pt3, center, pObj->theta );
-                                objs.objs.push_back( obj );
-                                if ( m_bDebug )
-                                {
-                                    printf( "  [%.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, %.3f, "
-                                            "%d],\n",
-                                            pObj->x, pObj->y, pObj->z, pObj->length, pObj->width,
-                                            pObj->height, pObj->theta, pObj->score, pObj->label );
-                                }
-                                pObj++;
-                            }
-                            objs.frameId = infFrames.FrameId( 0 );
-                            objs.timestamp = infFrames.Timestamp( 0 );
-                            m_pub.Publish( objs );
+                            pObj++;
                         }
-                        else
-                        {
-                            QC_ERROR( "Extract BBox failed for %" PRIu64 " : %d",
-                                      infFrames.FrameId( 0 ), ret );
-                        }
-                        (void) SampleIF::Unlock();
+                        objs.frameId = infFrames.FrameId( 0 );
+                        objs.timestamp = infFrames.Timestamp( 0 );
+                        m_pub.Publish( objs );
                     }
+                    else
+                    {
+                        QC_ERROR( "Extract BBox failed for %" PRIu64 " : %d",
+                                  infFrames.FrameId( 0 ), ret );
+                    }
+                    (void) SampleIF::Unlock();
                 }
             }
         }
+    }
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "PlrPost receive failed : %d", ret );
+    }
+#endif
+}
+
+void SamplePlrPost::ThreadMain()
+{
+    while ( false == m_stop )
+    {
+        Execute();
     }
 }
 
@@ -299,10 +337,17 @@ QCStatus_e SamplePlrPost::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     PROFILER_SHOW();
 

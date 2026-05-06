@@ -113,6 +113,21 @@ public:
      */
     virtual QCStatus_e Deinit() = 0;
 
+#ifdef QC_ENABLE_HS
+    /**
+     * @brief Retrieves the runnable callback for the sample.
+     *
+     * Returns a function object that serves as a callback for execution. This is
+     * typically used when the sample is running in a heterogeneous scheduling environment.
+     *
+     * @return A std::function object representing the callback.
+     *  Default implementation returns nullptr.
+     */
+    virtual std::function<void( const std::uint32_t *, std::size_t )> GetRunnableCallback()
+    {
+        return nullptr;
+    }
+#endif
 
     /**
      * @brief Retrieves the unique name of the QC sample instance.
@@ -245,6 +260,9 @@ protected:
     QCNodeID_t m_nodeId;
     Profiler m_profiler;
     SysTrace m_systrace;
+#ifdef QC_ENABLE_HS
+    bool m_bOrchestratorEnabled = false;
+#endif
     QC_DECLARE_NODETRACE();
     QC_DECLARE_LOGGER();
 

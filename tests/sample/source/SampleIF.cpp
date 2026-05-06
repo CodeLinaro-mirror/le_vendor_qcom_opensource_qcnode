@@ -166,9 +166,15 @@ QCStatus_e SampleIF::Deinit()
 QCStatus_e SampleIF::Lock()
 {
     QCStatus_e ret = QC_STATUS_OK;
-
+#ifdef QC_ENABLE_HS
+    if ( true == m_bOrchestratorEnabled )
+    {
+        /* do nothing when hetero scheduler was used */
+    }
+    else
+#endif
 #if defined( WITH_RSM_V2 )
-    if ( ( m_processor <= QC_PROCESSOR_HTP1 ) && ( false == m_bRsmDisabled ) )
+            if ( ( m_processor <= QC_PROCESSOR_HTP1 ) && ( false == m_bRsmDisabled ) )
     {
         int rc = rsm_acquire_v2( m_handle, &m_acquireCmdV2, &m_acquireRspV2 );
         if ( 0 != rc )
@@ -196,8 +202,15 @@ QCStatus_e SampleIF::Unlock()
 {
     QCStatus_e ret = QC_STATUS_OK;
 
+#ifdef QC_ENABLE_HS
+    if ( true == m_bOrchestratorEnabled )
+    {
+        /* do nothing when hetero scheduler was used */
+    }
+    else
+#endif
 #if defined( WITH_RSM_V2 )
-    if ( ( m_processor <= QC_PROCESSOR_HTP1 ) && ( false == m_bRsmDisabled ) )
+            if ( ( m_processor <= QC_PROCESSOR_HTP1 ) && ( false == m_bRsmDisabled ) )
     {
         int rc = rsm_release_v2( m_handle, m_acquireRspV2.token );
         if ( 0 != rc )

@@ -14,7 +14,7 @@ DMABUFFAllocator::DMABUFFAllocator( const QCMemoryAllocatorConfigInit_t &config,
                                     const QCMemoryAllocator_e allocator )
     : QCMemoryAllocatorIfs( config, allocator )
 {
-    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_VERBOSE );
+    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_ERROR );
     m_dmaBufDevFdCached = dmabufheap_init( ID_DMA_BUF_HEAP_CACHED );
     QC_DEBUG( " dmabufheap_init(ID_DMA_BUF_HEAP_CACHED) = %d ", m_dmaBufDevFdCached );
 }
@@ -89,7 +89,7 @@ QCStatus_e DMABUFFAllocator::Allocate( const QCBufferPropBase_t &request,
         {
             QC_ERROR( "mmap failed to mmap: %d", errno );
             status = QC_STATUS_FAIL;
-            close( fd );
+            (void) dmabufheap_free( fd );
         }
     }
 

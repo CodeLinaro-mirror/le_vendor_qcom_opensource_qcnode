@@ -182,7 +182,6 @@ public:
 
 private:
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors );
-    QCStatus_e ApplyDynamicConfig( DataTree &dt, std::string &errors );
 
     VideoEncoder_Config_t m_config;
     std::string m_options = "{}";

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include <MMTimer.h>
-#include <vidc_types.h>
 #include <vidc_ioctl.h>
+#include <vidc_types.h>
 
 #ifndef _VIDC_LRH_LINUX_
 #include <ioctlClient.h>
@@ -21,7 +21,7 @@ namespace QC::Node
 
 static constexpr int WAIT_TIMEOUT_1_MSEC = 1;
 
-QCStatus_e VidcNodeBase::Init( const VidcNodeBase_Config_t& config )
+QCStatus_e VidcNodeBase::Init( const VidcNodeBase_Config_t &config )
 {
     QCStatus_e status = NodeBase::Init( config.nodeId );
     std::string errors;
@@ -47,11 +47,11 @@ QCStatus_e VidcNodeBase::Init( const VidcNodeBase_Config_t& config )
 }
 
 QCStatus_e VidcNodeBaseConfigIfs::VerifyAndSet( const std::string cfg, std::string &errors,
-                                                VidcNodeBase_Config_t& config )
+                                                VidcNodeBase_Config_t &config )
 {
     QCStatus_e status = NodeConfigIfs::VerifyAndSet( cfg, errors );
 
-    if (QC_STATUS_OK == status)
+    if ( QC_STATUS_OK == status )
     {
         DataTree dt;
         status = m_dataTree.Get( "static", dt );
@@ -59,22 +59,15 @@ QCStatus_e VidcNodeBaseConfigIfs::VerifyAndSet( const std::string cfg, std::stri
         {
             status = ParseStaticConfig( dt, errors, config );
         }
-        else
-        {
-            status = m_dataTree.Get( "dynamic", dt );
-            if ( QC_STATUS_OK == status )
-            {
-                status = ApplyDynamicConfig( dt, errors, config );
-            }
-        }
     }
 
-    if (QC_STATUS_OK == status) {
+    if ( QC_STATUS_OK == status )
+    {
         QC_DEBUG( "FrameWidth = %" PRIu32, config.width );
         QC_DEBUG( "FrameHeight = %" PRIu32, config.height );
         QC_DEBUG( "frameRate = %" PRIu32, config.frameRate );
-        QC_DEBUG( "bInputDynamicMode = %d", config.bInputDynamicMode );
-        QC_DEBUG( "bOutputDynamicMode = %d", config.bOutputDynamicMode );
+        QC_DEBUG( "bInputDynamicMode = %d", (int) config.bInputDynamicMode );
+        QC_DEBUG( "bOutputDynamicMode = %d", (int) config.bOutputDynamicMode );
         QC_DEBUG( "numInputBufferReq = %" PRIu32 " ", config.numInputBufferReq );
         QC_DEBUG( "numOutputBufferReq = %" PRIu32 " ", config.numOutputBufferReq );
         QC_DEBUG( "inFormat = %d", config.inFormat );
@@ -85,7 +78,7 @@ QCStatus_e VidcNodeBaseConfigIfs::VerifyAndSet( const std::string cfg, std::stri
 }
 
 QCStatus_e VidcNodeBaseConfigIfs::ParseStaticConfig( DataTree &dt, std::string &errors,
-                                                     VidcNodeBase_Config_t &config)
+                                                     VidcNodeBase_Config_t &config )
 {
     QCStatus_e status = QC_STATUS_OK;
 
@@ -100,10 +93,8 @@ QCStatus_e VidcNodeBaseConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
     config.numInputBufferReq = dt.Get<uint32_t>( "numInputBufferReq", 0 );
     config.numOutputBufferReq = dt.Get<uint32_t>( "numOutputBufferReq", 0 );
 
-    config.inFormat =
-                    dt.GetImageFormat( "inputImageFormat", QC_IMAGE_FORMAT_COMPRESSED_MAX );
-    config.outFormat =
-                    dt.GetImageFormat( "outputImageFormat", QC_IMAGE_FORMAT_COMPRESSED_MAX );
+    config.inFormat = dt.GetImageFormat( "inputImageFormat", QC_IMAGE_FORMAT_COMPRESSED_MAX );
+    config.outFormat = dt.GetImageFormat( "outputImageFormat", QC_IMAGE_FORMAT_COMPRESSED_MAX );
 
     if ( config.inFormat == QC_IMAGE_FORMAT_COMPRESSED_MAX )
     {
@@ -159,17 +150,8 @@ QCStatus_e VidcNodeBaseConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
         status = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    if (QC_STATUS_OK != status)
-        printf("errors: %s", errors.c_str());
+    if ( QC_STATUS_OK != status ) printf( "errors: %s", errors.c_str() );
 
-    return status;
-}
-
-QCStatus_e VidcNodeBaseConfigIfs::ApplyDynamicConfig( DataTree &dt, std::string &errors,
-                                                      VidcNodeBase_Config_t &config)
-{
-    // TBD in phase 2
-    QCStatus_e status = QC_STATUS_OK;
     return status;
 }
 
@@ -320,7 +302,8 @@ QCStatus_e VidcNodeBase::ValidateBuffer( const VideoFrameDescriptor &vidFrmDesc,
 
     if ( QC_STATUS_OK == ret )
     {
-        if ( ( vidFrmDesc.width != m_pConfig->width ) || ( vidFrmDesc.height != m_pConfig->height ) )
+        if ( ( vidFrmDesc.width != m_pConfig->width ) ||
+             ( vidFrmDesc.height != m_pConfig->height ) )
         {
             QC_ERROR( "pBuffer width %" PRIu32 " height %" PRIu32 " does not match m_width %" PRIu32
                       " m_height %" PRIu32,
@@ -335,8 +318,8 @@ QCStatus_e VidcNodeBase::ValidateBuffer( const VideoFrameDescriptor &vidFrmDesc,
         {
             if ( vidFrmDesc.format != m_pConfig->inFormat )
             {
-                QC_ERROR( "pBuffer format %d does not match m_inFormat %d",
-                          vidFrmDesc.format, m_pConfig->inFormat );
+                QC_ERROR( "pBuffer format %d does not match m_inFormat %d", vidFrmDesc.format,
+                          m_pConfig->inFormat );
                 ret = QC_STATUS_INVALID_BUF;
             }
         }
@@ -344,8 +327,8 @@ QCStatus_e VidcNodeBase::ValidateBuffer( const VideoFrameDescriptor &vidFrmDesc,
         {
             if ( vidFrmDesc.format != m_pConfig->outFormat )
             {
-                QC_ERROR( "pBuffer format %d does not match m_outFormat %d",
-                          vidFrmDesc.format, m_pConfig->outFormat );
+                QC_ERROR( "pBuffer format %d does not match m_outFormat %d", vidFrmDesc.format,
+                          m_pConfig->outFormat );
                 ret = QC_STATUS_INVALID_BUF;
             }
         }
@@ -356,7 +339,7 @@ QCStatus_e VidcNodeBase::ValidateBuffer( const VideoFrameDescriptor &vidFrmDesc,
     return ret;
 }
 
-QCStatus_e VidcNodeBase::ValidateBuffers( )
+QCStatus_e VidcNodeBase::ValidateBuffers()
 {
     QCStatus_e ret = QC_STATUS_OK;
 
@@ -398,12 +381,11 @@ QCStatus_e VidcNodeBase::ValidateFrameSubmission( const VideoFrameDescriptor_t &
                                                   bool requireNonZeroSize )
 {
     QCStatus_e ret = QC_STATUS_OK;
-    const char* inOutStr;
+    const char *inOutStr;
 
     QC_DEBUG( "validate frame submission begin" );
 
-    if ( VIDEO_CODEC_BUF_INPUT == bufferType )
-        inOutStr = "inputBuffer";
+    if ( VIDEO_CODEC_BUF_INPUT == bufferType ) inOutStr = "inputBuffer";
     else
         inOutStr = "outputBuffer";
 
@@ -413,13 +395,13 @@ QCStatus_e VidcNodeBase::ValidateFrameSubmission( const VideoFrameDescriptor_t &
         ret = QC_STATUS_BAD_STATE;
     }
 
-    if ( ( QC_STATUS_OK == ret ) && ( nullptr == frameDesc.pBuf) )
+    if ( ( QC_STATUS_OK == ret ) && ( nullptr == frameDesc.pBuf ) )
     {
         QC_ERROR( "Not submitting empty %s!", inOutStr );
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    if ( ( QC_STATUS_OK == ret ) && ( ( 0 == frameDesc.size) && requireNonZeroSize ) )
+    if ( ( QC_STATUS_OK == ret ) && ( ( 0 == frameDesc.size ) && requireNonZeroSize ) )
     {
         QC_ERROR( "Not submitting empty %s!", inOutStr );
         ret = QC_STATUS_BAD_ARGUMENTS;
@@ -477,13 +459,14 @@ QCStatus_e VidcNodeBase::PostInit( void )
     return ret;
 }
 
-QCStatus_e VidcNodeBase::InitBufferForNonDynamicMode( const std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
-                                                      uint32_t bufferIdx, VideoCodec_BufType_e bufferType )
+QCStatus_e VidcNodeBase::InitBufferForNonDynamicMode(
+        const std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
+        uint32_t bufferIdx, VideoCodec_BufType_e bufferType )
 {
-    int32_t i = 0, bufNum;
+    uint32_t bufNum, i = 0;
     QCStatus_e ret = QC_STATUS_OK;
 
-    if (VIDEO_CODEC_BUF_INPUT == bufferType)
+    if ( VIDEO_CODEC_BUF_INPUT == bufferType )
     {
         bufNum = m_pConfig->numInputBufferReq;
     }
@@ -492,23 +475,26 @@ QCStatus_e VidcNodeBase::InitBufferForNonDynamicMode( const std::vector<std::ref
         bufNum = m_pConfig->numOutputBufferReq;
     }
 
-    if (VIDEO_CODEC_BUF_INPUT == bufferType) {
-        for ( QCBufferDescriptorBase_t &buf : buffers)
+    if ( VIDEO_CODEC_BUF_INPUT == bufferType )
+    {
+        for ( QCBufferDescriptorBase_t &buf : buffers )
         {
-            if (i >= bufferIdx && i < bufferIdx + bufNum ) {
-                VideoFrameDescriptor_t& vidcBuf = static_cast<VideoFrameDescriptor_t&>(buf);
-                m_inputBufferList.push_back(vidcBuf);
+            if ( i >= bufferIdx && i < bufferIdx + bufNum )
+            {
+                VideoFrameDescriptor_t &vidcBuf = static_cast<VideoFrameDescriptor_t &>( buf );
+                m_inputBufferList.push_back( vidcBuf );
             }
             i++;
         }
     }
     else /* VIDEO_CODEC_BUF_OUTPUT */
     {
-        for ( QCBufferDescriptorBase_t &buf : buffers)
+        for ( QCBufferDescriptorBase_t &buf : buffers )
         {
-            if (i >= bufferIdx && i < bufferIdx + bufNum ) {
-                VideoFrameDescriptor_t& vidcBuf = static_cast<VideoFrameDescriptor_t&>(buf);
-                m_outputBufferList.push_back(vidcBuf);
+            if ( i >= bufferIdx && i < bufferIdx + bufNum )
+            {
+                VideoFrameDescriptor_t &vidcBuf = static_cast<VideoFrameDescriptor_t &>( buf );
+                m_outputBufferList.push_back( vidcBuf );
             }
             i++;
         }
@@ -517,8 +503,9 @@ QCStatus_e VidcNodeBase::InitBufferForNonDynamicMode( const std::vector<std::ref
     return ret;
 }
 
-QCStatus_e VidcNodeBase::AllocateBuffer( const std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
-                                         uint32_t bufferIdx, VideoCodec_BufType_e bufferType )
+QCStatus_e VidcNodeBase::AllocateBuffer(
+        const std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
+        uint32_t bufferIdx, VideoCodec_BufType_e bufferType )
 {
     QCStatus_e status = QC_STATUS_OK;
     VideoFrameDescriptor *vidFrmDescList = nullptr;
@@ -538,29 +525,35 @@ QCStatus_e VidcNodeBase::AllocateBuffer( const std::vector<std::reference_wrappe
         dynamicMode = m_pConfig->bOutputDynamicMode;
     }
 
-    if (false == dynamicMode) {
-        if (bufNum > bufNumGiven) {
-            QC_ERROR( "Insufficient number of buffer descriptors (need %u given %u)",
-                      bufNum, bufNumGiven );
+    if ( false == dynamicMode )
+    {
+        if ( bufNum > bufNumGiven )
+        {
+            QC_ERROR( "Insufficient number of buffer descriptors (need %u given %u)", bufNum,
+                      bufNumGiven );
             status = QC_STATUS_NOMEM;
         }
-        else {
-            for ( unsigned int i = 0; i < bufNum; i++)
+        else
+        {
+            for ( unsigned int i = 0; i < bufNum; i++ )
             {
                 const QCBufferDescriptorBase_t &bufdesc = buffers[i];
-                if (bufSize > bufdesc.size) {
-                    QC_ERROR( "Size of buffer of descriptor is too small (need %u bytes given %u bytes)",
+                if ( bufSize > bufdesc.size )
+                {
+                    QC_ERROR( "Size of buffer of descriptor is too small (need %u bytes given %u "
+                              "bytes)",
                               bufSize, bufdesc.size );
                     status = QC_STATUS_NOMEM;
                 }
             }
         }
 
-        if (QC_STATUS_OK == status ) {
+        if ( QC_STATUS_OK == status )
+        {
             QC_INFO( "Set %u %s buffer descriptors for non-dynamic mode", bufNum,
-                     (VIDEO_CODEC_BUF_INPUT == bufferType) ? "input" : "output" );
+                     ( VIDEO_CODEC_BUF_INPUT == bufferType ) ? "input" : "output" );
 
-            status = InitBufferForNonDynamicMode(buffers, bufferIdx, bufferType);
+            status = InitBufferForNonDynamicMode( buffers, bufferIdx, bufferType );
         }
     }
 
@@ -584,17 +577,18 @@ QCStatus_e VidcNodeBase::SetBuffer( VideoCodec_BufType_e bufferType )
         dynamicMode = m_pConfig->bOutputDynamicMode;
     }
 
-    if (QC_STATUS_OK == status)
+    if ( QC_STATUS_OK == status )
     {
         status = m_drvClient.SetDynamicMode( bufferType, dynamicMode );
     }
 
-    if (QC_STATUS_OK == status && false == dynamicMode)
+    if ( QC_STATUS_OK == status && false == dynamicMode )
     {
         status = m_drvClient.SetBuffer( bufferType, *vidFrmDescList );
-        if (QC_STATUS_OK == status)
+        if ( QC_STATUS_OK == status )
         {
-            QC_DEBUG( "Set %s buffers succeed", (VIDEO_CODEC_BUF_INPUT == bufferType) ? "input" : "output");
+            QC_DEBUG( "Set %s buffers succeed",
+                      ( VIDEO_CODEC_BUF_INPUT == bufferType ) ? "input" : "output" );
         }
     }
 
@@ -603,8 +597,7 @@ QCStatus_e VidcNodeBase::SetBuffer( VideoCodec_BufType_e bufferType )
 
 QCStatus_e VidcNodeBase::NegotiateBufferReq( VideoCodec_BufType_e bufType )
 {
-    uint32_t bufSize = 0, bufNum;
-    int32_t bufNumAvail;
+    uint32_t bufSize = 0, bufNum, bufNumAvail;
     bool dynamicMode = false;
     std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> *vidFrmDescList = nullptr;
 
@@ -629,18 +622,20 @@ QCStatus_e VidcNodeBase::NegotiateBufferReq( VideoCodec_BufType_e bufType )
         if ( bufNumAvail < bufNum )
         {
             QC_ERROR( "%s-buf-type:%d, app alloc count:%" PRIu32 ", but driver req count:%" PRIu32,
-                      (m_drvClient.GetType() == VIDEO_ENC) ? "enc" : "dec", bufType, bufNumAvail,
-                                      bufNum );
+                      ( m_drvClient.GetType() == VIDEO_ENC ) ? "enc" : "dec", bufType, bufNumAvail,
+                      bufNum );
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
         else
         {
             m_bufSize[bufType] = bufSize;
             QC_INFO( "%s-buf-type:%d, num:%" PRIu32 ", size=%" PRIu32,
-                     (m_drvClient.GetType() == VIDEO_ENC) ? "enc" : "dec", bufType,
-                                     vidFrmDescList->size(), m_bufSize[bufType] );
+                     ( m_drvClient.GetType() == VIDEO_ENC ) ? "enc" : "dec", bufType,
+                     vidFrmDescList->size(), m_bufSize[bufType] );
         }
-    } else {
+    }
+    else
+    {
         QC_ERROR( "driver client NegotiateBufferReq returned an error: %d", ret );
     }
 

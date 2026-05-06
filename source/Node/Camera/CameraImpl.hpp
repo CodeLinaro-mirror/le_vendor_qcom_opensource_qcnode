@@ -4,6 +4,7 @@
 #ifndef QC_NODE_CAMERA_IMPL_HPP
 #define QC_NODE_CAMERA_IMPL_HPP
 
+#include <atomic>
 #include <mutex>
 #include <queue>
 #include <unordered_map>
@@ -152,7 +153,7 @@ typedef struct Camera_Config : public QCNodeConfigBase_t
     uint32_t inputMode;
     uint32_t ispUseCase;
     uint32_t camFrameDropPattern;
-    uint32_t camFrameDropPeriod;
+    uint8_t camFrameDropPeriod;
     uint32_t opMode;
     bool bRequestMode;
     bool bPrimary;
@@ -303,12 +304,12 @@ private:
     bool m_bQCarCamInitialized = false;
     bool m_bRequestPatternMode = false;
 
-    uint32_t m_streamNum;
-    uint32_t m_metaDataNum;
+    size_t m_streamNum;
+    size_t m_metaDataNum;
+    size_t m_maxBufCnt;
     uint32_t m_inputId;
-    uint32_t m_requestId;
+    std::atomic<uint32_t> m_requestId;
     uint32_t m_clientId;
-    uint32_t m_maxBufCnt;
     uint32_t m_refStreamId = QCNODE_CAMERA_MAX_STREAM_NUM;
     uint32_t m_submitRequestPattern[QCNODE_CAMERA_MAX_STREAM_NUM];
     uint64_t m_frameId[QCNODE_CAMERA_MAX_STREAM_NUM] = { 0 };

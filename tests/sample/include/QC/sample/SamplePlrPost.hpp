@@ -40,10 +40,21 @@ public:
     /// @return QC_STATUS_OK on success, others on failure
     QCStatus_e Deinit();
 
+#ifdef QC_ENABLE_HS
+    /// @brief Get the runnable callback for HeteroScheduler
+    /// @return The runnable callback function
+    std::function<void( const std::uint32_t *, std::size_t )> GetRunnableCallback() override;
+#endif
+
 private:
     QCStatus_e ParseConfig( SampleConfig_t &config );
     void ThreadMain();
+    void Execute();
     Point2D_t ProjectToImage( Point2D_t &pt, Point2D_t &center, float yaw );
+
+#ifdef QC_ENABLE_HS
+    void RunnableCallback( const std::uint32_t *rids, std::size_t count );
+#endif
 
 private:
     PostCenterPoint_Config_t m_config = { QC_PROCESSOR_HTP0, 0 };

@@ -1,4 +1,3 @@
-
 set( HEADERS_DIR ${PROJECT_SOURCE_DIR}/include )
 
 set( COMMON_HEADERS ${HEADERS_DIR}/QC/Common/Types.hpp )
@@ -14,7 +13,11 @@ if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STRE
     list( APPEND TARGET_LIBRARIES pthread dl systemd )
 else()
     list( APPEND COMMON_SOURCES Logger_QNX.cpp )
-    list( APPEND TARGET_LIBRARIES libstd slog2 )
+    if(ENABLE_SIMNODE)
+        list( APPEND TARGET_LIBRARIES slog2 )
+    else()
+        list( APPEND TARGET_LIBRARIES libstd slog2 )
+    endif()
 endif()
 
 add_library( QCNodeCommon OBJECT ${COMMON_SOURCES} )
@@ -30,4 +33,3 @@ target_compile_options( QCNodeCommon PRIVATE -Wall )
 
 install( FILES ${COMMON_HEADERS} DESTINATION include/QC/Common )
 install( FILES ${PROJECT_SOURCE_DIR}/include/QC/Infras/Log/Logger.hpp DESTINATION include/QC/Infras/Log )
-

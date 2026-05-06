@@ -66,6 +66,7 @@ Note: the "-n componentX_name -t componentX_type" must be in the begin for each 
 | -t        | true     | string    | The component type name, options from [DataReader, Camera, Remap, Qnn, C2D, PostProcCenternet, TinyViz, VideoEncoder, VideoDecoder, Recorder, PlrPre, PlrPost, DataOnline, CL2DFlex, GL2DFlex, SharedRing, FpsAdapter, OpticalFlow, OpticalFlowViz, FrameSync, DepthFromStereo, DepthFromStereoViz, Radar, C2C, Temporal, ComputeLidarCoord] |
 | -k        | true     | string    | The unique component attribute name |
 | -v        | true     | string    | The attribute value for the previous attribute name |
+| -c        | false    | string    | Specify the client name for HeteroScheduler |
 | -d        | false    |   -       | Direct the QCNode log to stdout |
 | -T        | false    | int       | Specify the time in seconds that the QCNodeSampleApp runs, if not specified or value 0, it means that the QCNodeSampleApp will run forever until stop signal(Ctrl + C).  |
 | -V        | false    |   -       | Prints the QCNode application version information to the standard output. |
@@ -223,7 +224,7 @@ The command line template example:
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
 | processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
-| core_id        | false    | int     | 0  | The processor core ID, currently only used for nordy dsp, options from [0,1,2,3] |
+| core_id        | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | output_width  | false    | int       | 1152    | The output image width |
 | output_height | false    | int       | 800     | The output image height |
@@ -410,6 +411,7 @@ The command line template example:
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
 | processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
+| core_id       | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | pillar_size_x | false    | float     | 0.16    | Pillar size in x direction in meters |
 | pillar_size_y | false    | float     | 0.16    | Pillar size in y direction in meters |
@@ -920,17 +922,26 @@ graph LR
 
 | attribute            | required | type      | default       | comments |
 |----------------------|----------|-----------|---------------|----------|
-| temporal_tensor_type | true     | string    | ufixed_point8 | The temporal tensor type, options from [float32,ufixed_point8, ufixed_point16] |
-| temporal_tensor_dims | true     | string    |       -       | The temporal tensor dimensions, in format "N,H,W,C", "N,S,C", "N,C", or "N" depends on the number of dimensions. |
-| temporal_quant_scale | false    | float     | 1.0f          | The quantization scale of the quantize temporal tensor  |
-| temporal_quant_offset| false    | int       | 0             | The quantization offset of the quantize temporal tensor |
-| temporal_index       | false    | int       | 0             | The temporal tensor index of the outputs of the temporal model. |
+| number               | false    | int       | 1             | The number of temporal tensors |
+| temporal_tensor_type | false    | string    | ufixed_point8 | The default temporal tensor type, options from [float32,ufixed_point8, ufixed_point16] |
+| temporal_tensor_dims | true     | string    |       -       | The default temporal tensor dimensions, in format "N,H,W,C", "N,S,C", "N,C", or "N" depends on the number of dimensions. |
+| temporal_quant_scale | false    | float     | 1.0f          | The default quantization scale of the quantize temporal tensor  |
+| temporal_quant_offset| false    | int       | 0             | The default quantization offset of the quantize temporal tensor |
+| temporal_index       | false    | int       | 0             | The default temporal tensor index of the outputs of the temporal model. |
+| temporal_tensor_typeX| false    | string    | =temporal_tensor_type | The temporal tensor type for tensor X |
+| temporal_tensor_dimsX| false    | string    | =temporal_tensor_dims | The temporal tensor dimensions for tensor X |
+| temporal_quant_scaleX| false    | float     | =temporal_quant_scale | The quantization scale for tensor X |
+| temporal_quant_offsetX| false   | int       | =temporal_quant_offset| The quantization offset for tensor X |
+| temporal_indexX      | false    | int       | =temporal_index | The temporal tensor index for tensor X |
 | use_flag_tensor_type | false    | string    |  -            | The use flag tensor type, options from [float32,ufixed_point8, ufixed_point16] |
-| use_flag_tensor_dims | true     | string    |       "1"     | The use flag tensor dimensions, in format "N,H,W,C", "N,S,C", "N,C", or "N" depends on the number of dimensions. |
+| use_flag_tensor_dims | false    | string    |       "1"     | The use flag tensor dimensions, in format "N,H,W,C", "N,S,C", "N,C", or "N" depends on the number of dimensions. |
 | use_flag_quant_scale | false    | float     | 1.0f          | The quantization scale of the quantize use flag tensor  |
 | use_flag_quant_offset| false    | int       | 0             | The quantization offset of the quantize use flag tensor |
+| window               | false    | int       | 200           | The receive window time in ms |
 | input_topic          | true     | string    |      -        | the input topic name |
 | output_topic         | true     | string    |      -        | the output topic name |
+
+Note: "X" is value from 0 to number-1.
 
 The command line template example:
 
@@ -1241,4 +1252,3 @@ export QC_LOG_LEVEL=INFO
     -k output_topic -v /sensor/camera/CAM0/objs \
   -n VIZ -t TinyViz -k cameras -v CAM0 -k winH -v 1050 -d
 ```
-

@@ -16,7 +16,7 @@ namespace Memory
 HeapAllocator::HeapAllocator()
     : QCMemoryAllocatorIfs( { "Heap Allocator" }, QC_MEMORY_ALLOCATOR_HEAP )
 {
-    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_VERBOSE );
+    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_ERROR );
 }
 
 HeapAllocator::~HeapAllocator()
@@ -53,24 +53,24 @@ QCStatus_e HeapAllocator::Allocate( const QCBufferPropBase_t &request,
                 "%s: Allocating %zu bytes aligned at %lu byte boundary from the process's heap...",
                 GetConfiguration().name.c_str(), request.size, request.alignment );
         uint32_t ret = posix_memalign( &response.pBuf, request.alignment, request.size );
-        response.alignment = request.alignment;
-        response.cache = request.cache;
-        response.allocatorType = GetConfiguration().type;
-        response.size = request.size;
-        response.name = GetConfiguration().name;
         // check if nullptr is the result
-        if ( nullptr == response.pBuf )
-        {
-            QC_ERROR( "nullptr == response.pBuf" );
-            status = QC_STATUS_NULL_PTR;
-        }
-        else if ( 0 != ret )
+        if ( 0 != ret )
         {
             QC_ERROR( "ret = %d ", ret );
             status = QC_STATUS_FAIL;
         }
+        else if ( nullptr == response.pBuf )
+        {
+            QC_ERROR( "nullptr == response.pBuf" );
+            status = QC_STATUS_NULL_PTR;
+        }
         else
         {
+            response.alignment = request.alignment;
+            response.cache = request.cache;
+            response.allocatorType = GetConfiguration().type;
+            response.size = request.size;
+            response.name = GetConfiguration().name;
             QC_DEBUG( "%s: Allocated %zu bytes aligned at %lu byte boundary heap at %p",
                       GetConfiguration().name.c_str(), request.size, request.alignment,
                       response.pBuf );

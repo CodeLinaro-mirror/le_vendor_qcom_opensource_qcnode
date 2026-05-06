@@ -3,6 +3,11 @@
 
 #include "QC/Infras/Memory/DMABUFFAllocator.hpp"
 #include "gtest/gtest.h"
+#include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <thread>
 
 using namespace QC;
 using namespace QC::Memory;
@@ -153,6 +158,20 @@ TEST_F( Test_DMABUFFAllocator, SANITY_7 )
     ASSERT_EQ( QC_STATUS_NOMEM, status );
 }
 
+TEST_F( Test_DMABUFFAllocator, SANITY_8 )
+{
+
+    QCBufferDescriptorBase_t response;
+
+    response.size = 23;
+    response.cache = QC_CACHEABLE;
+    response.pBuf = (void *) 1000;
+    response.dmaHandle = 10000;
+    QCStatus_e status = allocatorIfs->Free( response );
+    ASSERT_EQ( QC_STATUS_FAIL, status );
+}
+
+
 TEST_F( Test_DMABUFFAllocator, SANITY_multiple_allocations_1 )
 {
     QCBufferPropBase_t request[4];
@@ -280,4 +299,155 @@ TEST_F( Test_DMABUFFAllocator, SANITY_multiple_allocations_2 )
 
     status = allocatorIfs->Allocate( badRequest, response[1] );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+}
+
+
+/**
+ * @test ST_DMA_AllocFree_128_Loop_100000
+ * @brief Single-threaded stress test: Allocate and free 128-byte DMA buffers in a tight loop
+ *
+ * @details
+ * - Performs 100,000 iterations of:
+ *   - Allocate a 128-byte DMA buffer with default alignment and cacheable attributes
+ *   - Validate buffer pointer is non-null and properly aligned
+ *   - Validate buffer size matches request
+ *   - Validate cache attributes are correct
+ *   - Validate DMA handle is valid (non-zero)
+ *   - Free the buffer
+ * - Goal: Detect memory leaks, DMA handle exhaustion, and allocation/free correctness
+ * - Single allocator instance reused across all iterations
+ *
+ * @note This is a single-threaded stress test focused on resource churn
+ */
+TEST_F( Test_DMABUFFAllocator, ST_DMA_AllocFree_128_Loop_100000 )
+{
+    // Total iterations for the stress loop
+    const int iters = 100000;
+
+    // Single allocator instance reused across all iterations
+    DMABUFFAllocator allocatorIfs( { "QC_MEMORY_ALLOCATOR_DMA" }, QC_MEMORY_ALLOCATOR_DMA );
+
+    for ( int i = 0; i < iters; ++i )
+    {
+        // Build a standard 128-byte request with default alignment/cache attributes
+        QCBufferPropBase_t request;
+        request.size = 128;
+        request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+        request.cache = QC_CACHEABLE;
+
+        // Allocate and capture the resulting descriptor
+        QCBufferDescriptorBase_t response;
+        QCStatus_e status = allocatorIfs.Allocate( request, response );
+
+        // Verify allocation succeeded and the descriptor is valid
+        ASSERT_EQ( QC_STATUS_OK, status );
+        ASSERT_NE( response.pBuf, nullptr );
+        // Alignment check: address must be a multiple of 'alignment'
+        ASSERT_EQ( (unsigned long long) response.pBuf,
+                   (unsigned long long) response.pBuf & ~( request.alignment - 1 ) );
+        ASSERT_EQ( response.size, 128 );
+        ASSERT_EQ( response.cache, QC_CACHEABLE );
+        // DMA-specific: validate DMA handle is valid
+        ASSERT_NE( response.dmaHandle, 0 );
+
+        // Free the buffer; allocator must return OK
+        status = allocatorIfs.Free( response );
+        ASSERT_EQ( QC_STATUS_OK, status );
+    }
+}
+
+/**
+ * @test Concurrency_DMA_AllocFree_ProducerConsumer_2Threads_128_Loop_100000
+ * @brief Run DMA allocation on one thread and free on another using a thread-safe queue
+ *
+ * @details
+ * - Producer thread:
+ *   - Iterates 100,000 times
+ *   - Allocates 128-byte DMA buffers with default alignment and cacheable attributes
+ *   - Validates buffer pointer, size, alignment, cache attributes, and DMA handle
+ *   - Enqueues buffer descriptors to a thread-safe queue
+ * - Consumer thread:
+ *   - Dequeues buffer descriptors from the queue
+ *   - Frees DMA buffers
+ *   - Continues until producer signals completion and queue is empty
+ * - Synchronization:
+ *   - Uses mutex + condition_variable to guard a std::deque of descriptors
+ *   - Atomic counters track produced and consumed buffers
+ * - Final validation:
+ *   - Verifies all produced buffers were consumed
+ *   - Ensures no memory leaks or orphaned DMA handles
+ *
+ * @note Validates cross-thread correctness of DMA Allocate/Free operations
+ * @note Tests DMA handle validity across thread boundaries
+ * @see QC::Memory::DMABUFFAllocator
+ * @see QC::Memory::QCBufferDescriptorBase_t
+ */
+TEST_F( Test_DMABUFFAllocator, Concurrency_DMA_AllocFree_ProducerConsumer_2Threads_128_Loop_100000 )
+{
+    const int iters = 100000;
+
+    DMABUFFAllocator allocatorIfs( { "QC_MEMORY_ALLOCATOR_DMA" }, QC_MEMORY_ALLOCATOR_DMA );
+
+    std::deque<QCBufferDescriptorBase_t> q;
+    std::mutex m;
+    std::condition_variable cv;
+    std::atomic<int> produced{ 0 };
+    std::atomic<int> consumed{ 0 };
+    std::atomic<bool> done{ false };
+
+    auto producer = [&] {
+        for ( int i = 0; i < iters; ++i )
+        {
+            QCBufferPropBase_t request{};
+            request.size = 128;
+            request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+            request.cache = QC_CACHEABLE;
+
+            QCBufferDescriptorBase_t resp{};
+            QCStatus_e st = allocatorIfs.Allocate( request, resp );
+            ASSERT_EQ( QC_STATUS_OK, st );
+            ASSERT_NE( resp.pBuf, nullptr );
+            ASSERT_EQ( (unsigned long long) resp.pBuf,
+                       (unsigned long long) resp.pBuf & ~( request.alignment - 1 ) );
+            ASSERT_EQ( resp.size, 128 );
+            ASSERT_EQ( resp.cache, QC_CACHEABLE );
+            // DMA-specific: validate DMA handle
+            ASSERT_NE( resp.dmaHandle, 0 );
+
+            {
+                std::lock_guard<std::mutex> lk( m );
+                q.push_back( resp );
+                ++produced;
+            }
+            cv.notify_one();
+        }
+        done.store( true );
+        cv.notify_all();
+    };
+
+    auto consumer = [&] {
+        while ( true )
+        {
+            QCBufferDescriptorBase_t item{};
+            {
+                std::unique_lock<std::mutex> lk( m );
+                cv.wait( lk, [&] { return !q.empty() || done.load(); } );
+                if ( q.empty() && done.load() ) break;
+                if ( q.empty() ) continue;
+                item = q.front();
+                q.pop_front();
+            }
+            QCStatus_e st = allocatorIfs.Free( item );
+            ASSERT_EQ( QC_STATUS_OK, st );
+            ++consumed;
+        }
+    };
+
+    std::thread tProd( producer );
+    std::thread tCons( consumer );
+    tProd.join();
+    tCons.join();
+
+    ASSERT_EQ( produced.load(), iters );
+    ASSERT_EQ( consumed.load(), iters );
 }

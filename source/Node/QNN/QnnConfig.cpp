@@ -224,7 +224,7 @@ QCStatus_e QnnConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
     if ( QC_STATUS_OK == status )
     {
         config.nodeId.name = dt.Get<std::string>( "name", "" );
-        config.nodeId.id =  static_cast<uint8_t>(dt.Get<uint32_t>( "id", UINT32_MAX ));
+        config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
         config.nodeId.type = QC_NODE_TYPE_QNN;
         std::string processorType = dt.Get<std::string>( "processorType", "htp0" );
         if ( "htp0" == processorType )

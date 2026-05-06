@@ -3,6 +3,7 @@ BUILD_LIBS += libFadasIface_skel
 BUILD_DLLS = libFadasIface_skel
 
 # .c files to build into the shared lib
+libFadasIface_skel_C_SRCS += $(V)/crc32
 libFadasIface_skel_C_SRCS += $(V)/FadasIface_skel
 libFadasIface_skel_QAICIDLS += ../src/FadasIface
 libFadasIface_skel_CPP_SRCS += ../src/FadasIfaceCore

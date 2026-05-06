@@ -85,8 +85,8 @@ QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &tensorDesc ) cons
         tensorDesc.dims[1] = this->height;
         tensorDesc.dims[2] = this->width;
         tensorDesc.dims[3] = bpp;
-        tensorDesc.validSize =
-                static_cast<size_t>( this->batchSize * this->height * this->width * bpp );
+        tensorDesc.validSize = static_cast<size_t>( static_cast<uint64_t>( this->batchSize ) *
+                                                    this->height * this->width * bpp );
     }
     return status;
 }
@@ -162,7 +162,7 @@ QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &luma,
         luma.dims[1] = this->height;
         luma.dims[2] = this->width;
         luma.dims[3] = 1;
-        luma.validSize = static_cast<size_t>( this->height * this->width *
+        luma.validSize = static_cast<size_t>( static_cast<uint64_t>( this->height ) * this->width *
                                               s_qcFormatToBytesPerPixel[this->format] );
 
         chroma = *this;
@@ -181,8 +181,9 @@ QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &luma,
         chroma.dims[1] = this->height / 2;
         chroma.dims[2] = this->width / 2;
         chroma.dims[3] = 2;
-        chroma.validSize = static_cast<size_t>( this->height * this->width *
-                                                s_qcFormatToBytesPerPixel[this->format] / 2 );
+        chroma.validSize =
+                static_cast<size_t>( static_cast<uint64_t>( this->height ) * this->width *
+                                     s_qcFormatToBytesPerPixel[this->format] / 2 );
     }
 
     return status;
@@ -209,7 +210,7 @@ QCStatus_e ImageDescriptor::GetImageDesc( ImageDescriptor &imageDesc, uint32_t b
         QC_LOG_ERROR( "buffer batch offset %u(>=%u) out of range", batchOffset, this->batchSize );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
-    else if ( ( batchOffset + batchSize ) >= this->batchSize )
+    else if ( batchSize > ( this->batchSize - batchOffset ) )
     {
         QC_LOG_ERROR( "buffer batch size %u out of range", batchSize );
         status = QC_STATUS_BAD_ARGUMENTS;
@@ -260,8 +261,8 @@ ImageDescriptor &ImageDescriptor::operator=( const QCBufferDescriptorBase_t &oth
 {
     if ( this != &other )
     {
-        const ImageDescriptor_t *pImageDesc = static_cast<const ImageDescriptor_t *>( &other );
-        const BufferDescriptor_t *pBufDesc = static_cast<const BufferDescriptor_t *>( &other );
+        const ImageDescriptor_t *pImageDesc = dynamic_cast<const ImageDescriptor_t *>( &other );
+        const BufferDescriptor_t *pBufDesc = dynamic_cast<const BufferDescriptor_t *>( &other );
         if ( nullptr != pImageDesc )
         {
             ImageDescriptor::operator=( *pImageDesc );

@@ -4,6 +4,11 @@
 #include "QC/Infras/Memory/HeapAllocator.hpp"
 
 #include "gtest/gtest.h"
+#include <atomic>
+#include <condition_variable>
+#include <deque>
+#include <mutex>
+#include <thread>
 
 using namespace QC;
 using namespace QC::Memory;
@@ -242,6 +247,13 @@ TEST_F( Test_HeapAllocator, SANITY_multiple_allocations )
         status = allocatorIfsPtr->Allocate( badRequest, response[1] );
         ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
+        QCBufferDescriptorBase_t buff;
+        buff.allocatorType = QC_MEMORY_ALLOCATOR_HEAP;
+        buff.size = 0;
+        status = allocatorIfsPtr->Free( buff );
+        ASSERT_EQ( status, QC_STATUS_BAD_ARGUMENTS );
+
+
         delete allocatorIfsPtr;
     }
 }
@@ -434,4 +446,161 @@ TEST_F( Test_MemoryIfs, SANITY_QCMemoryAllocatorIfs_DefaultFreeReturnsUnsupporte
     // Call the base implementation explicitly to test the default behavior
     QCStatus_e status = allocator.Free( buff );
     ASSERT_EQ( status, QC_STATUS_UNSUPPORTED );
+}
+
+
+/**
+ * @test ST_HEAP_AllocFree_128_Loop_100000
+ * @brief Stress-test HeapAllocator with repeated 128-byte allocate/free cycles.
+ *
+ * @details
+ * - Arrange:
+ *   - Construct a HeapAllocator instance.
+ *   - Prepare a QCBufferPropBase_t request (size=128, default alignment, cacheable).
+ * - Act:
+ *   - Loop 100,000 times:
+ *     - Allocate a buffer and capture its QCBufferDescriptorBase_t.
+ *     - Validate descriptor invariants (non-null pointer, alignment, size, cache).
+ *     - Free the buffer.
+ * - Assert:
+ *   - Allocate returns QC_STATUS_OK.
+ *   - pBuf is not nullptr and properly aligned: (addr & ~(alignment - 1)) == addr.
+ *   - size == 128 and cache == QC_CACHEABLE.
+ *   - Free returns QC_STATUS_OK.
+ *
+ * @note This verifies allocator correctness and stability under repetition.
+ * @see QC::Memory::HeapAllocator
+ * @see QC::Memory::QCMemoryAllocatorIfs
+ * @see QC::Memory::QCBufferDescriptorBase_t
+ */
+TEST_F( Test_HeapAllocator, ST_HEAP_AllocFree_128_Loop_100000 )
+{
+    // Total iterations for the stress loop
+    const int iters = 1000000000;
+
+    // Single allocator instance reused across all iterations
+    HeapAllocator allocatorIfs;
+
+    for ( int i = 0; i < iters; ++i )
+    {
+        if ( ( i % 10000 ) == 0 )
+        {
+            printf( "ST_HEAP_AllocFree_128_Loop_100000 %d iters %d\n", i, iters );
+        }
+
+        // Build a standard 128-byte request with default alignment/cache attributes
+        QCBufferPropBase_t request;
+        request.size = 128;
+        request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+        request.cache = QC_CACHEABLE;
+
+        // Allocate and capture the resulting descriptor
+        QCBufferDescriptorBase_t response;
+        QCStatus_e status = allocatorIfs.Allocate( request, response );
+
+        // Verify allocation succeeded and the descriptor is valid
+        ASSERT_EQ( QC_STATUS_OK, status );
+        ASSERT_NE( response.pBuf, nullptr );
+        // Alignment check: address must be a multiple of 'alignment'
+        ASSERT_EQ( (unsigned long long) response.pBuf,
+                   (unsigned long long) response.pBuf & ~( request.alignment - 1 ) );
+        ASSERT_EQ( response.size, 128 );
+        ASSERT_EQ( response.cache, QC_CACHEABLE );
+
+        // Free the buffer; allocator must return OK
+        status = allocatorIfs.Free( response );
+        ASSERT_EQ( QC_STATUS_OK, status );
+    }
+}
+
+
+/**
+ * @test ST_HEAP_AllocFree_ProducerConsumer_2Threads_128_Loop_100000
+ * @brief Run allocation on one thread and free on another using a thread-safe queue.
+ *
+ * @details
+ * - Producer:
+ *   - Iterates 100,000 times:
+ *   - Allocates 128-byte heap buffers and enqueues descriptors.
+ * - Consumer:
+ *   - Dequeues descriptors and frees them until producer signals completion.
+ * - Synchronization:
+ *   - Uses mutex + condition_variable to guard a std::deque of descriptors.
+ *
+ * @note Validates cross-thread correctness of Allocate/Free and basic alignment/size invariants.
+ * @see QC::Memory::HeapAllocator
+ * @see QC::Memory::QCBufferDescriptorBase_t
+ */
+TEST_F( Test_HeapAllocator, Concurrency_HEAP_AllocFree_ProducerConsumer_2Threads_128_Loop_100000 )
+{
+    const int iters = 1000000000;
+
+    HeapAllocator allocatorIfs;
+
+    std::deque<QCBufferDescriptorBase_t> q;
+    std::mutex m;
+    std::condition_variable cv;
+    std::atomic<int> produced{ 0 };
+    std::atomic<int> consumed{ 0 };
+    std::atomic<bool> done{ false };
+
+    auto producer = [&] {
+        for ( int i = 0; i < iters; ++i )
+        {
+            if ( ( i % 10000 ) == 0 )
+            {
+                printf( "Concurrency_HEAP_AllocFree_ProducerConsumer_2Threads_128_Loop_100000 %d "
+                        "iters %d\n",
+                        i, iters );
+            }
+
+            QCBufferPropBase_t request{};
+            request.size = 128;
+            request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+            request.cache = QC_CACHEABLE;
+
+            QCBufferDescriptorBase_t resp{};
+            QCStatus_e st = allocatorIfs.Allocate( request, resp );
+            ASSERT_EQ( QC_STATUS_OK, st );
+            ASSERT_NE( resp.pBuf, nullptr );
+            ASSERT_EQ( (unsigned long long) resp.pBuf,
+                       (unsigned long long) resp.pBuf & ~( request.alignment - 1 ) );
+            ASSERT_EQ( resp.size, 128 );
+
+            {
+                std::lock_guard<std::mutex> lk( m );
+                q.push_back( resp );
+                ++produced;
+            }
+            cv.notify_one();
+        }
+        done.store( true );
+        cv.notify_all();
+    };
+
+    auto consumer = [&] {
+        while ( true )
+        {
+            QCBufferDescriptorBase_t item{};
+            {
+                std::unique_lock<std::mutex> lk( m );
+                cv.wait( lk, [&] { return !q.empty() || done.load(); } );
+                if ( q.empty() && done.load() ) break;
+                if ( q.empty() ) continue;
+                item = q.front();
+                q.pop_front();
+            }
+            QCStatus_e st = allocatorIfs.Free( item );
+            ASSERT_EQ( QC_STATUS_OK, st );
+            ++consumed;
+        }
+    };
+
+    std::thread tProd( producer );
+    std::thread tCons( consumer );
+    tProd.join();
+    tCons.join();
+
+    ASSERT_EQ( produced.load(), iters );
+    ASSERT_EQ( consumed.load(), iters );
 }

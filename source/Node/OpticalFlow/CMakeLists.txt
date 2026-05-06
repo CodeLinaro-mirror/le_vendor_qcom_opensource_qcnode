@@ -4,7 +4,7 @@ set( HEADERS_DIR ${PROJECT_SOURCE_DIR}/include )
 set( QC_NODE_OPTICAL_FLOW_HEADERS ${HEADERS_DIR}/QC/Node/OpticalFlow.hpp)
 set( QC_NODE_OPTICAL_FLOW_SOURCES OpticalFlow.cpp)
 
-set( TARGET_LIBRARIES QCNodeBase svplatform svcl devioClient)
+set( TARGET_LIBRARIES QCNodeBase svcl )
 if( DEFINED QC_SV_EXTRA_LIBS )
     list( APPEND TARGET_LIBRARIES ${QC_SV_EXTRA_LIBS} )
 endif()

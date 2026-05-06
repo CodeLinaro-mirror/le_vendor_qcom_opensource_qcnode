@@ -34,8 +34,8 @@ TensorDescriptor &TensorDescriptor::operator=( const QCBufferDescriptorBase_t &o
 {
     if ( this != &other )
     {
-        const TensorDescriptor_t *pTensorDesc = static_cast<const TensorDescriptor_t *>( &other );
-        const BufferDescriptor_t *pBufDesc = static_cast<const BufferDescriptor_t *>( &other );
+        const TensorDescriptor_t *pTensorDesc = dynamic_cast<const TensorDescriptor_t *>( &other );
+        const BufferDescriptor_t *pBufDesc = dynamic_cast<const BufferDescriptor_t *>( &other );
         if ( nullptr != pTensorDesc )
         {
             TensorDescriptor::operator=( *pTensorDesc );

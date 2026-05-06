@@ -3454,6 +3454,14 @@ TEST_F( QnnTest, MockQnnSystemInterface )
                                  nullptr );
     Initialize( "MOCK4", "binary", "data/centernet/program.bin", "htp0" );
     ASSERT_EQ( ret, QC_STATUS_FAIL );
+}
+
+TEST_F( QnnTest, MockQnnSystemInterface2 )
+{
+    MockQnnSystemApi_ControlFnc_t MockQnnSystemApi_ControlFnc =
+            MockQnnSystem_GetControlFnc( "libQnnSystem.so" );
+    ASSERT_NE( MockQnnSystemApi_ControlFnc, nullptr );
+    Qnn_ErrorHandle_t qnnErrHandle = QNN_MIN_ERROR_COMMON;
 
     MockQnnSystemApi_ControlFnc(
             MOCK_QNN_SYSTEM_API_QNN_GET_INTERFACE_PROVIDER,

@@ -99,7 +99,7 @@ QCStatus_e RadarConfigIfs::ParseStaticConfig( DataTree &dt, std::string &errors 
     if ( QC_STATUS_OK == status )
     {
         m_config.nodeId.name = dt.Get<std::string>( "name", "" );
-        m_config.nodeId.id = dt.Get<uint32_t>( "id", UINT32_MAX );
+        m_config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
 
         m_config.numOfEntries = 2;
 

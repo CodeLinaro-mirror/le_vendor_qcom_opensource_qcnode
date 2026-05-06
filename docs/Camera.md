@@ -2,11 +2,12 @@
 - [1. Introduction](#1-introduction)
   - [1.1 Functional overview](#11-functional-overview)
   - [1.2 Operational overview](#12-operational-overview)
-- [2. Camera Configuraion](#2-camera-configuraion)
-  - [2.1 Camera Node Configuraion](#21-camera-node-configuraion)
-  - [2.2 Camera Stream Configuraion](#22-camera-stream-configuraion)
+- [2. Camera Configuration](#2-camera-configuration)
+  - [2.1 Camera Node Configuration](#21-camera-node-configuration)
+  - [2.2 Camera Stream Configuration](#22-camera-stream-configuration)
+  - [2.3 Camera Metadata Configuration](#23-camera-metadata-configuration)
 - [3. Camera APIs](#3-camera-apis)
-  - [3.1 QCNode Voxelization APIS](#31-qcnode-voxelization-apis)
+  - [3.1 QCNode Camera APIs](#31-qcnode-camera-apis)
   - [3.2 QCNode Configuration Interfaces](#32-qcnode-configuration-interfaces)
 - [4. Camera Examples](#4-camera-examples)
   - [4.1 Camera working mode](#41-camera-working-mode)
@@ -26,6 +27,12 @@
     - [4.9.4 Multi-client feature](#494-multi-client-feature)
     - [4.9.5 Camera frame drop pattern and period](#495-camera-frame-drop-pattern-and-period)
 - [5. References](#5-references)
+- [6. Functional Safety](#6-functional-safety)
+  - [6.1 ASIL](#61-asil)
+  - [6.2 Assumptions of Use (SWAOU)](#62-assumptions-of-use-swaou)
+    - [QCNODE-CAMERA-SWAOU-1](#qcnode-camera-swaou-1)
+    - [QCNODE-CAMERA-SWAOU-2](#qcnode-camera-swaou-2)
+    - [QCNODE-CAMERA-SWAOU-3](#qcnode-camera-swaou-3)
 
 
 # 1. Introduction
@@ -49,9 +56,9 @@ A camera instance is operated through a sequence of function calls for optimal p
 
 ![camera flow](./images/camera-flow.png)
 
-# 2. Camera Configuraion
+# 2. Camera Configuration
 
-## 2.1 Camera Node Configuraion
+## 2.1 Camera Node Configuration
 | Parameter    | Required  | Type        | Description            |
 |--------------|-----------|-------------|------------------------|
 | `name`       | true      | string      | The Node unique name.  |
@@ -64,14 +71,15 @@ A camera instance is operated through a sequence of function calls for optimal p
 | `opMode`     | true      | uint32_t    | Operation mode defined by qcarcam.     |
 | `camFrameDropPattern` | true      | uint32_t    | Frame drop pattern defined by qcarcam. Default: `0`   |
 | `camFrameDropPeriod`  | true      | uint32_t    | Frame drop period defined by qcarcam. Default: `0`   |
-| `streamConfigs`       | true      | object[]    | Configurations for each camera stream. The stream object configuration is shown in Camera Stream Configuraion table. |
+| `streamConfigs`       | true      | object[]    | Configurations for each camera stream. The stream object configuration is shown in Camera Stream Configuration table. |
 | `requestMode`                 | false     | bool         | Flag to set request buffer mode.   |
 | `enableMetaData`              | false     | bool         | Flag to enable metadata.   |
 | `enableMultiStreamFrameReady` | false     | bool         | Flag to set multiple streams frame ready event in one callback.   |
 | `primary`                     | false     | bool         | Flag to indicate if the session is primary or not when configured with the clientId.   |
 | `recovery`                    | false     | bool         | Flag to enable self-recovery for the session.   |
+| `metaDataConfigs`             | false     | object[]     | Configurations for each camera metadata. The metadata object configuration is shown in Camera Metadata Configuration table. |
 
-## 2.2 Camera Stream Configuraion
+## 2.2 Camera Stream Configuration
 | Parameter    | Required  | Type         | Description                  |
 |--------------|-----------|--------------|------------------------------|
 | `streamId`   | true      | uint32_t     | Camera stream id.            |
@@ -80,6 +88,12 @@ A camera instance is operated through a sequence of function calls for optimal p
 | `height`     | true      | uint32_t     | Camera frame height.         |
 | `format`     | true      | string       | Camera frame format. Options: `nv12`, `nv12_ubwc`, `uyvy`, `rgb`, `bgr`, `p010`, `tp10_ubwc` |
 | `submitRequestPattern`   | true         | uint32_t    | Buffer submit request pattern.   |
+
+## 2.3 Camera Metadata Configuration
+| Parameter    | Required  | Type         | Description                  |
+|--------------|-----------|--------------|------------------------------|
+| `bufferListId`| true      | uint32_t     | Camera metadata buffer list id. |
+| `bufferIds`  | true      | uint32_t[]   | The indices of camera metadata buffers in QCNodeInit::buffers.  |
 
 - Example Configurations
 ```json
@@ -114,7 +128,7 @@ A camera instance is operated through a sequence of function calls for optimal p
 
 # 3. Camera APIs
 
-## 3.1 QCNode Voxelization APIS
+## 3.1 QCNode Camera APIs
 
 - [Camera::Initialize](../include/QC/Node/Camera.hpp#L226)
 - [Camera::Start](../include/QC/Node/Camera.hpp#L244)
@@ -557,7 +571,7 @@ Example configuration for subscriber (non-primary) session:
 
 ### 4.9.5 Camera frame drop pattern and period
 
-The option `camFrameDropPattern` and c`amFrameDropPeriod` can be used to drop camera frames to reduce camera FPS.
+The option `camFrameDropPattern` and `camFrameDropPeriod` can be used to drop camera frames to reduce camera FPS.
 Below is the frame drop pattern and period has been tested.
 
 | FPS    | pattern | period |
@@ -570,3 +584,50 @@ Below is the frame drop pattern and period has been tested.
 # 5. References
 - [gtest Camera](../tests/unit_test/Node/Camera/gtest_NodeCamera.cpp).
 - [Sample Camera](../tests/sample/source/SampleCamera.cpp).
+
+# 6. Functional Safety
+
+This section provides an overview of QCNode Camera usage for functional safety use cases.
+
+## 6.1 ASIL
+
+| Node  | ASIL (or equivalent) | Supported Platforms |
+|-------|----------------------|---------------------|
+| Camera   | ASIL B               |      SA8797         |
+
+
+## 6.2 Assumptions of Use (SWAOU)
+**SWAOU:** Software Assumption of Use.
+
+### QCNODE-CAMERA-SWAOU-1
+
+- **Assumption:**  
+  The system integrator **should** ensure strict synchronization between the QCNode Camera header files and the underlying library versions during the build process to ensure binary compatibility and interface consistency.
+
+- **Sample of "How AoU can be met?":**  
+  Verify that the version of the QCNode Camera headers used during compilation matches the version of the camera server libraries present in the runtime environment. This can be achieved through build-time version checks or package dependency management.
+
+- **SW AoU Rationale:**  
+  Discrepancies between header definitions and library implementations can cause mismatches in data structure layouts, leading to memory corruption, segmentation faults, or incorrect parameter interpretation. Ensuring version synchronization guarantees that the client and server communicate using the same interface contract, preventing undefined behavior and ensuring system stability required for safety-critical applications.
+
+### QCNODE-CAMERA-SWAOU-2
+
+- **Assumption:**  
+  The system integrator **should** increase the camera buffer pool size allocated to QCNode Camera to reduce the likelihood of buffer exhaustion.
+
+- **Sample of "How AoU can be met?":**  
+  Configure the camera stream with a sufficiently large number of buffers to accommodate peak traffic and consumer latency.
+
+- **SW AoU Rationale:**  
+  A larger buffer pool mitigates the risk of full buffer occupancy during short‑term burst traffic or temporary slowdowns in downstream consumers, thereby reducing the probability of frame blocking, frame drops, or delayed delivery.
+
+### QCNODE-CAMERA-SWAOU-3
+
+- **Assumption:**  
+  The system integration ensures proper QCarCam driver and stream configuration, including validated combinations of resolution, frame rate, and ISP features that stay within the supported ISP performance envelope.
+
+- **Sample of "How AoU can be met?":**  
+  Validate the camera configuration against the hardware specifications and ISP bandwidth limits. Ensure that the sum of pixel rates and processing requirements for all active streams does not exceed the maximum supported capacity of the ISP.
+
+- **SW AoU Rationale:**  
+  Configuring the camera beyond the ISP's performance envelope can lead to frame drops, image artifacts, or system instability, which violates safety requirements for reliable video stream delivery.

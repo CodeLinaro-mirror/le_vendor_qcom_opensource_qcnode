@@ -634,7 +634,7 @@ QCStatus_e FadasRemap::RemapRunDSP( QCFrameDescriptorNodeIfs &frameDesc )
         {
             const ImageDescriptor_t &bufDescInput =
                     dynamic_cast<ImageDescriptor_t &>( frameDesc.GetBuffer( inputId ) );
-            FadasIface_FadasImgProps_t srcImgProp;
+            FadasIface_FadasImgProps_t srcImgProp = {};
             srcImgProp.width = bufDescInput.width;
             srcImgProp.height = bufDescInput.height;
             srcImgProp.numPlanes = bufDescInput.numPlanes;
@@ -672,7 +672,7 @@ QCStatus_e FadasRemap::RemapRunDSP( QCFrameDescriptorNodeIfs &frameDesc )
             ROIs[inputId].height = m_ROIs[inputId].height;
         }
 
-        FadasIface_FadasImgProps_t dstImgProp;
+        FadasIface_FadasImgProps_t dstImgProp = {};
         dstImgProp.width = bufDescOutput.width;
         dstImgProp.height = bufDescOutput.height;
         dstImgProp.format = FADAS_IMAGE_FORMAT_RGB888_NSP;

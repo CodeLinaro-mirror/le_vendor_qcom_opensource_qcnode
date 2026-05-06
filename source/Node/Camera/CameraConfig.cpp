@@ -97,8 +97,8 @@ QCStatus_e CameraConfig::VerifyStaticConfig( DataTree &dt, std::string &errors )
 
     if ( QC_STATUS_OK == status )
     {
-        uint32_t camFrameDropPeriod = dt.Get<uint32_t>( "camFrameDropPeriod", UINT32_MAX );
-        if ( UINT32_MAX == camFrameDropPeriod )
+        uint8_t camFrameDropPeriod = dt.Get<uint8_t>( "camFrameDropPeriod", UINT8_MAX );
+        if ( UINT8_MAX == camFrameDropPeriod )
         {
             errors += "the camFrameDropPeriod is empty, ";
             status = QC_STATUS_BAD_ARGUMENTS;
@@ -340,14 +340,14 @@ QCStatus_e CameraConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
     if ( QC_STATUS_OK == status )
     {
         config.nodeId.name = dt.Get<std::string>( "name", "" );
-        config.nodeId.id = dt.Get<uint32_t>( "id", UINT32_MAX );
+        config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
         config.inputId = dt.Get<uint32_t>( "inputId", UINT32_MAX );
         config.clientId = dt.Get<uint32_t>( "clientId", UINT32_MAX );
         config.srcId = dt.Get<uint32_t>( "srcId", UINT32_MAX );
         config.inputMode = dt.Get<uint32_t>( "inputMode", UINT32_MAX );
         config.ispUseCase = dt.Get<uint32_t>( "ispUseCase", UINT32_MAX );
         config.camFrameDropPattern = dt.Get<uint32_t>( "camFrameDropPattern", UINT32_MAX );
-        config.camFrameDropPeriod = dt.Get<uint32_t>( "camFrameDropPeriod", UINT32_MAX );
+        config.camFrameDropPeriod = dt.Get<uint8_t>( "camFrameDropPeriod", UINT8_MAX );
         config.opMode = dt.Get<uint32_t>( "opMode", UINT32_MAX );
         status = dt.Get( "streamConfigs", streamConfigs );
     }

@@ -91,7 +91,7 @@ const uint32_t
 
 UtilsBase::UtilsBase()
 {
-    (void) QC_LOGGER_INIT( "UtilsBase", LOGGER_LEVEL_VERBOSE );
+    (void) QC_LOGGER_INIT( "UtilsBase", LOGGER_LEVEL_ERROR );
 }
 
 UtilsBase::~UtilsBase()
