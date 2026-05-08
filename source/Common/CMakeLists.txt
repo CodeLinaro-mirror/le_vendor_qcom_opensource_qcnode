@@ -8,7 +8,7 @@ set( COMMON_SOURCES
 
 set( TARGET_LIBRARIES )
 
-if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64" )
+if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
     list( APPEND COMMON_SOURCES Logger_Linux.cpp )
     list( APPEND TARGET_LIBRARIES pthread dl systemd )
 else()

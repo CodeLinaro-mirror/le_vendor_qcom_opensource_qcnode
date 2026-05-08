@@ -1,5 +1,5 @@
 
-if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64" )
+if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
     add_executable( gtest_Memory 
         gtest_Memory.cpp 
         gtest_QCMemoryManager.cpp 
