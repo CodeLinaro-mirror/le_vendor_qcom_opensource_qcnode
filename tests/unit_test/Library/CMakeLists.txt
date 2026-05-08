@@ -1,4 +1,5 @@
+if (NOT ENABLE_SIMNODE)
 add_subdirectory(FadasIfaceCore)
 add_subdirectory(VideoCodec)
 add_subdirectory(OpenCL)
-
+endif ()

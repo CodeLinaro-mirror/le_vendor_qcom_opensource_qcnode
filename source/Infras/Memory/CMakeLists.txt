@@ -23,6 +23,8 @@ if(ENABLE_SIMNODE)
     # For simulation build, only include HeapAllocator.cpp
     set(MEMORY_SOURCES
         HeapAllocator.cpp
+        BufferDescriptor.cpp
+        ManagerLocal.cpp
     )
 
     # Set minimal libraries for simulation
