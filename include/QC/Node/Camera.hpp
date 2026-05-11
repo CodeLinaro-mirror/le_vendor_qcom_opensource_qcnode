@@ -16,7 +16,7 @@ namespace Node
 /** @brief The QCNode Camera Version */
 #define QCNODE_CAMERA_VERSION_MAJOR 2U
 #define QCNODE_CAMERA_VERSION_MINOR 3U
-#define QCNODE_CAMERA_VERSION_PATCH 0U
+#define QCNODE_CAMERA_VERSION_PATCH 2U
 
 #define QCNODE_CAMERA_VERSION                                                                      \
     ( ( QCNODE_CAMERA_VERSION_MAJOR << 16U ) | ( QCNODE_CAMERA_VERSION_MINOR << 8U ) |             \

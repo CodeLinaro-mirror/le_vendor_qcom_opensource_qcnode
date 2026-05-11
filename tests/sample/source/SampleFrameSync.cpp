@@ -12,6 +12,20 @@ namespace sample
 SampleFrameSync::SampleFrameSync() {}
 SampleFrameSync::~SampleFrameSync() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )> SampleFrameSync::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SampleFrameSync::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SampleFrameSync::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
+
 QCStatus_e SampleFrameSync::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -93,102 +107,118 @@ QCStatus_e SampleFrameSync::Start()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = false;
-    if ( FRAME_SYNC_MODE_WINDOW == m_syncMode )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread = std::thread( &SampleFrameSync::threadWindowMain, this );
+#endif
+        if ( FRAME_SYNC_MODE_WINDOW == m_syncMode )
+        {
+            m_thread = std::thread( &SampleFrameSync::threadWindowMain, this );
+        }
+#ifdef QC_ENABLE_HS
     }
-
+#endif
 
     return ret;
 }
 
-void SampleFrameSync::threadWindowMain()
+void SampleFrameSync::Execute()
 {
     QCStatus_e ret;
-    while ( false == m_stop )
+    uint64_t timeoutMs = (uint64_t) m_windowMs;
+    std::vector<DataFrames_t> framesList;
+    DataFrames_t frames;
+    uint64_t frameId;
+    ret = m_subs[0].Receive( frames, timeoutMs );
+    if ( QC_STATUS_OK == ret )
     {
-        uint64_t timeoutMs = (uint64_t) m_windowMs;
-        std::vector<DataFrames_t> framesList;
-        DataFrames_t frames;
-        uint64_t frameId;
-        ret = m_subs[0].Receive( frames, timeoutMs );
-        if ( QC_STATUS_OK == ret )
+        framesList.push_back( frames );
+        frameId = frames.FrameId( 0 );
+        auto begin = std::chrono::high_resolution_clock::now();
+        PROFILER_BEGIN();
+        TRACE_BEGIN( frameId );
+        QC_DEBUG( "[0]receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
+                  frames.Timestamp( 0 ) );
+        for ( uint32_t i = 1; i < m_number; i++ )
         {
-            framesList.push_back( frames );
-            frameId = frames.FrameId( 0 );
-            auto begin = std::chrono::high_resolution_clock::now();
-            PROFILER_BEGIN();
-            TRACE_BEGIN( frameId );
-            QC_DEBUG( "[0]receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n",
-                      frames.FrameId( 0 ), frames.Timestamp( 0 ) );
-            for ( uint32_t i = 1; i < m_number; i++ )
+            auto now = std::chrono::high_resolution_clock::now();
+            uint64_t elapsedMs =
+                    std::chrono::duration_cast<std::chrono::milliseconds>( now - begin ).count();
+            if ( (uint64_t) m_windowMs > elapsedMs )
             {
-                auto now = std::chrono::high_resolution_clock::now();
-                uint64_t elapsedMs =
-                        std::chrono::duration_cast<std::chrono::milliseconds>( now - begin )
-                                .count();
-                if ( (uint64_t) m_windowMs > elapsedMs )
-                {
-                    timeoutMs = (uint64_t) m_windowMs - elapsedMs;
-                    ret = m_subs[i].Receive( frames, timeoutMs );
-                }
-                else
-                {
-                    ret = QC_STATUS_TIMEOUT;
-                }
-
-                if ( QC_STATUS_OK != ret )
-                {
-                    QC_ERROR( "input %u frame not ready in %u ms", i, m_windowMs );
-                    break;
-                }
-                else
-                {
-                    framesList.push_back( frames );
-                    QC_DEBUG( "[%u]receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", i,
-                              frames.FrameId( 0 ), frames.Timestamp( 0 ) );
-                }
+                timeoutMs = (uint64_t) m_windowMs - elapsedMs;
+                ret = m_subs[i].Receive( frames, timeoutMs );
             }
-            if ( framesList.size() == (size_t) m_number )
+            else
             {
-                DataFrames_t outFrames;
-                for ( auto &frames : framesList )
-                {
-                    for ( auto &frame : frames.frames )
-                    {
-                        outFrames.Add( frame );
-                    }
-                }
-                if ( ( m_perms.size() > 0 ) && ( m_perms.size() <= outFrames.frames.size() ) )
-                {
-                    DataFrames_t newFrames;
-                    for ( auto i : m_perms )
-                    {
-                        if ( i < outFrames.frames.size() )
-                        {
-                            newFrames.Add( outFrames.frames[i] );
-                        }
-                        else
-                        {
-                            QC_ERROR( "perms index %" PRIu32 " out of range %" PRIu64, i,
-                                      outFrames.frames.size() );
-                            ret = QC_STATUS_OUT_OF_BOUND;
-                            break;
-                        }
-                    }
-                    if ( QC_STATUS_OK == ret )
-                    {
-                        m_pub.Publish( newFrames );
-                    }
-                }
-                else
-                {
-                    m_pub.Publish( outFrames );
-                }
-                PROFILER_END();
-                TRACE_END( frameId );
+                ret = QC_STATUS_TIMEOUT;
+            }
+
+            if ( QC_STATUS_OK != ret )
+            {
+                QC_ERROR( "input %u frame not ready in %u ms", i, m_windowMs );
+                break;
+            }
+            else
+            {
+                framesList.push_back( frames );
+                QC_DEBUG( "[%u]receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", i,
+                          frames.FrameId( 0 ), frames.Timestamp( 0 ) );
             }
         }
+        if ( framesList.size() == (size_t) m_number )
+        {
+            DataFrames_t outFrames;
+            for ( auto &frames : framesList )
+            {
+                for ( auto &frame : frames.frames )
+                {
+                    outFrames.Add( frame );
+                }
+            }
+            if ( ( m_perms.size() > 0 ) && ( m_perms.size() <= outFrames.frames.size() ) )
+            {
+                DataFrames_t newFrames;
+                for ( auto i : m_perms )
+                {
+                    if ( i < outFrames.frames.size() )
+                    {
+                        newFrames.Add( outFrames.frames[i] );
+                    }
+                    else
+                    {
+                        QC_ERROR( "perms index %" PRIu32 " out of range %" PRIu64, i,
+                                  outFrames.frames.size() );
+                        ret = QC_STATUS_OUT_OF_BOUND;
+                        break;
+                    }
+                }
+                if ( QC_STATUS_OK == ret )
+                {
+                    m_pub.Publish( newFrames );
+                }
+            }
+            else
+            {
+                m_pub.Publish( outFrames );
+            }
+            PROFILER_END();
+            TRACE_END( frameId );
+        }
+    }
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "FrameSync receive failed : %d", ret );
+    }
+#endif
+}
+
+void SampleFrameSync::threadWindowMain()
+{
+    while ( false == m_stop )
+    {
+        Execute();
     }
 }
 
@@ -198,10 +228,17 @@ QCStatus_e SampleFrameSync::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     PROFILER_SHOW();
     return ret;

@@ -248,9 +248,14 @@ private:
     QCObjectState_e m_state;
 
     std::vector<QCNodeBufferMapEntry_t> m_globalBufferIdMap;
+
+#ifdef QC_RADAR_FRIEND_CLASS_UT
+    QC_RADAR_FRIEND_CLASS_UT
+#endif
 };
 
 }   // namespace Node
+
 }   // namespace QC
 
 #endif   // QC_NODE_RADAR_HPP

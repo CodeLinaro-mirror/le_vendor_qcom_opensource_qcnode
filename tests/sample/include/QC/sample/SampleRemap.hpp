@@ -74,6 +74,10 @@ private:
     SharedBufferPool m_imagePool;
     bool m_stop;
 
+    QCProcessorType_e m_processor;
+    std::vector<uint32_t> m_coreIds = { 0u };
+    int m_rsmPriority;
+
     DataSubscriber<DataFrames_t> m_sub;
     DataPublisher<DataFrames_t> m_pub;
 

@@ -99,6 +99,17 @@ QCStatus_e VideoDecoder::Initialize( QCNodeInit_t &config )
 
     if ( QC_STATUS_OK == status )
     {
+        status = NegotiateBufferReq( VIDEO_CODEC_BUF_OUTPUT );
+    }
+    else
+    {
+        QC_ERROR(
+                "Something wrong happened in driver NegotiateBufferReq for input, Deiniting vidc" );
+        m_state = QC_OBJECT_STATE_ERROR;
+    }
+
+    if ( QC_STATUS_OK == status )
+    {
         status = AllocateBuffer( config.buffers, 0, VIDEO_CODEC_BUF_INPUT );
         if ( QC_STATUS_OK == status )
         {

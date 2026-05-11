@@ -130,7 +130,7 @@ QCStatus_e SampleQnn::ParseConfig( SampleConfig_t &config )
         }
     }
 
-    std::vector<uint32_t> coreIds = Get( config, "core_ids", std::vector<uint32_t>( { 0u } ) );
+    m_coreIds = Get( config, "core_ids", std::vector<uint32_t>( { 0u } ) );
 
     DataTree dt;
     dt.Set<std::string>( "name", m_name );
@@ -139,7 +139,7 @@ QCStatus_e SampleQnn::ParseConfig( SampleConfig_t &config )
     dt.Set<std::string>( "modelPath", Get( config, "model_path", "" ) );
     dt.Set<std::string>( "loadType", Get( config, "load_type", "binary" ) );
     dt.Set<std::string>( "processorType", Get( config, "processor", "htp0" ) );
-    dt.Set<uint32_t>( "coreIds", coreIds );
+    dt.Set<uint32_t>( "coreIds", m_coreIds );
     dt.Set( "udoPackages", udoPkgs );
     dt.Set<std::string>( "perfProfile", Get( config, "perf_profile", "burst" ) );
     dt.Set<bool>( "weightSharingEnabled", Get( config, "weight_sharing_enabled", false ) );
@@ -192,7 +192,7 @@ QCStatus_e SampleQnn::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_processor, m_rsmPriority );
+        ret = SampleIF::Init( m_processor, m_rsmPriority, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )

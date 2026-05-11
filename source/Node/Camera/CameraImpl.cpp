@@ -572,7 +572,7 @@ QCStatus_e CameraImpl::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDe
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    bool isFrameDesc;
+    bool isFrameDesc = true;
     uint32_t streamId = 0;
     uint64_t frameId = 0;
     uint32_t bufferListId = 0;
@@ -603,10 +603,6 @@ QCStatus_e CameraImpl::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDe
             {
                 isFrameDesc = false;
             }
-        }
-        else
-        {
-            isFrameDesc = true;
         }
     }
 
@@ -1603,54 +1599,33 @@ QCStatus_e CameraImpl::GetInputsInfo( CameraInputs_t *pCamInputs )
     return ret;
 }
 
-CameraFrameDescriptor_t *CameraImpl::GetFrame( const QCarCamFrameInfo_t *pFrameInfo )
+QCStatus_e CameraImpl::GetFrame( const QCarCamFrameInfo_t &camFrameInfo, uint32_t &bufferListId,
+                                 uint32_t &bufferIdx )
 {
     QCStatus_e ret = QC_STATUS_OK;
     QCarCamRet_e status = QCARCAM_RET_OK;
-    uint32_t frameIdx = 0;
+
+    bufferListId = camFrameInfo.id;
+    bufferIdx = camFrameInfo.bufferIndex;
     uint64_t timeout = 0;
     QCarCamFrameInfo_t frameInfo = { 0 };
-    frameInfo.id = pFrameInfo->id;
+    frameInfo.id = bufferListId;
     CameraFrameDescriptor_t *pCamFrame = nullptr;
 
-    if ( QC_STATUS_OK == ret )
+    if ( true == m_bRequestMode )
     {
-        if ( !m_bRequestMode )
+        pCamFrame = &m_frameBuffers[bufferListId].pCamFrameDescs[bufferIdx];
+        if ( pCamFrame == nullptr )
         {
-            status = QCarCamGetFrame( m_QcarCamHndl, &frameInfo, timeout, 0 );
-            if ( QCARCAM_RET_OK == status )
-            {
-                frameIdx = frameInfo.bufferIndex;
-                pCamFrame = &m_frameBuffers[frameInfo.id].pCamFrameDescs[frameIdx];
-                pCamFrame->timestamp = frameInfo.sofTimestamp.timestamp;
-                pCamFrame->timestampQGPTP = frameInfo.sofTimestamp.timestampGPTP;
-                pCamFrame->flags = frameInfo.flags;
-                QC_DEBUG( "Get Camera Frame Info: "
-                          "bufferListId: %u "
-                          "buffer index: %u "
-                          "buffer pointer addr: %p "
-                          "buffer data addr: %p "
-                          "buffer size: %u "
-                          "timestamp: %llu "
-                          "timestampGPTP: %llu ",
-                          "flags: %x ", frameInfo.id, frameIdx, pCamFrame, pCamFrame->pBuf,
-                          pCamFrame->size, pCamFrame->timestamp, pCamFrame->timestampQGPTP,
-                          pCamFrame->flags );
-            }
-            else
-            {
-                ret = QC_STATUS_FAIL;
-                QC_ERROR( "QCarCamGetFrame failed, m_QcarCamHndl: %lu, status=%d", m_QcarCamHndl,
-                          status );
-            }
+            ret = QC_STATUS_FAIL;
+            QC_ERROR( "CameraFrameDescriptor pointer is nullptr, bufferListId: %u, bufferIdx: %u",
+                      bufferListId, bufferIdx );
         }
         else
         {
-            frameIdx = pFrameInfo->bufferIndex;
-            pCamFrame = &m_frameBuffers[pFrameInfo->id].pCamFrameDescs[frameIdx];
-            pCamFrame->timestamp = pFrameInfo->sofTimestamp.timestamp;
-            pCamFrame->timestampQGPTP = pFrameInfo->sofTimestamp.timestampGPTP;
-            pCamFrame->flags = pFrameInfo->flags;
+            pCamFrame->timestamp = camFrameInfo.sofTimestamp.timestamp;
+            pCamFrame->timestampQGPTP = camFrameInfo.sofTimestamp.timestampGPTP;
+            pCamFrame->flags = camFrameInfo.flags;
             QC_DEBUG( "Get Camera Frame Info: "
                       "bufferListId: %u "
                       "buffer index: %u "
@@ -1658,14 +1633,62 @@ CameraFrameDescriptor_t *CameraImpl::GetFrame( const QCarCamFrameInfo_t *pFrameI
                       "buffer data addr: %p "
                       "buffer size: %u "
                       "timestamp: %llu "
-                      "timestampGPTP: %llu ",
-                      "flags: %x ", frameInfo.id, frameIdx, pCamFrame, pCamFrame->pBuf,
-                      pCamFrame->size, pCamFrame->timestamp, pCamFrame->timestampQGPTP,
-                      pCamFrame->flags );
+                      "timestampGPTP: %llu "
+                      "flags: %x ",
+                      bufferListId, bufferIdx, pCamFrame, pCamFrame->pBuf, pCamFrame->size,
+                      pCamFrame->timestamp, pCamFrame->timestampQGPTP, pCamFrame->flags );
+        }
+    }
+    else
+    {
+        status = QCarCamGetFrame( m_QcarCamHndl, &frameInfo, timeout, 0 );
+        if ( QCARCAM_RET_OK == status )
+        {
+            bufferIdx = frameInfo.bufferIndex;
+            if ( bufferIdx >= m_frameBuffers[bufferListId].bufferList.nBuffers )
+            {
+                ret = QC_STATUS_OUT_OF_BOUND;
+                QC_ERROR( "Buffer index %u out of range for bufferListId %u", bufferIdx,
+                          bufferListId );
+            }
+            else
+            {
+                pCamFrame = &m_frameBuffers[bufferListId].pCamFrameDescs[bufferIdx];
+                if ( pCamFrame == nullptr )
+                {
+                    ret = QC_STATUS_FAIL;
+                    QC_ERROR( "CameraFrameDescriptor pointer is nullptr, bufferListId: %u, "
+                              "bufferIdx: %u",
+                              bufferListId, bufferIdx );
+                }
+                else
+                {
+                    pCamFrame->timestamp = frameInfo.sofTimestamp.timestamp;
+                    pCamFrame->timestampQGPTP = frameInfo.sofTimestamp.timestampGPTP;
+                    pCamFrame->flags = frameInfo.flags;
+                    QC_DEBUG( "Get Camera Frame Info: "
+                              "bufferListId: %u "
+                              "buffer index: %u "
+                              "buffer pointer addr: %p "
+                              "buffer data addr: %p "
+                              "buffer size: %u "
+                              "timestamp: %llu "
+                              "timestampGPTP: %llu "
+                              "flags: %x ",
+                              bufferListId, bufferIdx, pCamFrame, pCamFrame->pBuf, pCamFrame->size,
+                              pCamFrame->timestamp, pCamFrame->timestampQGPTP, pCamFrame->flags );
+                }
+            }
+        }
+        else
+        {
+            ret = QC_STATUS_FAIL;
+            QC_ERROR( "QCarCamGetFrame failed, m_QcarCamHndl: %lu, status=%d", m_QcarCamHndl,
+                      status );
         }
     }
 
-    return pCamFrame;
+    return ret;
 }
 
 QCStatus_e CameraImpl::ValidateConfig( const CameraImplConfig_t *pConfig )
@@ -1749,27 +1772,38 @@ void CameraImpl::FrameCallback( CameraFrameDescriptor_t *pFrame )
     }
 }
 
-void CameraImpl::EventCallback( const uint32_t eventId, const void *pPayload )
+void CameraImpl::EventCallback( const uint32_t eventId, const QCarCamEventPayload_t *pPayLoad )
 {
     QCStatus_e ret = QC_STATUS_OK;
     NodeFrameDescriptor frameDesc( 1 );
     QCBufferDescriptorBase_t eventDesc;
     CameraImpEvent_t event;
 
-    if ( nullptr == m_callback )
+    if ( QC_OBJECT_STATE_RUNNING == m_state )
     {
         ret = QC_STATUS_BAD_ARGUMENTS;
-        QC_ERROR( "callback is invalid" );
+        QC_ERROR( "Camera is not in running state" );
     }
 
     if ( QC_STATUS_OK == ret )
     {
-        if ( QC_OBJECT_STATE_RUNNING == m_state )
+        if ( nullptr == m_callback )
         {
-            QCNodeEventInfo_t info( frameDesc, m_nodeId, QC_STATUS_FAIL,
-                                    static_cast<QCObjectState_e>( m_state ) );
-            QC_INFO( "Received event: %d, pPayload:%p", eventId, pPayload );
+            ret = QC_STATUS_BAD_ARGUMENTS;
+            QC_ERROR( "callback is invalid" );
         }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        eventDesc.name = "Camera Event";
+        eventDesc.pBuf = (void *) pPayLoad;
+        eventDesc.size = sizeof( QCarCamEventPayload_t );
+        frameDesc.SetBuffer( 0, eventDesc );
+        QCNodeEventInfo_t info( frameDesc, m_nodeId, QC_STATUS_FAIL,
+                                static_cast<QCObjectState_e>( m_state ) );
+        m_callback( info );
+        QC_INFO( "Received event: %d, pPayload:%p", eventId, pPayLoad );
     }
     else
     {
@@ -1801,6 +1835,8 @@ QCarCamRet_e CameraImpl::QcarcamEventCb( const QCarCamHndl_t hndl, const uint32_
     QCStatus_e ret = QC_STATUS_OK;
     QCarCamRet_e status = QCARCAM_RET_OK;
     CameraFrameDescriptor_t *pCameraFrame = nullptr;
+    uint32_t bufferListId = 0;
+    uint32_t bufferIdx = 0;
 
     QC_DEBUG( "QcarcamEventCb eventId: %u", eventId );
 
@@ -1808,14 +1844,15 @@ QCarCamRet_e CameraImpl::QcarcamEventCb( const QCarCamHndl_t hndl, const uint32_
     {
         case QCARCAM_EVENT_FRAME_READY:
         {
-            pCameraFrame = GetFrame( &pPayload->frameInfo );
-            if ( nullptr != pCameraFrame )
+            ret = GetFrame( pPayload->frameInfo, bufferListId, bufferIdx );
+            if ( QC_STATUS_OK == ret )
             {
+                pCameraFrame = &m_frameBuffers[bufferListId].pCamFrameDescs[bufferIdx];
                 FrameCallback( pCameraFrame );
             }
             else
             {
-                QC_ERROR( "GetFrame failed, returning nullptr" );
+                QC_ERROR( "GetFrame failed for EVENT_FRAME_READY case" );
             }
 
             break;
@@ -1834,14 +1871,17 @@ QCarCamRet_e CameraImpl::QcarcamEventCb( const QCarCamHndl_t hndl, const uint32_
                 frameInfo.flags = singleFrameInfo.flags;
                 frameInfo.seqNo = singleFrameInfo.seqNo;
                 frameInfo.bufferIndex = singleFrameInfo.bufferIndex;
-                pCameraFrame = GetFrame( &frameInfo );
-                if ( nullptr != pCameraFrame )
+                ret = GetFrame( frameInfo, bufferListId, bufferIdx );
+                if ( QC_STATUS_OK == ret )
                 {
+                    pCameraFrame = &m_frameBuffers[bufferListId].pCamFrameDescs[bufferIdx];
                     FrameCallback( pCameraFrame );
                 }
                 else
                 {
-                    QC_ERROR( "GetFrame failed, returning nullptr" );
+                    QC_ERROR(
+                            "GetFrame failed for MULTI_STREAM_FRAME_READY case, batch frameIdx: %u",
+                            i );
                 }
             }
             break;

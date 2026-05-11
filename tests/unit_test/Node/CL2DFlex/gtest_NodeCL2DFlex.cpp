@@ -55,6 +55,7 @@ extern "C" cl_int clReleaseMemObject( cl_mem memobj )
     const int mode = g_mock_release_mode.load();
     if ( mode == MOCK_CL_RELEASE_ALWAYS_FAIL )
     {
+        cl_int ret = real_clReleaseMemObject( memobj );
         return CL_INVALID_MEM_OBJECT;
     }
     if ( mode == MOCK_CL_RELEASE_FAIL_N_TIMES )
@@ -2214,6 +2215,11 @@ TEST( NodeCL2D, Coverage5 )
 {
     printf( "\ncoverage test 5\n" );
     CoverageOpenCLReleaseMock_DeregAllBuffers();
+}
+
+TEST( NodeCL2D, Coverage6 )
+{
+    printf( "\ncoverage test 6\n" );
     CoverageOpenCLReleaseMock_Deinit();
 }
 

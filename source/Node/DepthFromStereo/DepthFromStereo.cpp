@@ -17,7 +17,7 @@ DepthFromStereo_Config::DepthFromStereo_Config()
     this->width = 0;
     this->height = 0;
     this->frameRate = 30;
-    this->confidenceOutputEn = false;
+    this->confidenceOutputEn = true;
     this->processingMode = PROCESSING_MODE_AUTO;
     this->noiseOffsetPri = 0.0f;
     this->noiseOffsetAux = 0.0f;
@@ -25,7 +25,7 @@ DepthFromStereo_Config::DepthFromStereo_Config()
     this->modelSwitchFrameCount = 10;
     this->prevDisparityFactor = 1.0f;
     this->disparityMapPrecision = DISP_MAP_PRECISION_FRAC_6BIT;
-    this->refinementLevel = REFINEMENT_LEVEL_REFINED_L2;
+    this->refinementLevel = REFINEMENT_LEVEL_REFINED_L1;
     this->occlusionOutputEn = false;
     this->disparityStatsEn = false;
     this->rectificationErrorStatsEn = false;
@@ -149,7 +149,7 @@ QCStatus_e DepthFromStereoConfigIfs::VerifyStaticConfig( DataTree &dt, std::stri
     }
 
     RefinementLevel_e refinementLevel = static_cast<RefinementLevel_e>(
-            dt.Get<uint8_t>( "refinementLevel", REFINEMENT_LEVEL_REFINED_L2 ) );
+            dt.Get<uint8_t>( "refinementLevel", REFINEMENT_LEVEL_REFINED_L1 ) );
     if ( refinementLevel >= REFINEMENT_LEVEL_MAX )
     {
         errors += "refinement level out of range, ";
@@ -163,7 +163,7 @@ QCStatus_e DepthFromStereoConfigIfs::VerifyStaticConfig( DataTree &dt, std::stri
         status = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    uint32_t disparityThreshold = dt.Get<uint32_t>( "disparityThreshold", 210 );
+    uint32_t disparityThreshold = dt.Get<uint32_t>( "disparityThreshold", 64 );
     if ( disparityThreshold < 0 or disparityThreshold > 255 )
     {
         errors += "disparity threshold out of range, ";
@@ -248,7 +248,7 @@ QCStatus_e DepthFromStereoConfigIfs::VerifyStaticConfig( DataTree &dt, std::stri
         status = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    float32_t farAwayDisparityLimit = dt.Get<float32_t>( "farAwayDisparityLimit", 0.43f );
+    float32_t farAwayDisparityLimit = dt.Get<float32_t>( "farAwayDisparityLimit", 0.0f );
     if ( farAwayDisparityLimit < 0 or farAwayDisparityLimit > 1 )
     {
         errors += "far away disparity limit out of range, ";
@@ -343,7 +343,7 @@ QCStatus_e DepthFromStereoConfigIfs::ParseStaticConfig( DataTree &dt, std::strin
         m_config.width = dt.Get<uint32_t>( "width", 0 );
         m_config.height = dt.Get<uint32_t>( "height", 0 );
         m_config.frameRate = dt.Get<uint32_t>( "fps", 30 );
-        m_config.confidenceOutputEn = dt.Get<bool>( "confidenceOutputEn", false );
+        m_config.confidenceOutputEn = dt.Get<bool>( "confidenceOutputEn", true );
         m_config.processingMode = static_cast<ProcessingMode_e>(
                 dt.Get<uint8_t>( "processingMode", PROCESSING_MODE_AUTO ) );
         m_config.noiseOffsetPri = dt.Get<float32_t>( "noiseOffsetPrimary", 0.0f );
@@ -354,7 +354,7 @@ QCStatus_e DepthFromStereoConfigIfs::ParseStaticConfig( DataTree &dt, std::strin
         m_config.disparityMapPrecision = static_cast<DispMapPrecision_e>(
                 dt.Get<uint8_t>( "disparityMapPrecision", DISP_MAP_PRECISION_FRAC_6BIT ) );
         m_config.refinementLevel = static_cast<RefinementLevel_e>(
-                dt.Get<uint8_t>( "refinementLevel", REFINEMENT_LEVEL_REFINED_L2 ) );
+                dt.Get<uint8_t>( "refinementLevel", REFINEMENT_LEVEL_REFINED_L1 ) );
         m_config.occlusionOutputEn = dt.Get<bool>( "occlusionOutputEn", false );
         m_config.disparityStatsEn = dt.Get<bool>( "disparityStatsEn", false );
         m_config.rectificationErrorStatsEn = dt.Get<bool>( "rectificationErrorStatsEn", false );
@@ -375,8 +375,8 @@ QCStatus_e DepthFromStereoConfigIfs::ParseStaticConfig( DataTree &dt, std::strin
         m_config.smoothnessPenalty = dt.Get<float32_t>( "smoothnessPenalty", 0.41f );
         m_config.neighborPenalty = dt.Get<float32_t>( "neighbourPenalty", 0.22f );
         m_config.imageSharpnessThreshold = dt.Get<float32_t>( "imageSharpnessThreshold", 0.29f );
-        m_config.farAwayDisparityLimit = dt.Get<float32_t>( "farAwayDisparityLimit", 0.5f );
-        m_config.disparityEdgeThreshold = dt.Get<float32_t>( "disparityEdgeThreshold", 0.167f );
+        m_config.farAwayDisparityLimit = dt.Get<float32_t>( "farAwayDisparityLimit", 0.0f );
+        m_config.disparityEdgeThreshold = dt.Get<float32_t>( "disparityEdgeThreshold", 0.43f );
         m_config.matchingCostMetric = dt.Get<uint32_t>( "matchingCostMetric", 100 );
         m_config.textureMetric = dt.Get<uint32_t>( "textureMetric", 100 );
         m_config.edgeAlignMetric = dt.Get<uint32_t>( "edgeAlignMetric", 100 );

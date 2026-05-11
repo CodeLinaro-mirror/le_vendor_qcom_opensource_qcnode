@@ -34,14 +34,14 @@ void SampleVideoDecoder::OnDoneCb( const QCNodeEventInfo_t &eventInfo )
 void SampleVideoDecoder::InFrameCallback( VideoFrameDescriptor &inFrame,
                                           const QCNodeEventInfo_t &eventInfo )
 {
-    uint64_t frameId = inFrame.appMarkData;
+    uint64_t dmaHandle = inFrame.dmaHandle;
 
-    QC_DEBUG( "Received input video frame Id %" PRIu64 " from node %d, status %d", frameId,
-              eventInfo.node, eventInfo.status, eventInfo.state );
+    QC_DEBUG( "Received input video frame dmaHandle 0x%" PRIx64 " from node %d, status %d",
+              dmaHandle, eventInfo.node, eventInfo.status, eventInfo.state );
     TRACE_EVENT( SYSTRACE_EVENT_VENC_INPUT_DONE );
 
     std::unique_lock<std::mutex> l( m_lock );
-    m_frameReleaseQueue.push( frameId );
+    m_frameReleaseQueue.push( dmaHandle );
     m_condVar.notify_one();
     // unlock @m_lock
 }
@@ -194,7 +194,7 @@ void SampleVideoDecoder::ThreadMain()
 
                 {
                     std::unique_lock<std::mutex> l( m_lock );
-                    m_camFrameMap[frame.frameId] = frame;
+                    m_camFrameMap[frameBuffer.dmaHandle] = frame;
                     // unlock @m_lock
                 }
 
@@ -213,7 +213,7 @@ void SampleVideoDecoder::ThreadMain()
                 {
                     QC_ERROR( "failed to process input frameId %" PRIu64, frame.frameId );
                     std::unique_lock<std::mutex> l( m_lock );
-                    m_camFrameMap.erase( frame.frameId );
+                    m_camFrameMap.erase( frameBuffer.dmaHandle );
                     // unlock @m_lock
                 }
             }
@@ -229,18 +229,18 @@ void SampleVideoDecoder::ThreadProcMain()
         (void) m_condVar.wait_for( l, std::chrono::milliseconds( 10 ) );
         while ( false == m_frameReleaseQueue.empty() )
         {
-            uint64_t frameId;
-            frameId = m_frameReleaseQueue.front();
+            uint64_t dmaHandle;
+            dmaHandle = m_frameReleaseQueue.front();
             m_frameReleaseQueue.pop();
-            auto it = m_camFrameMap.find( frameId );
+            auto it = m_camFrameMap.find( dmaHandle );
             if ( it != m_camFrameMap.end() )
             {   // release the input camera frame
-                QC_DEBUG( "release frameId %" PRIu64, frameId );
-                m_camFrameMap.erase( frameId );
+                QC_DEBUG( "release dmaHandle 0x%" PRIx64, dmaHandle );
+                m_camFrameMap.erase( dmaHandle );
             }
             else
             {
-                QC_ERROR( "ThreadReleaseMain with invalid frameId %" PRIu64, frameId );
+                QC_ERROR( "ThreadReleaseMain with invalid dmaHandle 0x%" PRIx64, dmaHandle );
             }
         }
         while ( false == m_frameOutQueue.empty() )

@@ -29,4 +29,5 @@ allow qcnode_t {
     videoCore_t
     sv_server_t
     compresmgr_service_t
+    mqueue_t
 }:channel connect;

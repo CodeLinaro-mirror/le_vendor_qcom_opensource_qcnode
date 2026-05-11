@@ -36,8 +36,8 @@ const uint32_t MAX_METADATA_TAG_NUM = 50;
 const uint32_t MAX_METADATA_TAG_DATA = 65536;
 BufferProps_t g_bufferProp;
 QCarCamBufferList_t g_bufferList;
-uint32_t g_metaDatabufferNum = 4;
-uint32_t g_metaDataPlaneNum = 2;
+uint32_t g_bufferNum = 4;
+uint32_t g_planeNum = 2;
 CameraFrameDescriptor_t *g_pCamFrameDescs = nullptr;
 
 void ReadJsonFile( const std::string &filePath, nlohmann::json &jsonData )
@@ -62,39 +62,46 @@ void ProcessDoneCb( const QCNodeEventInfo_t &eventInfo )
     QCBufferDescriptorBase_t &bufDesc = frameDescIfs.GetBuffer( 0 );
     NodeFrameDescriptor frameDesc( 1 );
 
-    const CameraFrameDescriptor_t *pCamFrameDesc =
-            dynamic_cast<const CameraFrameDescriptor_t *>( &bufDesc );
-
-    const CameraMetaDataDescriptor_t *pCamMetaDataDesc =
-            dynamic_cast<const CameraMetaDataDescriptor_t *>( &bufDesc );
-
-    if ( QC_STATUS_OK == ret )
+    if ( QC_STATUS_OK == eventInfo.status )
     {
-        if ( pCamFrameDesc != nullptr )
-        {
-            CameraFrameDescriptor_t camFrameDesc = *pCamFrameDesc;
-            ret = frameDesc.SetBuffer( 0, camFrameDesc );
-            ASSERT_EQ( QC_STATUS_OK, ret );
+        const CameraFrameDescriptor_t *pCamFrameDesc =
+                dynamic_cast<const CameraFrameDescriptor_t *>( &bufDesc );
 
-            ret = g_pCamera->ProcessFrameDescriptor( frameDesc );
-            ASSERT_EQ( QC_STATUS_OK, ret );
+        const CameraMetaDataDescriptor_t *pCamMetaDataDesc =
+                dynamic_cast<const CameraMetaDataDescriptor_t *>( &bufDesc );
 
-            std::cout << "Process Frame index: " << g_frameIdx << std::endl;
-            g_frameIdx++;
-        }
-        else if ( pCamMetaDataDesc != nullptr )
+        if ( QC_STATUS_OK == ret )
         {
-            CameraMetaDataDescriptor_t camMetaDataDesc = *pCamMetaDataDesc;
-            ret = frameDesc.SetBuffer( 0, camMetaDataDesc );
-            ASSERT_EQ( QC_STATUS_OK, ret );
+            if ( pCamFrameDesc != nullptr )
+            {
+                CameraFrameDescriptor_t camFrameDesc = *pCamFrameDesc;
+                ret = frameDesc.SetBuffer( 0, camFrameDesc );
+                ASSERT_EQ( QC_STATUS_OK, ret );
 
-            ret = g_pCamera->ProcessFrameDescriptor( frameDesc );
-            ASSERT_EQ( QC_STATUS_OK, ret );
+                ret = g_pCamera->ProcessFrameDescriptor( frameDesc );
+                ASSERT_EQ( QC_STATUS_OK, ret );
+
+                std::cout << "Process Frame index: " << g_frameIdx << std::endl;
+                g_frameIdx++;
+            }
+            else if ( pCamMetaDataDesc != nullptr )
+            {
+                CameraMetaDataDescriptor_t camMetaDataDesc = *pCamMetaDataDesc;
+                ret = frameDesc.SetBuffer( 0, camMetaDataDesc );
+                ASSERT_EQ( QC_STATUS_OK, ret );
+
+                ret = g_pCamera->ProcessFrameDescriptor( frameDesc );
+                ASSERT_EQ( QC_STATUS_OK, ret );
+            }
+            else
+            {
+                std::cout << "No valid buffer desc received " << std::endl;
+            }
         }
-        else
-        {
-            std::cout << "No valid buffer desc received " << std::endl;
-        }
+    }
+    else
+    {
+        std::cout << "Received camera event, status: " << eventInfo.status << std::endl;
     }
 }
 
@@ -291,34 +298,39 @@ void SetGlobalMockParam()
                   &g_mockInputModes );
 }
 
-void SetGlobalMetaDataParam( DataTree &staticCfg, QCNodeInit_t &config )
+void SetGlobalBufferParam( DataTree &staticCfg, QCNodeInit_t &config )
 {
     QCStatus_e ret;
-    g_metaDatabufferNum = 4;
-    g_metaDataPlaneNum = 2;
-    g_bufferProp.size =
-            calculate_camera_metadata_size( MAX_METADATA_TAG_NUM, MAX_METADATA_TAG_DATA );
-    g_bufferProp.allocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA;
-    g_bufferProp.cache = QC_CACHEABLE;
+    g_bufferNum = 4;
+    g_planeNum = 2;
+    bool enableMetaData = staticCfg.Get<bool>( "enableMetaData", false );
 
     memset( &g_bufferList, 0, sizeof( g_bufferList ) );
     g_bufferList.id = 1;
-    g_bufferList.nBuffers = g_metaDatabufferNum;
-    g_bufferList.pBuffers = new QCarCamBuffer_t[g_metaDatabufferNum];
+    g_bufferList.nBuffers = g_bufferNum;
+    g_bufferList.pBuffers = new QCarCamBuffer_t[g_bufferNum];
     g_bufferList.colorFmt = QCARCAM_FMT_NV12;
     g_bufferList.flags = QCARCAM_BUFFER_FLAG_OS_HNDL;
-    g_pCamFrameDescs = new CameraFrameDescriptor_t[g_metaDatabufferNum];
+    g_pCamFrameDescs = new CameraFrameDescriptor_t[g_bufferNum];
 
     ret = AllocateFrameBuffers( staticCfg, config.buffers );
     ASSERT_EQ( QC_STATUS_OK, ret );
 
-    ret = AllocateMetaDataBuffers( staticCfg, config.buffers, g_bufferProp );
-    ASSERT_EQ( QC_STATUS_OK, ret );
+    if ( enableMetaData )
+    {
+        g_bufferProp.size =
+                calculate_camera_metadata_size( MAX_METADATA_TAG_NUM, MAX_METADATA_TAG_DATA );
+        g_bufferProp.allocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA;
+        g_bufferProp.cache = QC_CACHEABLE;
 
-    for ( uint32_t i = 0; i < g_metaDatabufferNum; i++ )
+        ret = AllocateMetaDataBuffers( staticCfg, config.buffers, g_bufferProp );
+        ASSERT_EQ( QC_STATUS_OK, ret );
+    }
+
+    for ( uint32_t i = 0; i < g_bufferNum; i++ )
     {
         g_pCamFrameDescs[i] = config.buffers[i];
-        g_bufferList.pBuffers[i].numPlanes = g_metaDataPlaneNum;
+        g_bufferList.pBuffers[i].numPlanes = g_planeNum;
         g_bufferList.pBuffers[i].planes[0].width = 3840;
         g_bufferList.pBuffers[i].planes[0].height = 2160;
         g_bufferList.pBuffers[i].planes[0].stride = 3840;
@@ -390,7 +402,7 @@ void SANITY_Test_Camera_MetaData( DataTree &dt )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     SetGlobalMockParam();
-    SetGlobalMetaDataParam( staticCfg, config );
+    SetGlobalBufferParam( staticCfg, config );
 
     g_controlFnc( MOCK_API_QCARCAM_SET_BUFFERS, MOCK_CONTROL_API_RETURN, &correctRet );
     g_controlFnc( MOCK_API_QCARCAM_GET_BUFFERS, MOCK_CONTROL_API_OUT_PARAM1, &g_bufferList );
@@ -419,6 +431,55 @@ void SANITY_Test_Camera_MetaData( DataTree &dt )
 
     delete[] g_pCamFrameDescs;
     g_pCamFrameDescs = nullptr;
+
+    delete g_pCamera;
+    g_pCamera = nullptr;
+
+    ret = DeinitBuffers();
+    ASSERT_EQ( QC_STATUS_OK, ret );
+}
+
+void SANITY_Test_CameraReleaseMode_Mock( DataTree &dt )
+{
+    QCStatus_e ret;
+    DataTree staticCfg;
+    QCNodeInit_t config;
+    std::string errors;
+    CameraFrameDescriptor_t camFrameDesc;
+    NodeFrameDescriptor frameDesc( 1 );
+    QCarCamRet_e correctRet = QCARCAM_RET_OK;
+
+    config.config = dt.Dump();
+    config.callback = ProcessDoneCb;
+
+    ret = dt.Get( "static", staticCfg );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    SetGlobalMockParam();
+    g_controlFnc( MOCK_API_QCARCAM_START, MOCK_CONTROL_API_RETURN, &correctRet );
+
+    ret = AllocateFrameBuffers( staticCfg, config.buffers );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    g_pCamera = new QC::Node::Camera();
+    ret = g_pCamera->Initialize( config );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    ret = g_pCamera->Start();
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    camFrameDesc = config.buffers[0];
+    ret = frameDesc.SetBuffer( 0, camFrameDesc );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    ret = g_pCamera->ProcessFrameDescriptor( frameDesc );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    ret = g_pCamera->Stop();
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    ret = g_pCamera->DeInitialize();
+    ASSERT_EQ( QC_STATUS_OK, ret );
 
     delete g_pCamera;
     g_pCamera = nullptr;
@@ -1227,7 +1288,7 @@ void Exception_Test_SetMetaDataBuffer( DataTree &dt )
     bufferIds = metaDataConfigs[0].Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
 
     SetGlobalMockParam();
-    SetGlobalMetaDataParam( staticCfg, config );
+    SetGlobalBufferParam( staticCfg, config );
 
     g_pCamera = new QC::Node::Camera();
 
@@ -1434,7 +1495,7 @@ void Exception_Test_SubmitRequest_MetaData( DataTree &dt )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     SetGlobalMockParam();
-    SetGlobalMetaDataParam( staticCfg, config );
+    SetGlobalBufferParam( staticCfg, config );
 
     g_pCamera = new QC::Node::Camera();
 
@@ -1540,7 +1601,7 @@ void Exception_Test_MultiClient( DataTree &dt )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     SetGlobalMockParam();
-    SetGlobalMetaDataParam( staticCfg, config );
+    SetGlobalBufferParam( staticCfg, config );
 
     uint64_t dmaHandle = g_bufferList.pBuffers[0].planes[0].memHndl;
     g_bufferList.pBuffers[0].numPlanes = 4;
@@ -1581,7 +1642,7 @@ void Exception_Test_MultiClient( DataTree &dt )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     SetGlobalMockParam();
-    SetGlobalMetaDataParam( staticCfg, config );
+    SetGlobalBufferParam( staticCfg, config );
     g_bufferList.pBuffers[1].planes[0].memHndl = g_pCamFrameDescs[0].dmaHandle;
     g_controlFnc( MOCK_API_QCARCAM_GET_BUFFERS, MOCK_CONTROL_API_OUT_PARAM1, &g_bufferList );
     g_controlFnc( MOCK_API_QCARCAM_SET_BUFFERS, MOCK_CONTROL_API_RETURN, &correctRet );
@@ -1599,7 +1660,7 @@ void Exception_Test_MultiClient( DataTree &dt )
 
     // initialize successfully
     SetGlobalMockParam();
-    SetGlobalMetaDataParam( staticCfg, config );
+    SetGlobalBufferParam( staticCfg, config );
     g_bufferList.pBuffers[1].planes[0].memHndl = g_pCamFrameDescs[1].dmaHandle;
     g_controlFnc( MOCK_API_QCARCAM_GET_BUFFERS, MOCK_CONTROL_API_OUT_PARAM1, &g_bufferList );
     g_pCamera = new QC::Node::Camera();
@@ -1643,12 +1704,21 @@ void Exception_Test_EventCallback( DataTree &dt )
     QCStatus_e ret;
     DataTree staticCfg;
     QCNodeInit_t config;
+    uint32_t streamId;
+    std::vector<DataTree> streamConfigs;
+    std::vector<uint32_t> bufferIds;
 
     config.config = dt.Dump();
     config.callback = ProcessDoneCb;
 
     ret = dt.Get( "static", staticCfg );
     ASSERT_EQ( QC_STATUS_OK, ret );
+
+    ret = staticCfg.Get( "streamConfigs", streamConfigs );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    streamId = streamConfigs[0].Get<uint32_t>( "streamId", UINT32_MAX );
+    bufferIds = streamConfigs[0].Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
 
     SetGlobalMockParam();
 
@@ -1669,8 +1739,8 @@ void Exception_Test_EventCallback( DataTree &dt )
     g_triggerEventFnc( QCARCAM_EVENT_INPUT_SIGNAL, &payload, false );
 
     // QCARCAM_EVENT_FRAME_READY
-    payload.frameInfo.id = 1;
-    payload.frameInfo.bufferIndex = 0;
+    payload.frameInfo.id = streamId;
+    payload.frameInfo.bufferIndex = bufferIds[0];
     payload.frameInfo.sofTimestamp.timestamp = 1000;
     payload.frameInfo.sofTimestamp.timestampGPTP = 2000;
     payload.frameInfo.flags = 0;
@@ -1681,7 +1751,7 @@ void Exception_Test_EventCallback( DataTree &dt )
     // QCARCAM_EVENT_MC_NOTIFY – QCARCAM_MC_STREAM_CREATE
     payload.mcEventInfo.event = QCARCAM_MC_STREAM_CREATE;
     payload.mcEventInfo.numStreams = 1;
-    payload.mcEventInfo.bufferListId[0] = 0;
+    payload.mcEventInfo.bufferListId[0] = bufferIds[0];
     g_triggerEventFnc( QCARCAM_EVENT_MC_NOTIFY, &payload, false );
 
     // QCARCAM_EVENT_MC_NOTIFY – QCARCAM_MC_STREAM_DESTROY
@@ -1989,6 +2059,26 @@ TEST( Camera, SANITY_Test_Camera_Frame_IMX728_ReleaseMode_NV12 )
     SANITY_Test_Camera_Frame( dt );
 }
 
+TEST( Camera, SANITY_Test_Camera_Frame_IMX728_ReleaseMode_NV12_Mock )
+{
+    QCStatus_e ret;
+    DataTree dt;
+    nlohmann::json jsonData;
+    std::string errors;
+    std::string filePath = "./data/test/camera/camera_config_imx728_request_nv12.json";
+
+    ReadJsonFile( filePath, jsonData );
+    std::string jsonStr = jsonData.dump();
+
+    ret = dt.Load( jsonStr, errors );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    dt.Set<uint32_t>( "static.inputId", 0 );
+    dt.Set<bool>( "static.requestMode", false );
+
+    SANITY_Test_CameraReleaseMode_Mock( dt );
+}
+
 TEST( Camera, SANITY_Test_Camera_Frame_OV3F_ReleaseMode_NV12 )
 {
     QCStatus_e ret;
@@ -2006,6 +2096,26 @@ TEST( Camera, SANITY_Test_Camera_Frame_OV3F_ReleaseMode_NV12 )
     dt.Set<bool>( "static.requestMode", false );
 
     SANITY_Test_Camera_Frame( dt );
+}
+
+TEST( Camera, SANITY_Test_Camera_Frame_OV3F_ReleaseMode_NV12_Mock )
+{
+    QCStatus_e ret;
+    DataTree dt;
+    nlohmann::json jsonData;
+    std::string errors;
+    std::string filePath = "./data/test/camera/camera_config_ov3f_request_nv12.json";
+
+    ReadJsonFile( filePath, jsonData );
+    std::string jsonStr = jsonData.dump();
+
+    ret = dt.Load( jsonStr, errors );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    dt.Set<uint32_t>( "static.inputId", 0 );
+    dt.Set<bool>( "static.requestMode", false );
+
+    SANITY_Test_CameraReleaseMode_Mock( dt );
 }
 
 TEST( Camera, SANITY_Test_Camera_Frame_IMX728_RequestMode_UYVY )

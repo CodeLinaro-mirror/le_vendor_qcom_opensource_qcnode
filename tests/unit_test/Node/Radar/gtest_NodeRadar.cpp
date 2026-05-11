@@ -4,15 +4,28 @@
 #include <chrono>
 #include <cmath>
 #include <gtest/gtest.h>
+#include <gtest/gtest_prod.h>
 #include <stdio.h>
 #include <string>
 #include <thread>
 #include <unistd.h>
 #include <vector>
 
-#define private public
+
+#define QC_RADAR_FRIEND_CLASS_UT \
+            FRIEND_TEST (::RadarNodeTest, Start_FailsWhenRadarIfaceNotInitialized ); \
+            FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks ); \
+            FRIEND_TEST (::RadarNodeTest, Execute_BranchCoverage );
+
+#ifdef QC_RADAR_FRIEND_CLASS_UT
+// Forward declare classes
+class RadarNodeTest_Start_FailsWhenRadarIfaceNotInitialized_Test;
+class RadarNodeTest_ProcessFrameDescriptor_MapSizeAndIfaceChecks_Test;
+class RadarNodeTest_Execute_BranchCoverage_Test;
+#endif
+
 #include "QC/Node/Radar.hpp"
-#undef private
+
 #include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/sample/BufferManager.hpp"
 #include "md5_utils.hpp"
@@ -452,9 +465,9 @@ void RadarNodeCoverageTest()
         {
             printf( "Testing ProcessFrameDescriptor with invalid buffers...\n" );
 
-            // Test with null buffer data
-            void *originalInputData = inputBuffer.tensor.pBuf;
-            inputBuffer.tensor.pBuf = nullptr;
+            // Test with invalid DMA handle (FD-only path: null ptr is valid, zero dmaHandle is not)
+            uint64_t originalDmaHandle = inputBuffer.tensor.dmaHandle;
+            inputBuffer.tensor.dmaHandle = 0;
             NodeFrameDescriptor nullFrameDesc( 2 );
             ret = nullFrameDesc.SetBuffer( 0, inputBuffer.tensor );
             ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
@@ -464,7 +477,7 @@ void RadarNodeCoverageTest()
             ret = radarNode3.ProcessFrameDescriptor( nullFrameDesc );
             EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF, ret );
 
-            inputBuffer.tensor.pBuf = originalInputData;
+            inputBuffer.tensor.dmaHandle = originalDmaHandle;
 
             ret = radarNode3.Stop();
             EXPECT_EQ( QCStatus_e::QC_STATUS_OK, ret );
@@ -586,9 +599,7 @@ TEST_F( RadarNodeTest, RadarIface_ErrorPaths )
                  initRet == QCStatus_e::QC_STATUS_OK );
 
     // Execute before successful init should return BAD_STATE
-    uint8_t inBuf[8] = { 0 };
-    uint8_t outBuf[8] = { 0 };
-    QCStatus_e execRet = iface.Execute( inBuf, sizeof( inBuf ), outBuf, sizeof( outBuf ) );
+    QCStatus_e execRet = iface.Execute( -1, 8, -1, 8 );
     EXPECT_TRUE( execRet == QCStatus_e::QC_STATUS_OK ||
                  execRet == QCStatus_e::QC_STATUS_BAD_STATE ||
                  execRet == QCStatus_e::QC_STATUS_BAD_ARGUMENTS ||
@@ -613,9 +624,7 @@ TEST_F( RadarNodeTest, RadarIface_SuccessPaths )
         // Second initialize should be a no-op success
         EXPECT_EQ( QCStatus_e::QC_STATUS_OK, iface.Initialize( "/dev/radar0" ) );
 
-        uint8_t inBuf[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
-        uint8_t outBuf[8] = { 0 };
-        QCStatus_e execRet = iface.Execute( inBuf, sizeof( inBuf ), outBuf, sizeof( outBuf ) );
+        QCStatus_e execRet = iface.Execute( -1, 8, -1, 8 );
         EXPECT_TRUE( execRet == QCStatus_e::QC_STATUS_OK || execRet == QCStatus_e::QC_STATUS_FAIL );
 
         EXPECT_EQ( QCStatus_e::QC_STATUS_OK, iface.Deinitialize() );
@@ -684,6 +693,8 @@ TEST_F( RadarNodeTest, Execute_BranchCoverage )
                radarNode.Execute( &inputBuffer.tensor, nullptr ) );
 
     // Valid buffers but iface not initialized
+    radarNode.m_config.maxInputBufferSize  = m_config.maxInputBufferSize;
+    radarNode.m_config.maxOutputBufferSize = m_config.maxOutputBufferSize;
     EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_STATE,
                radarNode.Execute( &inputBuffer.tensor, &outputBuffer.tensor ) );
 }
@@ -1518,8 +1529,9 @@ TEST_F( RadarNodeTest, Execute_NullBuffers )
             TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
             ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
 
-            // Set data pointer to null
-            inputBuffer.tensor.pBuf = nullptr;
+            // Set DMA handle to 0 (FD-only path: zero dmaHandle is the invalid-buffer condition)
+            uint64_t originalDmaHandle = inputBuffer.tensor.dmaHandle;
+            inputBuffer.tensor.dmaHandle = 0;
 
             NodeFrameDescriptor frameDesc( 2 );
             ret = frameDesc.SetBuffer( 0, inputBuffer.tensor );
@@ -1529,6 +1541,8 @@ TEST_F( RadarNodeTest, Execute_NullBuffers )
 
             ret = radarNode.ProcessFrameDescriptor( frameDesc );
             EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF, ret );
+
+            inputBuffer.tensor.dmaHandle = originalDmaHandle;
 
             radarNode.Stop();
         }

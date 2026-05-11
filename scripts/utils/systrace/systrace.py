@@ -131,6 +131,8 @@ while offset < recordLen:
     cat = evtName
     ts = evth.timestamp
     if ph in ["B", "E"]:
+        if name not in lastBEEvents:
+            lastBEEvents[name] = {}
         title = args.get("frameId", cat)
         evt = {
             "name": "%s" % (title),
@@ -144,16 +146,16 @@ while offset < recordLen:
         if cat == "Start": print(evt)
         if cat in ["Execute"] and ph == "B":
             # check the previous B and E is match, as if Execute failed, there will be no E
-            if processor in lastBEEvents and title in lastBEEvents[processor]:
-                levt = lastBEEvents[processor][title]
+            if processor in lastBEEvents[name] and title in lastBEEvents[name][processor]:
+                levt = lastBEEvents[name][processor][title]
                 if levt["ph"] != "E":
                     eevt = dict(levt)
                     eevt["ph"] = "E"
                     events.append(eevt)
                     print("WARNING: %s %s %s Execute failed" % (eevt["pid"], eevt["tid"], eevt["cat"]))
-        if processor not in lastBEEvents:
-            lastBEEvents[processor] = {}
-        lastBEEvents[processor][title] = evt
+        if processor not in lastBEEvents[name]:
+            lastBEEvents[name][processor] = {}
+        lastBEEvents[name][processor][title] = evt
     elif ph in ["X"]:
         evt = {
             "name": cat,

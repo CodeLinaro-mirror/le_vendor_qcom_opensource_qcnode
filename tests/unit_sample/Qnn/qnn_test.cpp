@@ -479,6 +479,16 @@ public:
         auto end = std::chrono::high_resolution_clock::now();
         auto cost = std::chrono::duration_cast<std::chrono::microseconds>( end - begin ).count();
         printf( "[%s] Deinit cost %.2f ms\n", name.c_str(), (float) cost / 1000.0 );
+
+        for ( auto &bufDesc : m_inputBuffers )
+        {
+            m_bufMgr.Free( bufDesc );
+        }
+
+        for ( auto &bufDesc : m_outputBuffers )
+        {
+            m_bufMgr.Free( bufDesc );
+        }
     }
 
     int GetnLoops() { return m_params.nLoops; }

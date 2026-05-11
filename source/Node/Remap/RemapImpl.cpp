@@ -76,7 +76,7 @@ RemapImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorBase
         oss << "{";
         oss << "\"name\": \"" << m_nodeId.name << "\", ";
         oss << "\"processor\": \"" << processor << "\", ";
-        oss << "\"coreIds\": [0]";
+        oss << "\"coreIds\": [" << m_config.params.coreId << "]";
         oss << "}";
         return oss.str();
     }() );

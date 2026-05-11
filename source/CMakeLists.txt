@@ -38,7 +38,7 @@ if( NOT ENABLE_SIMNODE )
       )
     endif()
 
-    if ( ENABLE_RADAR AND NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" )
+    if ( ENABLE_RADAR )
       list( APPEND TARGET_LIBRARIES
                 QCNodeNodeRadar
       )

@@ -276,11 +276,12 @@ private:
 
     QCStatus_e QueryInputs();
     QCStatus_e GetInputsInfo( CameraInputs_t *pCamInputs );
-    CameraFrameDescriptor_t *GetFrame( const QCarCamFrameInfo_t *pFrameInfo );
+    QCStatus_e GetFrame( const QCarCamFrameInfo_t &camFrameInfo, uint32_t &bufferListId,
+                         uint32_t &bufferIdx );
     QCStatus_e ValidateConfig( const CameraImplConfig_t *pConfig );
 
     void FrameCallback( CameraFrameDescriptor_t *pFrame );
-    void EventCallback( const uint32_t eventId, const void *pPayload );
+    void EventCallback( const uint32_t eventId, const QCarCamEventPayload_t *pPayLoad );
 
     static QCarCamRet_e QcarcamEventCb( const QCarCamHndl_t hndl, const uint32_t eventId,
                                         const QCarCamEventPayload_t *pPayload, void *pPrivateData );

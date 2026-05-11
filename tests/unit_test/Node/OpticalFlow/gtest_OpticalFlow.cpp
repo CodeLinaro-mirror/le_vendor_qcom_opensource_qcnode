@@ -388,6 +388,7 @@ TEST( EVA, L0_NV12_FWD_NodeOpticalFlow )
                             "data/test/ofl/fwd_mv-conf_nv12.raw" );
 }
 
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
 TEST( EVA, L0_NV12_UBWC_FWD_NodeOpticalFlow )
 {
     OpticalFlow_Config_t config;
@@ -406,6 +407,7 @@ TEST( EVA, L0_NV12_UBWC_FWD_NodeOpticalFlow )
                             "data/test/ofl/1.nv12_ubwc", "data/test/ofl/fwd_mv-map_nv12_ubwc.raw",
                             "data/test/ofl/fwd_mv-conf_nv12_ubwc.raw" );
 }
+#endif
 
 TEST( EVA, L0_NV12_BWD_NodeOpticalFlow )
 {
@@ -426,6 +428,7 @@ TEST( EVA, L0_NV12_BWD_NodeOpticalFlow )
                             "data/test/ofl/bwd_mv-conf_nv12.raw" );
 }
 
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
 TEST( EVA, L0_NV12_UBWC_BWD_NodeOpticalFlow )
 {
     OpticalFlow_Config_t config;
@@ -445,6 +448,7 @@ TEST( EVA, L0_NV12_UBWC_BWD_NodeOpticalFlow )
                             "data/test/ofl/bwd_mv-map_nv12_ubwc.raw",
                             "data/test/ofl/bwd_mv-conf_nv12_ubwc.raw" );
 }
+#endif
 
 TEST( EVA, L0_NV12_BID_NodeOpticalFlow )
 {
@@ -466,6 +470,7 @@ TEST( EVA, L0_NV12_BID_NodeOpticalFlow )
             "data/test/ofl/bid_bwd_mv-map_nv12.raw", "data/test/ofl/bid_bwd_mv-conf_nv12.raw" );
 }
 
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
 TEST( EVA, L0_NV12_UBWC_BID_NodeOpticalFlow )
 {
     OpticalFlow_Config_t config;
@@ -487,6 +492,7 @@ TEST( EVA, L0_NV12_UBWC_BID_NodeOpticalFlow )
                             "data/test/ofl/bid_bwd_mv-map_nv12_ubwc.raw",
                             "data/test/ofl/bid_bwd_mv-conf_nv12_ubwc.raw" );
 }
+#endif
 
 
 #ifndef GTEST_QCNODE

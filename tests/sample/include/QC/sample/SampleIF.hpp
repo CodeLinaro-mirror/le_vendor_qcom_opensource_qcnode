@@ -31,6 +31,9 @@ namespace sample
 
 using namespace QC::Node;
 
+/** @brief Maximum number of cores per processor  */
+#define QC_SAMPLE_PROCESSOR_CORE_MAX 4
+
 typedef std::map<std::string, std::string> SampleConfig_t;
 
 class SampleIF;
@@ -234,7 +237,8 @@ public:
 protected:
     QCStatus_e Init( std::string name, QCNodeType_e type = QC_NODE_TYPE_CUSTOM_0 );
 
-    QCStatus_e Init( QCProcessorType_e processor, int rsmPriority = 0 );
+    QCStatus_e Init( QCProcessorType_e processor, int rsmPriority = 0,
+                     std::vector<uint32_t> coreIds = { 0u } );
     QCStatus_e Lock();
     QCStatus_e Unlock();
 
@@ -275,8 +279,9 @@ private:
 #endif
 
     QCProcessorType_e m_processor = QC_PROCESSOR_MAX;
+    std::vector<uint32_t> m_coreIds = { 0u };
 
-    static std::mutex s_locks[QC_PROCESSOR_MAX];
+    static std::mutex s_locks[QC_PROCESSOR_MAX * QC_SAMPLE_PROCESSOR_CORE_MAX];
 
     static std::mutex s_bufMapLock;
     static std::map<std::string, std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>>>

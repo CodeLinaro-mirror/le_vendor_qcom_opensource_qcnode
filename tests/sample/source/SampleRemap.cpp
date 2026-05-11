@@ -42,13 +42,13 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
 
     m_bNoPadding = Get( config, "no_padding", false );
 
-    QCProcessorType_e processor = Get( config, "processor", QC_PROCESSOR_HTP0 );
-    if ( QC_PROCESSOR_MAX == processor )
+    m_processor = Get( config, "processor", QC_PROCESSOR_HTP0 );
+    if ( QC_PROCESSOR_MAX == m_processor )
     {
         QC_ERROR( "invalid processor %s\n", Get( config, "processor", "" ).c_str() );
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
-    m_dataTree.SetProcessorType( "static.processorType", processor );
+    m_dataTree.SetProcessorType( "static.processorType", m_processor );
 
     uint32_t coreId = Get( config, "core_id", 0 );
     if ( NSP_CORES_ID_MAX < coreId )
@@ -57,6 +57,9 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
     m_dataTree.Set<uint32_t>( "static.coreId", coreId );
+
+    m_coreIds = { coreId };
+    m_rsmPriority = Get( config, "rsm_priority", 0 );
 
     m_outputWidth = Get( config, "output_width", 1920 );
     if ( 0 == m_outputWidth )
@@ -328,6 +331,11 @@ QCStatus_e SampleRemap::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
+        ret = SampleIF::Init( m_processor, m_rsmPriority, m_coreIds );
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
         ImageProps_t imgProp;
         imgProp.batchSize = m_numOfInputs;
         imgProp.width = m_outputWidth;
@@ -478,7 +486,8 @@ void SampleRemap::Execute()
         QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
                   frames.Timestamp( 0 ) );
         std::shared_ptr<SharedBuffer_t> bufferOutput = m_imagePool.Get();
-        if ( nullptr != bufferOutput )
+        ret = SampleIF::Lock();
+        if ( ( nullptr != bufferOutput ) && ( QC_STATUS_OK == ret ) )
         {
             PROFILER_BEGIN();
             frameDesc.Clear();
@@ -524,6 +533,7 @@ void SampleRemap::Execute()
                 QC_ERROR( "Remap execute failed for %" PRIu64 " : %d", frames.FrameId( 0 ), ret );
             }
         }
+        (void) SampleIF::Unlock();
     }
 #ifdef QC_ENABLE_HS
     else if ( m_bOrchestratorEnabled )

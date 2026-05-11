@@ -42,6 +42,32 @@ QCStatus_e SampleOpticalFlow::ParseConfig( SampleConfig_t &config )
 
     m_config.Set<std::string>( "format", Get( config, "format", "nv12" ) );
     m_config.Set<uint32_t>( "fps", Get( config, "fps", 30 ) );
+    m_config.Set<bool>( "confidenceOutputEn", Get( config, "confidence_output", true ) );
+    m_config.Set<uint8_t>( "computationAccuracy",
+                           Get( config, "computation_accuracy",
+                                static_cast<uint32_t>( COMPUTATION_ACCURACY_MEDIUM ) ) );
+    m_config.Set<float32_t>( "imageSharpnessThreshold",
+                             Get( config, "image_sharpness_threshold", 0.0f ) );
+    m_config.Set<float32_t>( "textureThreshold", Get( config, "texture_threshold", 0.5f ) );
+
+    std::string direction = Get( config, "direction", "forward" );
+    if ( direction == "forward" )
+    {
+        m_config.Set<uint8_t>( "motionDirection", MOTION_DIRECTION_FORWARD );
+    }
+    else if ( direction == "backward" )
+    {
+        m_config.Set<uint8_t>( "motionDirection", MOTION_DIRECTION_BACKWARD );
+    }
+    else if ( direction == "bidirectional" )
+    {
+        m_config.Set<uint8_t>( "motionDirection", MOTION_DIRECTION_BIDIRECTIONAL );
+    }
+    else
+    {
+        QC_ERROR( "invalid direction = %s\n", direction.c_str() );
+        ret = QC_STATUS_BAD_ARGUMENTS;
+    }
 
     m_nStepSize = Get( config, "step_size", 1 );
     if ( m_nStepSize == 1 )

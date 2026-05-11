@@ -237,26 +237,11 @@ QCStatus_e Radar::Initialize( QCNodeInit_t &config )
             status = QC_STATUS_BAD_ARGUMENTS;
             QC_ERROR( "Service name cannot be empty" );
         }
-        else
-        {
-            status = m_radarIface.Initialize( pConfig->params.serviceConfig.serviceName.c_str() );
-            if ( QC_STATUS_OK != status )
-            {
-                QC_ERROR( "Failed to initialize RadarIface with device: %s",
-                          pConfig->params.serviceConfig.serviceName.c_str() );
-            }
-        }
     }
 
     if ( QC_STATUS_OK == status )
     {
         status = SetupGlobalBufferIdMap( *pConfig );
-    }
-
-    if ( QC_STATUS_OK == status )
-    {
-        bRadarInitDone = true;
-        m_bDeRegisterAllBuffersWhenStop = pConfig->bDeRegisterAllBuffersWhenStop;
     }
 
     if ( QC_STATUS_OK == status )
@@ -349,6 +334,23 @@ QCStatus_e Radar::Initialize( QCNodeInit_t &config )
             QC_DEBUG( "No buffers provided during initialization, will use frame descriptor "
                       "buffers" );
         }
+    }
+
+    if ( QC_STATUS_OK == status )
+    {
+        status = m_radarIface.Initialize( pConfig->params.serviceConfig.serviceName.c_str(),
+                                          pConfig->params.serviceConfig.timeoutMs );
+        if ( QC_STATUS_OK != status )
+        {
+            QC_ERROR( "Failed to initialize RadarIface with device: %s",
+                      pConfig->params.serviceConfig.serviceName.c_str() );
+        }
+    }
+
+    if ( QC_STATUS_OK == status )
+    {
+        bRadarInitDone = true;
+        m_bDeRegisterAllBuffersWhenStop = pConfig->bDeRegisterAllBuffersWhenStop;
     }
 
     if ( QC_STATUS_OK != status )
@@ -491,8 +493,7 @@ QCStatus_e Radar::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDesc )
         {
             // Get output buffer (second entry in global buffer map)
             uint32_t outputGlobalBufferId = m_globalBufferIdMap[1].globalBufferId;
-            QCBufferDescriptorBase_t &outputBufDesc =
-                    frameDesc.GetBuffer( outputGlobalBufferId );
+            QCBufferDescriptorBase_t &outputBufDesc = frameDesc.GetBuffer( outputGlobalBufferId );
             const TensorDescriptor_t *pOutputTensor =
                     dynamic_cast<const TensorDescriptor_t *>( &outputBufDesc );
             const BufferDescriptor_t *pOutputBuffer =
@@ -507,15 +508,13 @@ QCStatus_e Radar::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDesc )
             {
                 // Execute radar processing
                 const QCBufferDescriptorBase_t *pInput =
-                        pInputTensor ? static_cast<const QCBufferDescriptorBase_t *>(
-                                                pInputTensor )
-                                        : static_cast<const QCBufferDescriptorBase_t *>(
-                                                pInputBuffer );
+                        pInputTensor
+                                ? static_cast<const QCBufferDescriptorBase_t *>( pInputTensor )
+                                : static_cast<const QCBufferDescriptorBase_t *>( pInputBuffer );
                 const QCBufferDescriptorBase_t *pOutput =
-                        pOutputTensor ? static_cast<const QCBufferDescriptorBase_t *>(
-                                                pOutputTensor )
-                                        : static_cast<const QCBufferDescriptorBase_t *>(
-                                                pOutputBuffer );
+                        pOutputTensor
+                                ? static_cast<const QCBufferDescriptorBase_t *>( pOutputTensor )
+                                : static_cast<const QCBufferDescriptorBase_t *>( pOutputBuffer );
                 status = Execute( pInput, pOutput );
             }
         }
@@ -526,63 +525,24 @@ QCStatus_e Radar::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDesc )
 
 QCStatus_e Radar::ValidateBuffer( const QCBufferDescriptorBase_t *pBuffer, bool isInput )
 {
-    QCStatus_e ret = QC_STATUS_OK;
-
-    if ( nullptr == pBuffer->GetDataPtr() )
+    if ( pBuffer->size == 0 )
     {
-        ret = QC_STATUS_INVALID_BUF;
-        QC_ERROR( "Buffer data pointer is null" );
+        QC_ERROR( "Buffer size is zero" );
+        return QC_STATUS_INVALID_BUF;
     }
-    else
+    if ( pBuffer->dmaHandle == 0 )
     {
-        // Try casting to BufferDescriptor_t to access size and dmaHandle if possible
-        // But QCBufferDescriptorBase_t has size and dmaHandle
-        if ( pBuffer->size == 0 )
-        {
-            ret = QC_STATUS_INVALID_BUF;
-            QC_ERROR( "Buffer size is zero" );
-        }
-        else
-        {
-            if ( pBuffer->dmaHandle == 0 )
-            {
-                ret = QC_STATUS_INVALID_BUF;
-                QC_ERROR( "Invalid DMA handle" );
-            }
-            else
-            {
-                uint32_t maxSize =
-                        isInput ? m_config.maxInputBufferSize : m_config.maxOutputBufferSize;
-                if ( pBuffer->GetDataSize() > maxSize )
-                {
-                    ret = QC_STATUS_INVALID_BUF;
-                    QC_ERROR( "%s buffer size (%zu) exceeds maximum (%u)",
-                              isInput ? "Input" : "Output", pBuffer->GetDataSize(), maxSize );
-                }
-                else
-                {
-                    if ( pBuffer->type == QC_BUFFER_TYPE_RAW )
-                    {
-                        QC_DEBUG( "Processing RAW buffer type for radar data" );
-                    }
-                    else if ( pBuffer->type == QC_BUFFER_TYPE_TENSOR )
-                    {
-                        QC_DEBUG( "Processing TENSOR buffer type for radar data" );
-                    }
-                    else if ( pBuffer->type == QC_BUFFER_TYPE_IMAGE )
-                    {
-                        QC_DEBUG( "Processing IMAGE buffer type for radar data" );
-                    }
-                    else
-                    {
-                        QC_WARN( "Unexpected buffer type %d for radar processing", pBuffer->type );
-                    }
-                }
-            }
-        }
+        QC_ERROR( "Invalid DMA handle" );
+        return QC_STATUS_INVALID_BUF;
     }
-
-    return ret;
+    uint32_t maxSize = isInput ? m_config.maxInputBufferSize : m_config.maxOutputBufferSize;
+    if ( pBuffer->GetDataSize() > maxSize )
+    {
+        QC_ERROR( "%s buffer size (%zu) exceeds maximum (%u)", isInput ? "Input" : "Output",
+                  pBuffer->GetDataSize(), maxSize );
+        return QC_STATUS_INVALID_BUF;
+    }
+    return QC_STATUS_OK;
 }
 
 QCStatus_e Radar::Execute( const QCBufferDescriptorBase_t *pInput,
@@ -627,13 +587,12 @@ QCStatus_e Radar::Execute( const QCBufferDescriptorBase_t *pInput,
                     }
                     else
                     {
-                        // Use RadarIface to execute processing with buffer pointers and sizes
-                        uint8_t *pInputData = static_cast<uint8_t *>( pInput->GetDataPtr() );
-                        uint8_t *pOutputData = static_cast<uint8_t *>( pOutput->GetDataPtr() );
                         size_t inputSize = pInput->GetDataSize();
                         size_t outputSize = pOutput->GetDataSize();
+                        uint64_t inputHandle = pInput->dmaHandle;
+                        uint64_t outputHandle = pOutput->dmaHandle;
 
-                        ret = m_radarIface.Execute( pInputData, inputSize, pOutputData,
+                        ret = m_radarIface.Execute( inputHandle, inputSize, outputHandle,
                                                     outputSize );
                         if ( QC_STATUS_OK != ret )
                         {

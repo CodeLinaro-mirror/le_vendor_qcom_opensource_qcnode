@@ -12,7 +12,7 @@ namespace sample
 
 std::map<std::string, Sample_CreateFunction_t> SampleIF::s_SampleMap;
 
-std::mutex SampleIF::s_locks[QC_PROCESSOR_MAX];
+std::mutex SampleIF::s_locks[QC_PROCESSOR_MAX * QC_SAMPLE_PROCESSOR_CORE_MAX];
 
 std::mutex SampleIF::s_bufMapLock;
 std::map<std::string, std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>>>
@@ -91,7 +91,8 @@ QCStatus_e SampleIF::Init( std::string name, QCNodeType_e type )
     return ret;
 }
 
-QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority )
+QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
+                           std::vector<uint32_t> coreIds )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
@@ -123,14 +124,16 @@ QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority )
         {
             QC_INFO( "rsm init for processor %d", processor );
             m_processor = processor;
+            m_coreIds = coreIds;
         }
     }
     else
 #endif
             if ( processor < QC_PROCESSOR_MAX )
     {
-        QC_INFO( "global mutex for processor %d", processor );
+        QC_INFO( "global mutex for processor %d cores %zu", processor, coreIds.size() );
         m_processor = processor;
+        m_coreIds = coreIds;
     }
     else
     {
@@ -187,7 +190,10 @@ QCStatus_e SampleIF::Lock()
 #endif
             if ( m_processor < QC_PROCESSOR_MAX )
     {
-        s_locks[m_processor].lock();
+        for ( const auto &coreId : m_coreIds )
+        {
+            s_locks[m_processor * QC_SAMPLE_PROCESSOR_CORE_MAX + coreId].lock();
+        }
     }
     else
     {
@@ -223,7 +229,10 @@ QCStatus_e SampleIF::Unlock()
 #endif
             if ( m_processor < QC_PROCESSOR_MAX )
     {
-        s_locks[m_processor].unlock();
+        for ( auto it = m_coreIds.rbegin(); it != m_coreIds.rend(); ++it )
+        {
+            s_locks[m_processor * QC_SAMPLE_PROCESSOR_CORE_MAX + *it].unlock();
+        }
     }
     else
     {

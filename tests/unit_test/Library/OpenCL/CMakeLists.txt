@@ -15,4 +15,10 @@ target_include_directories( OpenCLMock PUBLIC
     ${HEADERS_DIR}
 )
 
+if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
+target_compile_definitions(OpenCLMock PUBLIC CL_TARGET_OPENCL_VERSION=200)
+else()
+target_compile_definitions(OpenCLMock PUBLIC CL_TARGET_OPENCL_VERSION=300)
+endif()
+
 install( TARGETS OpenCLMock DESTINATION lib )

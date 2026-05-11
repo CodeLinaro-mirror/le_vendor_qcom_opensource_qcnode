@@ -3,16 +3,6 @@
 
 #include "FadasRemap.hpp"
 
-/* These are temporary used macro definations for some image formats supported in engineering build
- * fadas library but not exist in formal release header files, will be removed when engineering
- * build merged to mainline*/
-#define FADAS_REMAP_PIPELINE_Y8UV8_TO_BGR888_RH ( (FadasRemapPipeline_e) 12 )
-#define FADAS_REMAP_PIPELINE_UYVY_TO_BGR888_RH ( (FadasRemapPipeline_e) 16 )
-#define FADAS_REMAP_PIPELINE_UBWC_NV12_TO_BGR888_RH ( (FadasRemapPipeline_e) 17 )
-#define FADAS_REMAP_PIPELINE_MAX_RH ( (FadasRemapPipeline_e) 19 )
-#define FADAS_IMAGE_FORMAT_BGR888_RH ( (FadasImageFormat_e) 14 )
-#define FADAS_IMAGE_FORMAT_UBWC_NV12_RH ( (FadasImageFormat_e) 15 )
-
 namespace QC
 {
 namespace libs
@@ -71,7 +61,7 @@ FadasRemapPipeline_e FadasRemap::RemapGetPipelineCPU( QCImageFormat_e inputForma
                                                       QCImageFormat_e outputFormat,
                                                       bool bEnableNormalize )
 {
-    FadasRemapPipeline_e pipeline = FADAS_REMAP_PIPELINE_MAX_RH;
+    FadasRemapPipeline_e pipeline = FADAS_REMAP_PIPELINE_MAX;
 
     if ( ( QC_IMAGE_FORMAT_UYVY == inputFormat ) && ( QC_IMAGE_FORMAT_RGB888 == outputFormat ) &&
          ( true == bEnableNormalize ) )   // UYVY to RGB normalize pipeline
@@ -91,12 +81,14 @@ FadasRemapPipeline_e FadasRemap::RemapGetPipelineCPU( QCImageFormat_e inputForma
 
         pipeline = FADAS_REMAP_PIPELINE_3C888;
     }
+#if 0
     else if ( ( QC_IMAGE_FORMAT_UYVY == inputFormat ) &&
               ( QC_IMAGE_FORMAT_BGR888 == outputFormat ) &&
               ( false == bEnableNormalize ) )   // UYVY to BGR pipeline
     {
         pipeline = FADAS_REMAP_PIPELINE_UYVY_TO_BGR888_RH;
     }
+#endif
     else if ( ( QC_IMAGE_FORMAT_NV12 == inputFormat ) &&
               ( QC_IMAGE_FORMAT_RGB888 == outputFormat ) &&
               ( false == bEnableNormalize ) )   // NV12 to RGB pipeline
@@ -116,14 +108,14 @@ FadasRemapPipeline_e FadasRemap::RemapGetPipelineCPU( QCImageFormat_e inputForma
               ( false == bEnableNormalize ) )   // NV12 to BGR pipeline
     {
 
-        pipeline = FADAS_REMAP_PIPELINE_Y8UV8_TO_BGR888_RH;
+        pipeline = FADAS_REMAP_PIPELINE_Y8UV8_TO_BGR888;
     }
     else if ( ( QC_IMAGE_FORMAT_NV12_UBWC == inputFormat ) &&
               ( QC_IMAGE_FORMAT_BGR888 == outputFormat ) &&
               ( false == bEnableNormalize ) )   // NV12 UBWC to BGR pipeline
     {
 
-        pipeline = FADAS_REMAP_PIPELINE_UBWC_NV12_TO_BGR888_RH;
+        pipeline = FADAS_REMAP_PIPELINE_UBWC_NV12_TO_BGR888;
     }
     else
     {
@@ -279,7 +271,7 @@ QCStatus_e FadasRemap::CreatRemapTable( uint32_t inputId, uint32_t mapWidth, uin
         {
             FadasRemapPipeline_e pipeline = RemapGetPipelineCPU(
                     m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
-            if ( FADAS_REMAP_PIPELINE_MAX_RH == pipeline )
+            if ( FADAS_REMAP_PIPELINE_MAX == pipeline )
             {
                 QC_ERROR( "Invalid remap pipelie for CPU!" );
                 ret = QC_STATUS_BAD_ARGUMENTS;
@@ -317,7 +309,7 @@ QCStatus_e FadasRemap::CreatRemapTable( uint32_t inputId, uint32_t mapWidth, uin
         {
             FadasRemapPipeline_e pipeline = RemapGetPipelineCPU(
                     m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
-            if ( FADAS_REMAP_PIPELINE_MAX_RH == pipeline )
+            if ( FADAS_REMAP_PIPELINE_MAX == pipeline )
             {
                 QC_ERROR( "Invalid remap pipelie for GPU!" );
                 ret = QC_STATUS_BAD_ARGUMENTS;
@@ -411,7 +403,7 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
             int32_t pThreadsAffinity[] = { 0, 1, 2, 3 };
             FadasRemapPipeline_e pipeline = RemapGetPipelineCPU(
                     m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
-            if ( FADAS_REMAP_PIPELINE_MAX_RH == pipeline )
+            if ( FADAS_REMAP_PIPELINE_MAX == pipeline )
             {
                 QC_ERROR( "Invalid remap pipelie for CPU!" );
                 ret = QC_STATUS_BAD_ARGUMENTS;
@@ -499,7 +491,7 @@ QCStatus_e FadasRemap::RemapRunCPU( QCFrameDescriptorNodeIfs &frameDesc )
             }
             else if ( QC_IMAGE_FORMAT_NV12_UBWC == m_inputFormats[inputId] )
             {
-                srcImg.props.format = FADAS_IMAGE_FORMAT_UBWC_NV12_RH;
+                srcImg.props.format = FADAS_IMAGE_FORMAT_UBWC_NV12;
                 srcImg.props.numPlanes = 1;
                 srcImg.props.stride[0] = bufDescInput.size / bufDescInput.height;
                 srcImg.props.stride[1] = 0;
@@ -522,7 +514,7 @@ QCStatus_e FadasRemap::RemapRunCPU( QCFrameDescriptorNodeIfs &frameDesc )
             }
             else if ( QC_IMAGE_FORMAT_BGR888 == m_outputFormat )
             {
-                rgbImg.props.format = FADAS_IMAGE_FORMAT_BGR888_RH;
+                rgbImg.props.format = FADAS_IMAGE_FORMAT_BGR888;
             }
             else
             {

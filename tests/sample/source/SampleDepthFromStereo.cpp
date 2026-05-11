@@ -43,6 +43,25 @@ QCStatus_e SampleDepthFromStereo::ParseConfig( SampleConfig_t &config )
 
     m_config.Set<std::string>( "format", Get( config, "format", "nv12" ) );
     m_config.Set<uint32_t>( "fps", Get( config, "fps", 30 ) );
+    m_config.Set<bool>( "confidenceOutputEn", Get( config, "confidence_output", true ) );
+    m_config.Set<uint8_t>( "processingMode",
+                           Get( config, "processing_mode",
+                                static_cast<uint32_t>( PROCESSING_MODE_AUTO ) ) );
+
+    std::string searchDirection = Get( config, "search_direction", "l2r" );
+    if ( searchDirection == "l2r" )
+    {
+        m_config.Set<uint8_t>( "searchDirection", SEARCH_DIRECTION_L2R );
+    }
+    else if ( searchDirection == "r2l" )
+    {
+        m_config.Set<uint8_t>( "searchDirection", SEARCH_DIRECTION_R2L );
+    }
+    else
+    {
+        QC_ERROR( "invalid search_direction = %s\n", searchDirection.c_str() );
+        ret = QC_STATUS_BAD_ARGUMENTS;
+    }
 
     bool bCache = Get( config, "cache", true );
     if ( false == bCache )

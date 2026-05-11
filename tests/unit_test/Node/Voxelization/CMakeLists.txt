@@ -26,17 +26,17 @@ target_include_directories( VoxelSdkForTest PUBLIC
     ${HEADERS_DIR}
 )
 
+if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
+target_compile_definitions(VoxelSdkForTest PUBLIC CL_TARGET_OPENCL_VERSION=200)
+else()
+target_compile_definitions(VoxelSdkForTest PUBLIC CL_TARGET_OPENCL_VERSION=300)
+endif()
+
 add_executable( gtest_NodeVoxelization 
     gtest_NodeVoxelization.cpp 
 )
 
 target_include_directories( gtest_NodeVoxelization PUBLIC ${HEADERS_DIR})
- 
-if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
-target_compile_definitions(gtest_NodeVoxelization PUBLIC CL_TARGET_OPENCL_VERSION=200)
-else()
-target_compile_definitions(gtest_NodeVoxelization PUBLIC CL_TARGET_OPENCL_VERSION=300)
-endif()
  
 target_link_libraries( gtest_NodeVoxelization
     gtest

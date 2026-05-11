@@ -1117,9 +1117,9 @@ QCStatus_e OpticalFlow::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameD
     Buffer bwdMvMem;
     Buffer fwdConfMem;
     Buffer bwdConfMem;
-    LME::Output sOutputFrwd;
-    LME::Output sOutputBkwd;
-    LME::Input sInput;
+    LME::Output sOutputFrwd = {};
+    LME::Output sOutputBkwd = {};
+    LME::Input sInput = {};
 
     if ( m_state != QC_OBJECT_STATE_RUNNING )
     {

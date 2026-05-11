@@ -14,6 +14,20 @@ namespace sample
 SampleTemporal::SampleTemporal() {}
 SampleTemporal::~SampleTemporal() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )> SampleTemporal::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SampleTemporal::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SampleTemporal::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
+
 QCStatus_e SampleTemporal::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -183,8 +197,37 @@ QCStatus_e SampleTemporal::Start()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = false;
-    m_thread = std::thread( &SampleTemporal::ThreadMain, this );
+    m_frameId = 0;
 
+    { /* publish the 1st frame */
+        DataFrames_t frames;
+        for ( uint32_t i = 0; i < m_number; i++ )
+        {
+            DataFrame_t frame;
+            frame.buffer = m_temporal[i].temporal;
+            frame.frameId = m_frameId;
+            frames.Add( frame );
+        }
+        if ( true == m_bHasUseFlag )
+        {
+            (void) FillTensor( m_useFlagTs, m_useFlagQuantScale, m_useFlagQuantOffset, 0.0f );
+            DataFrame_t frame;
+            frame.buffer = m_useFlag;
+            frame.frameId = m_frameId;
+            frames.Add( frame );
+        }
+        m_frameId++;
+        m_pub.Publish( frames );
+    }
+
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
+    {
+#endif
+        m_thread = std::thread( &SampleTemporal::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+    }
+#endif
 
     return ret;
 }
@@ -230,80 +273,69 @@ QCStatus_e SampleTemporal::FillTensor( TensorDescriptor_t &tensorDesc, float sca
     return ret;
 }
 
-void SampleTemporal::ThreadMain()
+void SampleTemporal::Execute()
 {
     QCStatus_e ret;
-    uint64_t frameId = 0;
-
-    { /* publish the 1st frame */
-        DataFrames_t frames;
+    uint64_t timeoutMs = (uint64_t) m_windowMs;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
+    {
+        timeoutMs = 0;
+    }
+#endif
+    DataFrames_t frames;
+    ret = m_sub.Receive( frames, timeoutMs );
+    if ( QC_STATUS_OK == ret )
+    {
+        QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
+                  frames.Timestamp( 0 ) );
         for ( uint32_t i = 0; i < m_number; i++ )
         {
-            DataFrame_t frame;
-            frame.buffer = m_temporal[i].temporal;
-            frame.frameId = frameId;
-            frames.Add( frame );
+            if ( m_temporal[i].temporalIndex < frames.frames.size() )
+            {
+                m_temporal[i].temporal = frames.frames[m_temporal[i].temporalIndex].buffer;
+            }
+            else
+            {
+                QC_ERROR( "temporal[%u] index %u out of range.", i, m_temporal[i].temporalIndex );
+                ret = QC_STATUS_FAIL;
+            }
         }
-        if ( true == m_bHasUseFlag )
+        if ( QC_STATUS_OK != ret )
         {
-            (void) FillTensor( m_useFlagTs, m_useFlagQuantScale, m_useFlagQuantOffset, 0.0f );
-            DataFrame_t frame;
-            frame.buffer = m_useFlag;
-            frame.frameId = frameId;
-            frames.Add( frame );
+            m_stop = true; /* exit as wrong configuration */
+            return;
         }
-        frameId++;
-        m_pub.Publish( frames );
     }
+    else
+    {
+        QC_WARN( "reach deadline, publish history data instead." );
+    }
+    DataFrames_t framesOut;
+    for ( uint32_t i = 0; i < m_number; i++ )
+    {
+        DataFrame_t frame;
+        frame.buffer = m_temporal[i].temporal;
+        frame.frameId = m_frameId;
+        framesOut.Add( frame );
+    }
+    if ( true == m_bHasUseFlag )
+    {
+        (void) FillTensor( m_useFlagTs, m_useFlagQuantScale, m_useFlagQuantOffset, 1.0f );
+        DataFrame_t frame;
+        frame.buffer = m_useFlag;
+        frame.frameId = m_frameId;
+        framesOut.Add( frame );
+    }
+    m_frameId++;
+    m_pub.Publish( framesOut );
+}
 
+void SampleTemporal::ThreadMain()
+{
     while ( false == m_stop )
     {
-        DataFrames_t frames;
-        ret = m_sub.Receive( frames, m_windowMs );
-        if ( QC_STATUS_OK == ret )
-        {
-            QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
-                      frames.Timestamp( 0 ) );
-            for ( uint32_t i = 0; i < m_number; i++ )
-            {
-                if ( m_temporal[i].temporalIndex < frames.frames.size() )
-                {
-                    m_temporal[i].temporal = frames.frames[m_temporal[i].temporalIndex].buffer;
-                }
-                else
-                {
-                    QC_ERROR( "temporal[%u] index %u out of range.", i,
-                              m_temporal[i].temporalIndex );
-                    ret = QC_STATUS_FAIL;
-                }
-            }
-            if ( QC_STATUS_OK != ret )
-            {
-                break; /* exit this thread as wrong configuration */
-            }
-        }
-        else
-        {
-            QC_WARN( "reach deadline, publish history data instead." );
-        }
-        DataFrames_t framesOut;
-        for ( uint32_t i = 0; i < m_number; i++ )
-        {
-            DataFrame_t frame;
-            frame.buffer = m_temporal[i].temporal;
-            frame.frameId = frameId;
-            framesOut.Add( frame );
-        }
-        if ( true == m_bHasUseFlag )
-        {
-            (void) FillTensor( m_useFlagTs, m_useFlagQuantScale, m_useFlagQuantOffset, 1.0f );
-            DataFrame_t frame;
-            frame.buffer = m_useFlag;
-            frame.frameId = frameId;
-            framesOut.Add( frame );
-        }
-        frameId++;
-        m_pub.Publish( framesOut );
+        Execute();
     }
 }
 
@@ -312,10 +344,17 @@ QCStatus_e SampleTemporal::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     PROFILER_SHOW();
 

@@ -16,11 +16,11 @@ namespace Library
 class RadarIface::Impl
 {
 public:
-    Impl() : m_radar( nullptr ), m_initialized( false ) {}
+    Impl() : m_radar( nullptr ), m_initialized( false ), m_timeoutMs( 5000 ) {}
 
     ~Impl() { Deinitialize(); }
 
-    QCStatus_e Initialize( const char *devicePath )
+    QCStatus_e Initialize( const char *devicePath, uint32_t timeoutMs )
     {
         QCStatus_e status = QC_STATUS_OK;
 
@@ -37,14 +37,14 @@ public:
         {
             try
             {
-                m_radar = new q::interface::Radar( devicePath );
+                m_radar = new q::interface::Radar( devicePath, timeoutMs );
                 if ( m_radar == nullptr )
                 {
                     status = QC_STATUS_BAD_STATE;
                 }
                 else
                 {
-                    if ( !m_radar->is_open() )
+                    if ( !m_radar->IsOpen() )
                     {
                         delete m_radar;
                         m_radar = nullptr;
@@ -52,6 +52,7 @@ public:
                     }
                     else
                     {
+                        m_timeoutMs = timeoutMs;
                         m_initialized = true;
                         status = QC_STATUS_OK;
                     }
@@ -76,33 +77,49 @@ public:
         return QC_STATUS_OK;
     }
 
-    QCStatus_e Execute( uint8_t *pInput, size_t inputSize, uint8_t *pOutput, size_t outputSize )
+    bool IsInitialized() const { return m_initialized; }
+
+    QCStatus_e Execute( uint64_t inputHandle, size_t inputSize, uint64_t outputHandle,
+                        size_t outputSize )
     {
         QCStatus_e status = QC_STATUS_OK;
         if ( !m_initialized || !m_radar )
         {
             status = QC_STATUS_BAD_STATE;
         }
+        else if ( inputHandle == 0 || outputHandle == 0 || inputSize == 0 || outputSize == 0 )
+        {
+            status = QC_STATUS_BAD_ARGUMENTS;
+        }
         else
         {
-            if ( !pInput || !pOutput || inputSize == 0 || outputSize == 0 )
+            int result = m_radar->Execute( inputHandle, inputSize, outputHandle, outputSize );
+            if ( result == 0 )
             {
-                status = QC_STATUS_BAD_ARGUMENTS;
+                status = QC_STATUS_OK;
             }
+#ifdef __linux__
+            else if ( result == q::interface::RADAR_ETIMEOUT )
+            {
+                status = QC_STATUS_TIMEOUT;
+            }
+            else if ( result == q::interface::RADAR_EINVAL )
+            {
+                status = QC_STATUS_INVALID_BUF;
+            }
+#endif
             else
             {
-                int result = m_radar->execute( pInput, inputSize, pOutput, outputSize );
-                status = ( result == EOK ) ? QC_STATUS_OK : QC_STATUS_FAIL;
+                status = QC_STATUS_FAIL;
             }
         }
         return status;
     }
 
-    bool IsInitialized() const { return m_initialized; }
-
 private:
     q::interface::Radar *m_radar;
     bool m_initialized;
+    uint32_t m_timeoutMs;
 };
 
 // RadarIface implementation
@@ -113,9 +130,9 @@ RadarIface::~RadarIface()
     delete m_pImpl;
 }
 
-QCStatus_e RadarIface::Initialize( const char *devicePath )
+QCStatus_e RadarIface::Initialize( const char *devicePath, uint32_t timeoutMs )
 {
-    return m_pImpl->Initialize( devicePath );
+    return m_pImpl->Initialize( devicePath, timeoutMs );
 }
 
 QCStatus_e RadarIface::Deinitialize()
@@ -123,15 +140,15 @@ QCStatus_e RadarIface::Deinitialize()
     return m_pImpl->Deinitialize();
 }
 
-QCStatus_e RadarIface::Execute( uint8_t *pInput, size_t inputSize, uint8_t *pOutput,
-                                size_t outputSize )
-{
-    return m_pImpl->Execute( pInput, inputSize, pOutput, outputSize );
-}
-
 bool RadarIface::IsInitialized() const
 {
     return m_pImpl->IsInitialized();
+}
+
+QCStatus_e RadarIface::Execute( uint64_t inputHandle, size_t inputSize, uint64_t outputHandle,
+                                size_t outputSize )
+{
+    return m_pImpl->Execute( inputHandle, inputSize, outputHandle, outputSize );
 }
 
 }   // namespace Library

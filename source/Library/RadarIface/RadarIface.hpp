@@ -26,7 +26,7 @@ public:
      * @param[in] devicePath Path to the radar device
      * @return QC_STATUS_OK on success, others on failure
      */
-    QCStatus_e Initialize( const char *devicePath );
+    QCStatus_e Initialize( const char *devicePath, uint32_t timeoutMs = 5000 );
 
     /**
      * @brief Deinitialize the radar interface
@@ -35,14 +35,15 @@ public:
     QCStatus_e Deinitialize();
 
     /**
-     * @brief Execute radar processing
-     * @param[in] pInput Pointer to input buffer
-     * @param[in] inputSize Size of input buffer in bytes
-     * @param[in] pOutput Pointer to output buffer
-     * @param[in] outputSize Size of output buffer in bytes
+     * @brief Execute radar processing using DMA-BUF file descriptors
+     * @param[in] inputFd    DMA-BUF fd for input buffer
+     * @param[in] inputSize  Input buffer size in bytes
+     * @param[in] outputFd   DMA-BUF fd for output buffer
+     * @param[in] outputSize Output buffer size in bytes
      * @return QC_STATUS_OK on success, others on failure
      */
-    QCStatus_e Execute( uint8_t *pInput, size_t inputSize, uint8_t *pOutput, size_t outputSize );
+    QCStatus_e Execute( uint64_t inputHandle, size_t inputSize, uint64_t outputHandle,
+                        size_t outputSize );
 
     /**
      * @brief Check if radar interface is initialized

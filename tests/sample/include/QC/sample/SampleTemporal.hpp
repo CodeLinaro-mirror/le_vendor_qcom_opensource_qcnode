@@ -38,12 +38,23 @@ public:
     /// @return QC_STATUS_OK on success, others on failure
     QCStatus_e Deinit();
 
+#ifdef QC_ENABLE_HS
+    /// @brief Get the runnable callback for HeteroScheduler
+    /// @return The runnable callback function
+    std::function<void( const std::uint32_t *, std::size_t )> GetRunnableCallback() override;
+#endif
+
 private:
     void ThreadMain();
+    void Execute();
     QCStatus_e ParseConfig( SampleConfig_t &config );
 
     QCStatus_e FillTensor( TensorDescriptor_t &tensorDesc, float scale, int32_t offset,
                            float value );
+
+#ifdef QC_ENABLE_HS
+    void RunnableCallback( const std::uint32_t *rids, std::size_t count );
+#endif
 
 private:
     struct TemporalContext
@@ -75,6 +86,7 @@ private:
     TensorDescriptor_t m_useFlagTs;
 
     bool m_stop;
+    uint64_t m_frameId = 0;
 
     DataSubscriber<DataFrames_t> m_sub;
     DataPublisher<DataFrames_t> m_pub;

@@ -281,30 +281,6 @@ extern "C"
     }
 }   // extern "C"
 
-TEST( Demuxer, SANITY_Demuxer )
-{
-    QCStatus_e ret;
-    VidcDemuxer vidcDemuxer;
-    VidcDemuxer_Config_t vidcDemuxConfig;
-    VidcDemuxer_VideoInfo_t videoInfo;
-
-    vidcDemuxConfig.pVideoFileName = "./data/test/VideoDecoder/test.mp4";
-    vidcDemuxConfig.startFrameIdx = 0;
-
-    ret = vidcDemuxer.Init( &vidcDemuxConfig );
-    ASSERT_EQ( QC_STATUS_OK, ret );
-
-    ret = vidcDemuxer.GetVideoInfo( videoInfo );
-    ASSERT_EQ( QC_STATUS_OK, ret );
-
-    ASSERT_EQ( 1920, videoInfo.frameWidth );
-    ASSERT_EQ( 1024, videoInfo.frameHeight );
-    ASSERT_EQ( 101, videoInfo.format );
-
-    ret = vidcDemuxer.DeInit();
-    ASSERT_EQ( QC_STATUS_OK, ret );
-}
-
 void VdTestDynamic( uint32_t bufferNum, QCImageFormat_e outFormat, const char *videoFile )
 {
     QCStatus_e ret;
@@ -687,6 +663,76 @@ protected:
     }
 };
 
+TEST( Demuxer, SANITY_Demuxer )
+{
+    QCStatus_e ret;
+    VidcDemuxer vidcDemuxer;
+    VidcDemuxer_Config_t vidcDemuxConfig;
+    VidcDemuxer_VideoInfo_t videoInfo;
+
+    vidcDemuxConfig.pVideoFileName = "./data/test/VideoDecoder/test.mp4";
+    vidcDemuxConfig.startFrameIdx = 0;
+
+    ret = vidcDemuxer.Init( &vidcDemuxConfig );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    ret = vidcDemuxer.GetVideoInfo( videoInfo );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    ASSERT_EQ( 1920, videoInfo.frameWidth );
+    ASSERT_EQ( 1024, videoInfo.frameHeight );
+    ASSERT_EQ( 101, videoInfo.format );
+
+    ret = vidcDemuxer.DeInit();
+    ASSERT_EQ( QC_STATUS_OK, ret );
+}
+
+TEST_F( VideoDecoderTest, SubmitInputAndOutput_InvokesCallbacks )
+{
+    auto init = MakeInit();
+    ASSERT_EQ( QC_STATUS_OK, dec.Initialize( init ) );
+    ASSERT_EQ( QC_STATUS_OK, dec.Start() );
+    ASSERT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
+
+    auto in = MakeFrame( 0x1001, (void *) 0xA000, 2048, 1280, 720, QC_IMAGE_FORMAT_COMPRESSED_H264 );
+    auto out = MakeFrame( 0x2001, (void *) 0xB000, 8192, 1280, 720, QC_IMAGE_FORMAT_NV12 );
+    NodeFrameDescriptor inFd( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1 );
+    inFd.Clear();
+    NodeFrameDescriptor outFd( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1 );
+    outFd.Clear();
+    ASSERT_EQ( QC_STATUS_OK, inFd.SetBuffer( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID, in ) );
+    ASSERT_EQ( QC_STATUS_OK, outFd.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, out ) );
+
+    ASSERT_EQ( QC_STATUS_OK,
+               dec.ProcessFrameDescriptor( inFd ) );   // → EMPTY_INPUT_BUFFER → RESP_INPUT_DONE
+    ASSERT_EQ( QC_STATUS_OK,
+               dec.ProcessFrameDescriptor( outFd ) );  // → FILL_OUTPUT_BUFFER → RESP_OUTPUT_DONE
+
+    EXPECT_GE( counters.in_cb.load(), 1 );
+    EXPECT_GE( counters.out_cb.load(), 1 );
+}
+
+TEST_F( VideoDecoderTest, OutputReconfig_Sequence_Completes_AndRemainsRunning )
+{
+    auto init = MakeInit();
+    ASSERT_EQ( QC_STATUS_OK, dec.Initialize( init ) );
+    ASSERT_EQ( QC_STATUS_OK, dec.Start() );
+    ASSERT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
+
+    g_emit_output_reconfig_once = true;   // inject OUTPUT_RECONFIG before first OUTPUT_DONE
+
+    auto out = MakeFrame( 0x3001, (void *) 0xC000, 8192, 1280, 720, QC_IMAGE_FORMAT_NV12 );
+    NodeFrameDescriptor outFd( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1 );
+    outFd.Clear();
+    ASSERT_EQ( QC_STATUS_OK, outFd.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, out ) );
+    ASSERT_EQ( QC_STATUS_OK, dec.ProcessFrameDescriptor(
+                                     outFd ) );   // HandleOutputReconfig → StartDriver(OUTPUT) →
+                                                  // RESP_START_OUTPUT_DONE → FinishOutputReconfig
+
+    EXPECT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
+    EXPECT_GE( counters.out_cb.load(), 1 );
+}
+
 TEST_F( VideoDecoderTest, Initialize_Start_Stop_Deinit_Success )
 {
     auto init = MakeInit();
@@ -759,53 +805,6 @@ TEST_F( VideoDecoderTest, ValidateConfig_FailsOnUnsupportedFormats_And_OutOfRang
     r3.Set( "static", dt3 );
     QCNodeInit_t i3{ .config = r3.Dump(), .callback = TestOnDoneCb };
     EXPECT_NE( QC_STATUS_OK, dec.Initialize( i3 ) );
-}
-
-TEST_F( VideoDecoderTest, SubmitInputAndOutput_InvokesCallbacks )
-{
-    auto init = MakeInit();
-    ASSERT_EQ( QC_STATUS_OK, dec.Initialize( init ) );
-    ASSERT_EQ( QC_STATUS_OK, dec.Start() );
-    ASSERT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
-
-    auto in =
-            MakeFrame( 0x1001, (void *) 0xA000, 2048, 1280, 720, QC_IMAGE_FORMAT_COMPRESSED_H264 );
-    auto out = MakeFrame( 0x2001, (void *) 0xB000, 8192, 1280, 720, QC_IMAGE_FORMAT_NV12 );
-    NodeFrameDescriptor inFd( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1 );
-    inFd.Clear();
-    NodeFrameDescriptor outFd( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1 );
-    outFd.Clear();
-    ASSERT_EQ( QC_STATUS_OK, inFd.SetBuffer( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID, in ) );
-    ASSERT_EQ( QC_STATUS_OK, outFd.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, out ) );
-
-    ASSERT_EQ( QC_STATUS_OK,
-               dec.ProcessFrameDescriptor( inFd ) );   // → EMPTY_INPUT_BUFFER → RESP_INPUT_DONE
-    ASSERT_EQ( QC_STATUS_OK,
-               dec.ProcessFrameDescriptor( outFd ) );   // → FILL_OUTPUT_BUFFER → RESP_OUTPUT_DONE
-
-    EXPECT_GE( counters.in_cb.load(), 1 );
-    EXPECT_GE( counters.out_cb.load(), 1 );
-}
-
-TEST_F( VideoDecoderTest, OutputReconfig_Sequence_Completes_AndRemainsRunning )
-{
-    auto init = MakeInit();
-    ASSERT_EQ( QC_STATUS_OK, dec.Initialize( init ) );
-    ASSERT_EQ( QC_STATUS_OK, dec.Start() );
-    ASSERT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
-
-    g_emit_output_reconfig_once = true;   // inject OUTPUT_RECONFIG before first OUTPUT_DONE
-
-    auto out = MakeFrame( 0x3001, (void *) 0xC000, 8192, 1280, 720, QC_IMAGE_FORMAT_NV12 );
-    NodeFrameDescriptor outFd( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1 );
-    outFd.Clear();
-    ASSERT_EQ( QC_STATUS_OK, outFd.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, out ) );
-    ASSERT_EQ( QC_STATUS_OK, dec.ProcessFrameDescriptor(
-                                     outFd ) );   // HandleOutputReconfig → StartDriver(OUTPUT) →
-                                                  // RESP_START_OUTPUT_DONE → FinishOutputReconfig
-
-    EXPECT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
-    EXPECT_GE( counters.out_cb.load(), 1 );
 }
 
 TEST_F( VideoDecoderTest, OutputReconfig_SecondEventWhileInProgress_ForcesError )

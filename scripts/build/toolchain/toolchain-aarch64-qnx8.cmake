@@ -248,6 +248,13 @@ find_header_dir(
 )
 include_directories( ${SV_AUTO_INCLUDE_DIR} )
 
+find_header_dir(
+    OUT_VAR SV_AUTO_INCLUDE_DIR_2
+    BASE_DIR $ENV{BSP_ROOT}/AMSS/multimedia/eva/svcl/public/amss/multimedia/sv
+    NAMES svUtils.h svStereoDisparity.h svLme.h
+)
+include_directories( ${SV_AUTO_INCLUDE_DIR_2} )
+
 include_directories( $ENV{BSP_ROOT}/install/usr/include/amss/multimedia/sv )
 set( QC_SV_EXTRA_LIBS softsku smmu_client pm_client )
 endif()
