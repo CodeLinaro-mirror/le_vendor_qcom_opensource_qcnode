@@ -1,10 +1,11 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-#include <gtest/gtest.h>
+#include <MMTimer.h>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <gtest/gtest.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <thread>
@@ -95,8 +96,7 @@ extern "C"
     int __mockup_MM_Timer_Sleep( unsigned int ms )
     {
         g_sleep_calls++;
-        usleep( ms % 1000 );
-        for ( ; ( ms /= 1000 ); ) usleep( 1000 );
+        (void) MM_Timer_Sleep( ms );
         return 0;
     }
 
