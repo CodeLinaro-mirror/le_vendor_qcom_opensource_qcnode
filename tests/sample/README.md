@@ -445,7 +445,8 @@ The command line template example:
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
 | processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu] |
-| rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
+| core_id       | false    | int       | 0       | The processor core ID, options from [0,1,2,3] |
+| rsm_priority  | false    | int       | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | pillar_size_x | false    | float     | 0.16    | Pillar size in x direction in meters |
 | pillar_size_y | false    | float     | 0.16    | Pillar size in y direction in meters |
 | min_x         | false    | float     | 0.0     | Minimum range value in x direction |

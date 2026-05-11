@@ -67,6 +67,8 @@ private:
     DataTree m_config;
     DataTree m_dataTree;
     QCProcessorType_e m_processor;
+    std::vector<uint32_t> m_coreIds = { 0u };
+    int m_rsmPriority = 0;
 
     uint32_t m_poolSize = 4;
 

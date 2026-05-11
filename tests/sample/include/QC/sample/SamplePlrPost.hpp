@@ -58,6 +58,8 @@ private:
 
 private:
     PostCenterPoint_Config_t m_config = { QC_PROCESSOR_HTP0, 0 };
+    std::vector<uint32_t> m_coreIds = { 0u };
+    int m_rsmPriority = 0;
     uint32_t m_poolSize = 4;
 
     std::string m_inputLidarTopicName;

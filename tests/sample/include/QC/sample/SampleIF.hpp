@@ -290,6 +290,7 @@ private:
     compressched_handle m_crsHandle = 0;
     compressched_platform_query m_crsPlatfromQuery = {};
     void SetupCompResSchedCmd( compressched_acquire_cmd &cmd );
+    compressched_queue_priority m_rsmPriority = QUEUE_PRIORITY_DEFAULT;
 #endif
 
     QCProcessorType_e m_processor = QC_PROCESSOR_MAX;

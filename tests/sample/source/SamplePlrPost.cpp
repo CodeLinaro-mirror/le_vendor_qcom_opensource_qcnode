@@ -39,6 +39,12 @@ QCStatus_e SamplePlrPost::ParseConfig( SampleConfig_t &config )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
+    uint32_t coreId = Get( config, "core_id", 0 );
+    m_config.coreId = coreId;
+    m_coreIds = { coreId };
+
+    m_rsmPriority = Get( config, "rsm_priority", 0 );
+
     m_config.pillarXSize = Get( config, "pillar_size_x", 0.16f );
     m_config.pillarYSize = Get( config, "pillar_size_y", 0.16f );
     m_config.minXRange = Get( config, "min_x", 0.0f );
@@ -120,7 +126,7 @@ QCStatus_e SamplePlrPost::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_config.processor );
+        ret = SampleIF::Init( m_config.processor, m_rsmPriority, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )
