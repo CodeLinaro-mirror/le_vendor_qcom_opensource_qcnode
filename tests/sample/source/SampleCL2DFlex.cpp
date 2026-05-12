@@ -346,6 +346,8 @@ QCStatus_e SampleCL2DFlex::ParseConfig( SampleConfig_t &config )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
+    m_bLatest = Get( config, "latest", true );
+
     return ret;
 }
 
@@ -491,7 +493,7 @@ QCStatus_e SampleCL2DFlex::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = m_sub.Init( name, m_inputTopicName );
+        ret = m_sub.Init( name, m_inputTopicName, 2, m_bLatest );
     }
 
     if ( QC_STATUS_OK == ret )
