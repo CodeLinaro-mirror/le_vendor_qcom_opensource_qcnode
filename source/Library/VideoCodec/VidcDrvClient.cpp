@@ -567,18 +567,20 @@ QCStatus_e VidcDrvClient::SetBuffer(
 
         if ( VIDEO_CODEC_BUF_INPUT == bufferType )
         {
+            std::unique_lock<std::mutex> auto_lock( m_inLock );
             VideoCodec_InputInfo_t inputInfo;
             inputInfo.inFrameDesc = buf;
             inputInfo.bUsedFlag = false;
             m_inputMap[buf.dmaHandle] = inputInfo;
-        }
+        }    // Release @m_inLock
         else /* VIDEO_CODEC_BUF_OUTPUT == bufferType */
         {
+            std::unique_lock<std::mutex> auto_lock( m_outLock );
             VideoCodec_OutputInfo_t outputInfo;
             outputInfo.outFrameDesc = buf;
             outputInfo.bUsedFlag = false;
             m_outputMap[buf.dmaHandle] = outputInfo;
-        }
+        }   // Release @m_outLock
 
         i++;
     }
@@ -818,7 +820,7 @@ QCStatus_e VidcDrvClient::FillBuffer( VideoFrameDescriptor &frameDesc )
             std::unique_lock<std::mutex> auto_lock( m_outLock );
             m_outputMap[handle].bUsedFlag = false;
             ret = QC_STATUS_FAIL;
-        }
+        }   // Release @m_outLock
         else
         {
             QC_DEBUG( "%s-output-begin, handle 0x%x", ( m_encDecType == VIDEO_ENC ) ? "enc" : "dec",
@@ -1009,7 +1011,7 @@ int VidcDrvClient::DeviceCbHandler( uint8_t *pMsg, uint32_t length )
                             outputInfo = m_outputMap[pFrameData->frm_clnt_data];
                             found = true;
                         }
-                        // release @lck
+                        // release @m_outLock
                     }
                     if ( found )
                     {
