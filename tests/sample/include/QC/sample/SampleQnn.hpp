@@ -82,6 +82,7 @@ private:
     std::string m_inputTopicName;
     std::string m_outputTopicName;
     std::string m_modelInOutInfoTopicName;
+    bool m_bLatest = true;
 
     std::string m_modelPath;
     std::thread m_thread;

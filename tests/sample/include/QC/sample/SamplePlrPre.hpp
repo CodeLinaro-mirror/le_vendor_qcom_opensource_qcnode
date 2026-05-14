@@ -72,6 +72,7 @@ private:
 
     std::string m_inputTopicName;
     std::string m_outputTopicName;
+    bool m_bLatest = true;
 
     std::thread m_thread;
 

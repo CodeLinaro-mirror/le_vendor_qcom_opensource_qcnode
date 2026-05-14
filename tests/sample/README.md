@@ -257,6 +257,7 @@ The command line template example:
 | Badd          | false    | float     | 0.0     | The add normalization parameter of B channel  |
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
+| latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
 
 Note: "X" is value from 0 to batch_size-1, thus the attribute with suffix "X" is repeated for different input batch.
 
@@ -289,6 +290,7 @@ The command line template example:
 | perf_profile | false | string    | `burst`  | Specifies perf profile to set. <br> Options: `low_balanced`, `balanced`, `default`, `high_performance`, `sustained_high_performance`, `burst`, `low_power_saver`, `power_saver`, `high_power_saver`, `extreme_power_saver` <br> Default: `default` |
 | weight_sharing_enabled | fasle    | bool      | false   | If true, enable the weight sharing. |
 | extended_udma  | fasle    | bool      | false   | If true, enable the extended udma feature. |
+| latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
 
 The command line template example:
 
@@ -313,6 +315,7 @@ The command line template example:
 | pool_size     | false    | int       | 4       | the image memory pool size |
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
+| latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
 
 The command line template example:
 
@@ -431,6 +434,7 @@ The command line template example:
 | pool_size     | false    | int       | 4       | the image memory pool size |
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
+| latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
 
 The command line template example:
 
@@ -466,6 +470,7 @@ The command line template example:
 | output_indexs | false | int list | 3,0,1,4,2 | The index of the pointpillar model outputs "heapmap", "center", "center_z", "dim" and "rot" |
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
+| latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
 
 The command line template example:
 
@@ -522,6 +527,7 @@ The command line template example:
 | cache         | false    | bool      | true    | use cached memory or not for the image memory |
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
+| latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
 
 The command line template example:
 
@@ -638,6 +644,7 @@ The command line template example:
 | fps           | false    | int       | 30      | The frame rate per second |
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
+| latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
 
 The command line template example:
 
@@ -706,6 +713,7 @@ The command line template example:
 | cache         | false    | bool      | true    | use cached memory or not for the buffer pool |
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
+| latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
 
 The command line template example:
 
