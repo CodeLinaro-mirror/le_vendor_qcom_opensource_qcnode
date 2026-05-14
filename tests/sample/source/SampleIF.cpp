@@ -101,17 +101,14 @@ void SampleIF::SetupCompResSchedCmd( compressched_acquire_cmd &cmd )
         cmd.res_details.requested_domain_id[0] = m_crsPlatfromQuery.resource_query[6].domain_id;
     }
     cmd.res_details.sub_res_id = NSP_SUB_RES_ID0;
-    cmd.priority = QUEUE_PRIORITY_DEFAULT;
+    cmd.res_details.req_type = COMPRESSCHED_BASE_RESOURCE_REQUEST;
+    cmd.priority = m_rsmPriority;
     cmd.duration_us = 0;
     cmd.timeout_us = 1000000;
-    if ( m_processor == QC_PROCESSOR_HTP0 )
+    if ( ( m_processor == QC_PROCESSOR_HTP0 ) && ( m_coreIds.size() > 1 ) )
     {
         cmd.priority = QUEUE_PRIORITY_REALTIME;
         cmd.res_details.req_type = COMPRESSCHED_SUPER_RESOURCE_REQUEST;
-    }
-    else
-    {
-        cmd.res_details.req_type = COMPRESSCHED_BASE_RESOURCE_REQUEST;
     }
 }
 #endif
@@ -193,6 +190,12 @@ QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
                 }
                 m_processor = processor;
                 m_coreIds = coreIds;
+                m_rsmPriority = static_cast<compressched_queue_priority>( rsmPriority );
+                for ( size_t i = 0; i < m_coreIds.size(); i++ )
+                {
+                    QC_INFO( "compressched processor %d with core %u priority %d", m_processor,
+                             m_coreIds[i], m_rsmPriority );
+                }
             }
             else
             {
