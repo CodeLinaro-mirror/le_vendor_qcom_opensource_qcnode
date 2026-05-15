@@ -102,7 +102,7 @@ QCStatus_e QnnImpl::GetQnnFunctionPointers( std::string backendPath, std::string
     QCStatus_e status = QC_STATUS_OK;
     void *libModelHandle = nullptr;
     void *libBackendHandle =
-            dlopen( backendPath.c_str(), (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_GLOBAL ) );
+            dlopen( backendPath.c_str(), (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_LOCAL ) );
     if ( nullptr == libBackendHandle )
     {
         QC_ERROR( "Unable to load backend. dlerror(): %s", dlerror() );
@@ -177,7 +177,7 @@ QCStatus_e QnnImpl::GetQnnFunctionPointers( std::string backendPath, std::string
         {
             QC_INFO( "Loading model shared library (%s)", modelPath.c_str() );
             libModelHandle = dlopen( modelPath.c_str(),
-                                     (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_GLOBAL ) );
+                                     (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_LOCAL ) );
             if ( nullptr == libModelHandle )
             {
                 QC_ERROR( "Unable to load model. dlerror(): %s", dlerror() );
