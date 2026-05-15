@@ -1299,7 +1299,13 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
 #if ( QC_TARGET_SOC == 8797 )
                                                                              &powerHmxConfig,
 #endif
-                                                                             NULL };
+                                                                             nullptr };
+#if ( QC_TARGET_SOC == 8797 )
+            if ( QNN_PROCESSOR_HTP0 != m_config.processorType )
+            { /* No HMX for HPASS */
+                powerConfigs[1] = nullptr;
+            }
+#endif
             retVal = m_perfInfra->setPowerConfig( powerConfigId, powerConfigs );
             if ( QNN_SUCCESS != retVal )
             {
