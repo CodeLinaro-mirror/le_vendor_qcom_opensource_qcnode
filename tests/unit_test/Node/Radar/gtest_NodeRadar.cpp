@@ -13,15 +13,65 @@
 
 
 #define QC_RADAR_FRIEND_CLASS_UT \
-            FRIEND_TEST (::RadarNodeTest, Start_FailsWhenRadarIfaceNotInitialized ); \
+            FRIEND_TEST (::RadarNodeTest, Start_FailsWhenRadarImplNotInitialized ); \
             FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks ); \
-            FRIEND_TEST (::RadarNodeTest, Execute_BranchCoverage );
+            FRIEND_TEST (::RadarNodeTest, Execute_BranchCoverage ); \
+            FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor ); \
+            FRIEND_TEST (::RadarNodeTest, Initialize_WithStub_FullLifecycle ); \
+            FRIEND_TEST (::RadarNodeTest, ValidateBuffer_TypeBranches );
+
+#define QC_RADAR_IMPL_FRIEND_CLASS_UT \
+            FRIEND_TEST (::RadarNodeTest, Execute_BranchCoverage ); \
+            FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor ); \
+            FRIEND_TEST (::RadarNodeTest, Initialize_WithStub_FullLifecycle ); \
+            FRIEND_TEST (::RadarNodeTest, ValidateBuffer_TypeBranches );
+
+#define QC_RADAR_IFACE_FRIEND_CLASS_UT \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteOk ); \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteTimeout ); \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteInvalid ); \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteFail ); \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteBadArgs ); \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_Deinitialize ); \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_AlreadyInitialized ); \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_InitializeIsOpenTrue ); \
+            FRIEND_TEST (::RadarNodeTest, RadarImpl_InitializeIsOpenFalse ); \
+            FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor ); \
+            FRIEND_TEST (::RadarNodeTest, Execute_BranchCoverage ); \
+            FRIEND_TEST (::RadarNodeTest, Initialize_WithStub_FullLifecycle ); \
+            FRIEND_TEST (::RadarNodeTest, ValidateBuffer_TypeBranches );
 
 #ifdef QC_RADAR_FRIEND_CLASS_UT
 // Forward declare classes
-class RadarNodeTest_Start_FailsWhenRadarIfaceNotInitialized_Test;
+class RadarNodeTest_Start_FailsWhenRadarImplNotInitialized_Test;
 class RadarNodeTest_ProcessFrameDescriptor_MapSizeAndIfaceChecks_Test;
 class RadarNodeTest_Execute_BranchCoverage_Test;
+class RadarNodeTest_ProcessFrameDescriptor_FakeDescriptor_Test;
+class RadarNodeTest_Initialize_WithStub_FullLifecycle_Test;
+class RadarNodeTest_ValidateBuffer_TypeBranches_Test;
+#endif
+
+#ifdef QC_RADAR_IMPL_FRIEND_CLASS_UT
+class RadarNodeTest_Execute_BranchCoverage_Test;
+class RadarNodeTest_ProcessFrameDescriptor_FakeDescriptor_Test;
+class RadarNodeTest_Initialize_WithStub_FullLifecycle_Test;
+class RadarNodeTest_ValidateBuffer_TypeBranches_Test;
+#endif
+
+#ifdef QC_RADAR_IFACE_FRIEND_CLASS_UT
+class RadarNodeTest_RadarImpl_StubBased_ExecuteOk_Test;
+class RadarNodeTest_RadarImpl_StubBased_ExecuteTimeout_Test;
+class RadarNodeTest_RadarImpl_StubBased_ExecuteInvalid_Test;
+class RadarNodeTest_RadarImpl_StubBased_ExecuteFail_Test;
+class RadarNodeTest_RadarImpl_StubBased_ExecuteBadArgs_Test;
+class RadarNodeTest_RadarImpl_StubBased_Deinitialize_Test;
+class RadarNodeTest_RadarImpl_StubBased_AlreadyInitialized_Test;
+class RadarNodeTest_RadarImpl_InitializeIsOpenTrue_Test;
+class RadarNodeTest_RadarImpl_InitializeIsOpenFalse_Test;
+class RadarNodeTest_ProcessFrameDescriptor_FakeDescriptor_Test;
+class RadarNodeTest_Execute_BranchCoverage_Test;
+class RadarNodeTest_Initialize_WithStub_FullLifecycle_Test;
+class RadarNodeTest_ValidateBuffer_TypeBranches_Test;
 #endif
 
 #include "QC/Node/Radar.hpp"
@@ -29,6 +79,8 @@ class RadarNodeTest_Execute_BranchCoverage_Test;
 #include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/sample/BufferManager.hpp"
 #include "md5_utils.hpp"
+#include "RadarIfStub.hpp"
+#include "RadarImpl.hpp"
 
 using namespace QC;
 using namespace QC::Node;
@@ -507,7 +559,7 @@ protected:
 
 /**
  * @brief Direct config parsing test: empty name should fail
- * Coverage: VerifyStaticConfig name validation (line 17 in Radar.cpp)
+ * Coverage: VerifyStaticConfig rejects empty node name
  */
 TEST_F( RadarNodeTest, ConfigVerifyAndSet_EmptyName )
 {
@@ -542,7 +594,7 @@ TEST_F( RadarNodeTest, ConfigVerifyAndSet_EmptyName )
 
 /**
  * @brief Direct config parsing test: valid config should succeed
- * Coverage: ParseStaticConfig success path (line 148 in Radar.cpp)
+ * Coverage: ParseStaticConfig succeeds with well-formed config
  */
 TEST_F( RadarNodeTest, ConfigVerifyAndSet_ValidConfig )
 {
@@ -583,59 +635,10 @@ TEST_F( RadarNodeTest, ConfigVerifyAndSet_MissingStatic )
 }
 
 /**
- * @brief RadarIface coverage tests for error handling paths
+ * @brief Start should fail when RadarImpl isn't initialized but state is READY
+ * Coverage: Radar::Start rejects when RadarImpl is not initialized
  */
-TEST_F( RadarNodeTest, RadarIface_ErrorPaths )
-{
-    QC::Library::RadarIface iface;
-
-    // Null device path should be rejected
-    EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_ARGUMENTS, iface.Initialize( nullptr ) );
-    EXPECT_FALSE( iface.IsInitialized() );
-
-    // Invalid device path should fail (either BAD_STATE or OK if device exists)
-    QCStatus_e initRet = iface.Initialize( "/dev/radar_invalid_device" );
-    EXPECT_TRUE( initRet == QCStatus_e::QC_STATUS_BAD_STATE ||
-                 initRet == QCStatus_e::QC_STATUS_OK );
-
-    // Execute before successful init should return BAD_STATE
-    QCStatus_e execRet = iface.Execute( -1, 8, -1, 8 );
-    EXPECT_TRUE( execRet == QCStatus_e::QC_STATUS_OK ||
-                 execRet == QCStatus_e::QC_STATUS_BAD_STATE ||
-                 execRet == QCStatus_e::QC_STATUS_BAD_ARGUMENTS ||
-                 execRet == QCStatus_e::QC_STATUS_FAIL );
-
-    // Deinitialize should be safe regardless of init state
-    EXPECT_EQ( QCStatus_e::QC_STATUS_OK, iface.Deinitialize() );
-}
-
-/**
- * @brief RadarIface coverage tests for success paths (if device is available)
- */
-TEST_F( RadarNodeTest, RadarIface_SuccessPaths )
-{
-    QC::Library::RadarIface iface;
-
-    QCStatus_e ret = iface.Initialize( "/dev/radar0" );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
-    {
-        // Second initialize should be a no-op success
-        EXPECT_EQ( QCStatus_e::QC_STATUS_OK, iface.Initialize( "/dev/radar0" ) );
-
-        QCStatus_e execRet = iface.Execute( -1, 8, -1, 8 );
-        EXPECT_TRUE( execRet == QCStatus_e::QC_STATUS_OK || execRet == QCStatus_e::QC_STATUS_FAIL );
-
-        EXPECT_EQ( QCStatus_e::QC_STATUS_OK, iface.Deinitialize() );
-    }
-}
-
-/**
- * @brief Start should fail when RadarIface isn't initialized but state is READY
- * Coverage: Radar::Start IsInitialized check (line 418 in Radar.cpp)
- */
-TEST_F( RadarNodeTest, Start_FailsWhenRadarIfaceNotInitialized )
+TEST_F( RadarNodeTest, Start_FailsWhenRadarImplNotInitialized )
 {
     Radar radarNode;
     radarNode.m_state = QC_OBJECT_STATE_READY;
@@ -643,8 +646,8 @@ TEST_F( RadarNodeTest, Start_FailsWhenRadarIfaceNotInitialized )
 }
 
 /**
- * @brief ProcessFrameDescriptor branches for map size and iface init
- * Coverage: map size < 2 and iface not initialized (lines 464, 470)
+ * @brief ProcessFrameDescriptor branches for map size and impl init
+ * Coverage: ProcessFrameDescriptor rejects when buffer map has fewer than 2 entries or impl not initialized
  */
 TEST_F( RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks )
 {
@@ -658,7 +661,7 @@ TEST_F( RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks )
     EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_ARGUMENTS,
                radarNode.ProcessFrameDescriptor( frameDesc1 ) );
 
-    // Map size ok but iface not initialized should fail
+    // Map size ok but impl not initialized should fail
     radarNode.m_globalBufferIdMap.clear();
     radarNode.m_globalBufferIdMap.push_back( QC::QCNodeBufferMapEntry_t{ "Input", 0 } );
     radarNode.m_globalBufferIdMap.push_back( QC::QCNodeBufferMapEntry_t{ "Output", 1 } );
@@ -668,7 +671,7 @@ TEST_F( RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks )
 
 /**
  * @brief Execute branch coverage without requiring radar service
- * Coverage: state check, null buffer check, iface init check (lines 593, 600, 623)
+ * Coverage: Execute rejects bad state, null buffers, and uninitialized impl; ValidateBuffer and stub execution paths
  */
 TEST_F( RadarNodeTest, Execute_BranchCoverage )
 {
@@ -692,32 +695,65 @@ TEST_F( RadarNodeTest, Execute_BranchCoverage )
     EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_ARGUMENTS,
                radarNode.Execute( &inputBuffer.tensor, nullptr ) );
 
-    // Valid buffers but iface not initialized
+    // Valid buffers but impl not initialized
     radarNode.m_config.maxInputBufferSize  = m_config.maxInputBufferSize;
     radarNode.m_config.maxOutputBufferSize = m_config.maxOutputBufferSize;
     EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_STATE,
                radarNode.Execute( &inputBuffer.tensor, &outputBuffer.tensor ) );
-}
 
-/**
- * @brief Test radar Node initialization with valid configuration
- */
-TEST_F( RadarNodeTest, InitWithValidConfig )
-{
-    Radar radarNode;
-    QC::DataTree dt;
-    dt.Set<std::string>( "static.name", "TestRadar" );
-    dt.Set<uint32_t>( "static.id", 400 );
-    SetConfigRadarEx( &m_config, &dt );
-    QC::QCNodeInit_t config = { dt.Dump() };
+    // ── ValidateBuffer failure cases ──────────────────────────────────────────
+    radarNode.m_state                      = QC_OBJECT_STATE_RUNNING;
+    radarNode.m_config.maxInputBufferSize  = m_config.maxInputBufferSize;
+    radarNode.m_config.maxOutputBufferSize = m_config.maxOutputBufferSize;
 
-    QC::QCStatus_e ret = radarNode.Initialize( config );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
+    // size == 0: ValidateBuffer rejects before dmaHandle check
     {
-        EXPECT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.DeInitialize() );
+        TBuffer zeroSizeIn( allocator, m_config.maxInputBufferSize );
+        zeroSizeIn.tensor.size = 0;
+        EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF,
+                   radarNode.Execute( &zeroSizeIn.tensor, &outputBuffer.tensor ) );
     }
+
+    // dmaHandle == 0: ValidateBuffer rejects invalid handle
+    {
+        TBuffer badHandleIn( allocator, m_config.maxInputBufferSize );
+        badHandleIn.tensor.dmaHandle = 0;
+        EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF,
+                   radarNode.Execute( &badHandleIn.tensor, &outputBuffer.tensor ) );
+    }
+
+    // input buffer data size exceeds configured max: ValidateBuffer oversized-input
+    {
+        radarNode.m_config.maxInputBufferSize = 1;
+        EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF,
+                   radarNode.Execute( &inputBuffer.tensor, &outputBuffer.tensor ) );
+        radarNode.m_config.maxInputBufferSize = m_config.maxInputBufferSize;
+    }
+
+    // output buffer data size exceeds configured max: ValidateBuffer oversized-output
+    {
+        radarNode.m_config.maxOutputBufferSize = 1;
+        EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF,
+                   radarNode.Execute( &inputBuffer.tensor, &outputBuffer.tensor ) );
+        radarNode.m_config.maxOutputBufferSize = m_config.maxOutputBufferSize;
+    }
+
+    // ── Execute with initialized stub ─────────────────────────────────────────
+    radarNode.m_pImpl->m_radar.reset( new q::interface::RadarStub{} );
+    ASSERT_EQ( QC_STATUS_OK, radarNode.m_pImpl->Initialize( "/stub/exec" ) );
+
+    // iface initialized and valid buffers: full Execute success path
+    EXPECT_EQ( QCStatus_e::QC_STATUS_OK,
+               radarNode.Execute( &inputBuffer.tensor, &outputBuffer.tensor ) );
+
+    // stub returns error: Execute propagates failure
+    ASSERT_EQ( QC_STATUS_OK, radarNode.m_pImpl->Deinitialize() );
+    auto *failStub = new q::interface::RadarStub{};
+    failStub->m_executeResult = q::interface::RADAR_EPROTO;
+    radarNode.m_pImpl->m_radar.reset( failStub );
+    ASSERT_EQ( QC_STATUS_OK, radarNode.m_pImpl->Initialize( "/stub/exec2" ) );
+    EXPECT_EQ( QCStatus_e::QC_STATUS_FAIL,
+               radarNode.Execute( &inputBuffer.tensor, &outputBuffer.tensor ) );
 }
 
 /**
@@ -885,32 +921,8 @@ TEST_F( RadarNodeTest, FullWorkflow )
 // ============================================================================
 
 /**
- * @brief Test configuration validation with empty node name
- * Coverage: Lines 17-21 in VerifyStaticConfig
- */
-TEST_F( RadarNodeTest, ConfigValidation_EmptyName )
-{
-    Radar radarNode;
-    QC::DataTree dt;
-
-    // Set empty name - this should trigger validation error
-    dt.Set<std::string>( "static.name", "" );
-    dt.Set<uint32_t>( "static.id", 100 );
-
-    // Set valid configuration for other parameters
-    Radar_Config_t config = radarConfigBasic;
-    SetConfigRadarEx( &config, &dt );
-
-    QC::QCNodeInit_t nodeConfig = { dt.Dump() };
-
-    // Initialize should fail with BAD_ARGUMENTS
-    QC::QCStatus_e ret = radarNode.Initialize( nodeConfig );
-    EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_ARGUMENTS, ret );
-}
-
-/**
  * @brief Test configuration validation with invalid node ID
- * Coverage: Lines 24-28 in VerifyStaticConfig
+ * Coverage: VerifyStaticConfig rejects invalid node ID
  */
 TEST_F( RadarNodeTest, ConfigValidation_InvalidId )
 {
@@ -932,7 +944,7 @@ TEST_F( RadarNodeTest, ConfigValidation_InvalidId )
 
 /**
  * @brief Test configuration validation with zero output buffer size
- * Coverage: Lines 38-42 in VerifyStaticConfig
+ * Coverage: VerifyStaticConfig rejects zero output buffer size
  */
 TEST_F( RadarNodeTest, ConfigValidation_ZeroOutputBufferSize )
 {
@@ -955,7 +967,7 @@ TEST_F( RadarNodeTest, ConfigValidation_ZeroOutputBufferSize )
 
 /**
  * @brief Test configuration validation with zero timeout
- * Coverage: Lines 52-56 in VerifyStaticConfig
+ * Coverage: VerifyStaticConfig rejects zero timeout
  */
 TEST_F( RadarNodeTest, ConfigValidation_ZeroTimeout )
 {
@@ -977,7 +989,7 @@ TEST_F( RadarNodeTest, ConfigValidation_ZeroTimeout )
 
 /**
  * @brief Test configuration validation with invalid global buffer ID map
- * Coverage: Lines 61-69 in VerifyStaticConfig
+ * Coverage: VerifyStaticConfig rejects malformed globalBufferIdMap
  */
 TEST_F( RadarNodeTest, ConfigValidation_InvalidGlobalBufferIdMap )
 {
@@ -1012,7 +1024,7 @@ TEST_F( RadarNodeTest, ConfigValidation_InvalidGlobalBufferIdMap )
 
 /**
  * @brief Test configuration validation with empty entries in global buffer ID map
- * Coverage: Lines 77-87 in VerifyStaticConfig
+ * Coverage: VerifyStaticConfig rejects buffer map entries with empty name or invalid ID
  */
 TEST_F( RadarNodeTest, ConfigValidation_EmptyGlobalBufferMapEntries )
 {
@@ -1054,294 +1066,13 @@ TEST_F( RadarNodeTest, ConfigValidation_EmptyGlobalBufferMapEntries )
     EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_ARGUMENTS, ret );
 }
 
-/**
- * @brief Test buffer validation with zero-sized buffer
- * Coverage: Lines 540-544 in ValidateBuffer
- */
-TEST_F( RadarNodeTest, ValidateBuffer_ZeroSize )
-{
-    Radar radarNode;
-    QC::DataTree dt;
-    dt.Set<std::string>( "static.name", "TestRadar" );
-    dt.Set<uint32_t>( "static.id", 100 );
-    SetConfigRadarEx( &m_config, &dt );
-    QC::QCNodeInit_t config = { dt.Dump() };
-
-    QC::QCStatus_e ret = radarNode.Initialize( config );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
-    {
-        ret = radarNode.Start();
-        if ( ret == QCStatus_e::QC_STATUS_OK )
-        {
-            TBufferAllocator allocator;
-            TBuffer inputBuffer( allocator, m_config.maxInputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-            TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-            // Manually set buffer size to 0
-            size_t originalSize = inputBuffer.tensor.size;
-            inputBuffer.tensor.size = 0;
-
-            NodeFrameDescriptor frameDesc( 2 );
-            ret = frameDesc.SetBuffer( 0, inputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-            ret = frameDesc.SetBuffer( 1, outputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-
-            ret = radarNode.ProcessFrameDescriptor( frameDesc );
-            EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF, ret );
-
-            // Restore original size for cleanup
-            inputBuffer.tensor.size = originalSize;
-
-            radarNode.Stop();
-        }
-        radarNode.DeInitialize();
-    }
-}
-
-/**
- * @brief Test buffer validation with invalid DMA handle
- * Coverage: Lines 547-551 in ValidateBuffer
- */
-TEST_F( RadarNodeTest, ValidateBuffer_InvalidDmaHandle )
-{
-    Radar radarNode;
-    QC::DataTree dt;
-    dt.Set<std::string>( "static.name", "TestRadar" );
-    dt.Set<uint32_t>( "static.id", 100 );
-    SetConfigRadarEx( &m_config, &dt );
-    QC::QCNodeInit_t config = { dt.Dump() };
-
-    QC::QCStatus_e ret = radarNode.Initialize( config );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
-    {
-        ret = radarNode.Start();
-        if ( ret == QCStatus_e::QC_STATUS_OK )
-        {
-            TBufferAllocator allocator;
-            TBuffer inputBuffer( allocator, m_config.maxInputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-            TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-            // Manually set DMA handle to 0
-            int originalHandle = inputBuffer.tensor.dmaHandle;
-            inputBuffer.tensor.dmaHandle = 0;
-
-            NodeFrameDescriptor frameDesc( 2 );
-            ret = frameDesc.SetBuffer( 0, inputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-            ret = frameDesc.SetBuffer( 1, outputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-
-            ret = radarNode.ProcessFrameDescriptor( frameDesc );
-            EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF, ret );
-
-            // Restore original handle for cleanup
-            inputBuffer.tensor.dmaHandle = originalHandle;
-
-            radarNode.Stop();
-        }
-        radarNode.DeInitialize();
-    }
-}
-
-/**
- * @brief Test buffer validation with TENSOR type buffer
- * Coverage: Lines 568-571 in ValidateBuffer
- */
-TEST_F( RadarNodeTest, ValidateBuffer_TensorType )
-{
-    Radar radarNode;
-    QC::DataTree dt;
-    dt.Set<std::string>( "static.name", "TestRadar" );
-    dt.Set<uint32_t>( "static.id", 100 );
-    SetConfigRadarEx( &m_config, &dt );
-    QC::QCNodeInit_t config = { dt.Dump() };
-
-    QC::QCStatus_e ret = radarNode.Initialize( config );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
-    {
-        ret = radarNode.Start();
-        if ( ret == QCStatus_e::QC_STATUS_OK )
-        {
-            TBufferAllocator allocator;
-            TBuffer inputBuffer( allocator, m_config.maxInputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-            TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-            // Set buffer type to TENSOR
-            inputBuffer.tensor.type = QCBufferType_e::QC_BUFFER_TYPE_TENSOR;
-            outputBuffer.tensor.type = QCBufferType_e::QC_BUFFER_TYPE_TENSOR;
-
-            GenerateRadarTestData( inputBuffer.tensor.GetDataPtr(), m_config.maxInputBufferSize );
-
-            NodeFrameDescriptor frameDesc( 2 );
-            ret = frameDesc.SetBuffer( 0, inputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-            ret = frameDesc.SetBuffer( 1, outputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-
-            ret = radarNode.ProcessFrameDescriptor( frameDesc );
-            // Should succeed or fail based on service availability, not buffer type
-
-            radarNode.Stop();
-        }
-        radarNode.DeInitialize();
-    }
-}
-
-/**
- * @brief Test buffer validation with IMAGE type buffer
- * Coverage: Lines 572-575 in ValidateBuffer
- */
-TEST_F( RadarNodeTest, ValidateBuffer_ImageType )
-{
-    Radar radarNode;
-    QC::DataTree dt;
-    dt.Set<std::string>( "static.name", "TestRadar" );
-    dt.Set<uint32_t>( "static.id", 100 );
-    SetConfigRadarEx( &m_config, &dt );
-    QC::QCNodeInit_t config = { dt.Dump() };
-
-    QC::QCStatus_e ret = radarNode.Initialize( config );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
-    {
-        ret = radarNode.Start();
-        if ( ret == QCStatus_e::QC_STATUS_OK )
-        {
-            TBufferAllocator allocator;
-            TBuffer inputBuffer( allocator, m_config.maxInputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-            TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-            // Set buffer type to IMAGE
-            inputBuffer.tensor.type = QCBufferType_e::QC_BUFFER_TYPE_IMAGE;
-            outputBuffer.tensor.type = QCBufferType_e::QC_BUFFER_TYPE_IMAGE;
-
-            GenerateRadarTestData( inputBuffer.tensor.GetDataPtr(), m_config.maxInputBufferSize );
-
-            NodeFrameDescriptor frameDesc( 2 );
-            ret = frameDesc.SetBuffer( 0, inputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-            ret = frameDesc.SetBuffer( 1, outputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-
-            ret = radarNode.ProcessFrameDescriptor( frameDesc );
-            // Should succeed or fail based on service availability, not buffer type
-
-            radarNode.Stop();
-        }
-        radarNode.DeInitialize();
-    }
-}
-
-/**
- * @brief Test GetOptions function
- * Coverage: Lines 161-165 (GetOptions function)
- */
-TEST_F( RadarNodeTest, GetOptionsReturnsEmptyString )
-{
-    // GetOptions is called internally during configuration parsing
-    // We test it indirectly through the Radar node initialization
-    Radar radarNode;
-    QC::DataTree dt;
-    dt.Set<std::string>( "static.name", "TestRadar" );
-    dt.Set<uint32_t>( "static.id", 100 );
-    SetConfigRadarEx( &m_config, &dt );
-    QC::QCNodeInit_t config = { dt.Dump() };
-
-    // Initialize will call GetOptions internally
-    QC::QCStatus_e ret = radarNode.Initialize( config );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
-    {
-        radarNode.DeInitialize();
-    }
-}
-
 // ============================================================================
 // PHASE 2: MEDIUM PRIORITY TESTS - Initialization Edge Cases
 // ============================================================================
 
 /**
- * @brief Test default global buffer map creation when none provided
- * Coverage: Lines 184-199 in SetupGlobalBufferIdMap
- */
-TEST_F( RadarNodeTest, SetupGlobalBufferIdMap_NoMapProvided )
-{
-    Radar radarNode;
-    QC::DataTree dt;
-
-    dt.Set<std::string>( "static.name", "TestRadar" );
-    dt.Set<uint32_t>( "static.id", 100 );
-
-    Radar_Config_t config = radarConfigBasic;
-
-    // Manually configure without globalBufferIdMap
-    dt.Set<std::string>( "static.serviceName", config.serviceConfig.serviceName );
-    dt.Set<uint32_t>( "static.timeoutMs", config.serviceConfig.timeoutMs );
-    dt.Set<bool>( "static.enablePerformanceLog", false );
-    dt.Set<uint32_t>( "static.maxInputBufferSize", config.maxInputBufferSize );
-    dt.Set<uint32_t>( "static.maxOutputBufferSize", config.maxOutputBufferSize );
-
-    std::vector<uint32_t> bufferIds;
-    dt.Set( "static.inputs", bufferIds );
-    dt.Set( "static.outputs", bufferIds );
-
-    // Do NOT set globalBufferIdMap - let it create default
-    dt.Set<bool>( "static.deRegisterAllBuffersWhenStop", false );
-
-    QC::QCNodeInit_t nodeConfig = { dt.Dump() };
-
-    QC::QCStatus_e ret = radarNode.Initialize( nodeConfig );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
-    {
-        // Verify node can start and process with default buffer map
-        ret = radarNode.Start();
-        if ( ret == QCStatus_e::QC_STATUS_OK )
-        {
-            TBufferAllocator allocator;
-            TBuffer inputBuffer( allocator, config.maxInputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-            TBuffer outputBuffer( allocator, config.maxOutputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-            GenerateRadarTestData( inputBuffer.tensor.GetDataPtr(), config.maxInputBufferSize );
-
-            NodeFrameDescriptor frameDesc( 2 );
-            ret = frameDesc.SetBuffer( 0, inputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-            ret = frameDesc.SetBuffer( 1, outputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-
-            ret = radarNode.ProcessFrameDescriptor( frameDesc );
-            // Result depends on service availability
-
-            radarNode.Stop();
-        }
-        radarNode.DeInitialize();
-    }
-}
-
-/**
  * @brief Test global buffer map with size mismatch
- * Coverage: Lines 173-178 in SetupGlobalBufferIdMap
+ * Coverage: SetupGlobalBufferIdMap rejects buffer map with wrong entry count
  */
 TEST_F( RadarNodeTest, SetupGlobalBufferIdMap_SizeMismatch )
 {
@@ -1380,13 +1111,13 @@ TEST_F( RadarNodeTest, SetupGlobalBufferIdMap_SizeMismatch )
 }
 
 /**
- * @brief Test buffer registration during initialization
- * Coverage: Lines 265-344 in Initialize
- * Note: This test covers the buffer registration code path by setting up
- * input/output buffer IDs in the configuration, which triggers the
- * buffer registration logic during initialization.
+ * @brief Test Initialize with DataTree buffer IDs but no runtime buffers in nodeConfig.buffers.
+ * Coverage: Initialize takes the config.buffers.size()==0 branch (registration skipped) when
+ *           DataTree specifies buffer indices but the caller does not supply actual descriptors.
+ *           The registration path with real descriptors is covered by
+ *           Initialize_WithInitBuffers_ValidTensorDescriptors.
  */
-TEST_F( RadarNodeTest, InitializeWithBuffers_ValidBuffers )
+TEST_F( RadarNodeTest, InitializeWithBuffers_NoRuntimeBuffers )
 {
     Radar radarNode;
     QC::DataTree dt;
@@ -1396,20 +1127,17 @@ TEST_F( RadarNodeTest, InitializeWithBuffers_ValidBuffers )
 
     Radar_Config_t config = radarConfigBasic;
 
-    // Manually configure with buffer IDs to trigger registration path
     dt.Set<std::string>( "static.serviceName", config.serviceConfig.serviceName );
     dt.Set<uint32_t>( "static.timeoutMs", config.serviceConfig.timeoutMs );
     dt.Set<bool>( "static.enablePerformanceLog", false );
     dt.Set<uint32_t>( "static.maxInputBufferSize", config.maxInputBufferSize );
     dt.Set<uint32_t>( "static.maxOutputBufferSize", config.maxOutputBufferSize );
 
-    // Set buffer IDs to trigger registration code path
-    std::vector<uint32_t> inputBufferIds = { 0 };
+    std::vector<uint32_t> inputBufferIds  = { 0 };
     std::vector<uint32_t> outputBufferIds = { 1 };
     dt.Set( "static.inputs", inputBufferIds );
     dt.Set( "static.outputs", outputBufferIds );
 
-    // Set global buffer ID mapping
     std::vector<QC::DataTree> bufferMapDts;
     QC::DataTree inputMapDt;
     inputMapDt.Set<std::string>( "name", "input" );
@@ -1424,6 +1152,7 @@ TEST_F( RadarNodeTest, InitializeWithBuffers_ValidBuffers )
     dt.Set( "static.globalBufferIdMap", bufferMapDts );
     dt.Set<bool>( "static.deRegisterAllBuffersWhenStop", false );
 
+    // nodeConfig.buffers is intentionally left empty — registration branch is skipped
     QC::QCNodeInit_t nodeConfig = { dt.Dump() };
 
     QC::QCStatus_e ret = radarNode.Initialize( nodeConfig );
@@ -1431,38 +1160,17 @@ TEST_F( RadarNodeTest, InitializeWithBuffers_ValidBuffers )
 
     if ( ret == QCStatus_e::QC_STATUS_OK )
     {
-        // Verify node can start and process
-        ret = radarNode.Start();
-        if ( ret == QCStatus_e::QC_STATUS_OK )
-        {
-            TBufferAllocator allocator;
-            TBuffer inputBuffer( allocator, config.maxInputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-            TBuffer outputBuffer( allocator, config.maxOutputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-            GenerateRadarTestData( inputBuffer.tensor.GetDataPtr(), config.maxInputBufferSize );
-
-            NodeFrameDescriptor frameDesc( 2 );
-            ret = frameDesc.SetBuffer( 0, inputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-            ret = frameDesc.SetBuffer( 1, outputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-
-            ret = radarNode.ProcessFrameDescriptor( frameDesc );
-            // Result depends on service availability
-
-            radarNode.Stop();
-        }
         radarNode.DeInitialize();
     }
 }
 
 /**
- * @brief Test DeInitialize from error state
- * Coverage: Line 379 (QC_OBJECT_STATE_ERROR condition) in DeInitialize
+ * @brief Test that a failed Initialize leaves the node in a state from which
+ *        a subsequent valid Initialize and DeInitialize succeed cleanly.
+ * Coverage: Initialize can be retried after a bad-arguments failure; DeInitialize
+ *           succeeds from READY state.
  */
-TEST_F( RadarNodeTest, DeInitialize_FromErrorState )
+TEST_F( RadarNodeTest, DeInitialize_AfterFailedInit )
 {
     Radar radarNode;
     QC::DataTree dt;
@@ -1470,9 +1178,9 @@ TEST_F( RadarNodeTest, DeInitialize_FromErrorState )
     dt.Set<std::string>( "static.name", "TestRadar" );
     dt.Set<uint32_t>( "static.id", 100 );
 
-    // First initialize with invalid config to potentially get to error state
+    // First attempt: invalid config — node stays UNINITIALIZED
     Radar_Config_t config = radarConfigBasic;
-    config.maxInputBufferSize = 0;   // Invalid
+    config.maxInputBufferSize = 0;
     SetConfigRadarEx( &config, &dt );
 
     QC::QCNodeInit_t nodeConfig = { dt.Dump() };
@@ -1480,7 +1188,7 @@ TEST_F( RadarNodeTest, DeInitialize_FromErrorState )
     QC::QCStatus_e ret = radarNode.Initialize( nodeConfig );
     EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_ARGUMENTS, ret );
 
-    // Now initialize properly
+    // Second attempt: valid config — should succeed
     config.maxInputBufferSize = radarConfigBasic.maxInputBufferSize;
     QC::DataTree dt2;
     dt2.Set<std::string>( "static.name", "TestRadar2" );
@@ -1491,7 +1199,6 @@ TEST_F( RadarNodeTest, DeInitialize_FromErrorState )
     ret = radarNode.Initialize( validConfig );
     if ( ret == QCStatus_e::QC_STATUS_OK )
     {
-        // Test that DeInitialize works from READY state
         ret = radarNode.DeInitialize();
         EXPECT_EQ( QCStatus_e::QC_STATUS_OK, ret );
     }
@@ -1500,55 +1207,6 @@ TEST_F( RadarNodeTest, DeInitialize_FromErrorState )
 // ============================================================================
 // PHASE 3: EDGE CASES
 // ============================================================================
-
-/**
- * @brief Test Execute with null buffers
- * Coverage: Lines 600-604 in Execute
- */
-TEST_F( RadarNodeTest, Execute_NullBuffers )
-{
-    Radar radarNode;
-    QC::DataTree dt;
-    dt.Set<std::string>( "static.name", "TestRadar" );
-    dt.Set<uint32_t>( "static.id", 100 );
-    SetConfigRadarEx( &m_config, &dt );
-    QC::QCNodeInit_t config = { dt.Dump() };
-
-    QC::QCStatus_e ret = radarNode.Initialize( config );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret == QCStatus_e::QC_STATUS_OK )
-    {
-        ret = radarNode.Start();
-        if ( ret == QCStatus_e::QC_STATUS_OK )
-        {
-            // Test through ProcessFrameDescriptor with invalid buffers
-            TBufferAllocator allocator;
-            TBuffer inputBuffer( allocator, m_config.maxInputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-            TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-            // Set DMA handle to 0 (FD-only path: zero dmaHandle is the invalid-buffer condition)
-            uint64_t originalDmaHandle = inputBuffer.tensor.dmaHandle;
-            inputBuffer.tensor.dmaHandle = 0;
-
-            NodeFrameDescriptor frameDesc( 2 );
-            ret = frameDesc.SetBuffer( 0, inputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-            ret = frameDesc.SetBuffer( 1, outputBuffer.tensor );
-            ASSERT_EQ( QCStatus_e::QC_STATUS_OK, ret );
-
-            ret = radarNode.ProcessFrameDescriptor( frameDesc );
-            EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF, ret );
-
-            inputBuffer.tensor.dmaHandle = originalDmaHandle;
-
-            radarNode.Stop();
-        }
-        radarNode.DeInitialize();
-    }
-}
 
 // ============================================================================
 // EXISTING TESTS
@@ -1782,7 +1440,7 @@ TEST_F( RadarNodeTest, MultipleInstanceTest )
 
 /**
  * @brief Cover RadarConfigIfs::GetOptions() which is otherwise unused.
- * Coverage: Radar.cpp lines 161-165.
+ * Coverage: GetOptions returns empty string.
  */
 TEST_F( RadarNodeTest, ConfigIfs_GetOptions_Coverage )
 {
@@ -1793,7 +1451,7 @@ TEST_F( RadarNodeTest, ConfigIfs_GetOptions_Coverage )
 
 /**
  * @brief Cover SetupGlobalBufferIdMap() default branch and VerifyStaticConfig() missing-map path.
- * Coverage: Radar.cpp lines 61-64 and 184-199.
+ * Coverage: VerifyStaticConfig accepts absent globalBufferIdMap; SetupGlobalBufferIdMap creates default entries.
  */
 TEST_F( RadarNodeTest, SetupGlobalBufferIdMap_DefaultMap_WhenNotProvided )
 {
@@ -1862,9 +1520,49 @@ struct FakeBufferDescriptor : public QCBufferDescriptorBase_t
 };
 
 /**
+ * @brief ProcessFrameDescriptor: unknown descriptor type → INVALID_BUF on input and output.
+ * Coverage: ProcessFrameDescriptor rejects unknown descriptor type on input, and on output when input is valid
+ *           nullptr==pOutputTensor [T], nullptr==pOutputBuffer [T] (lines 502-505)
+ */
+TEST_F( RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor )
+{
+    Radar radarNode;
+    radarNode.m_state = QC_OBJECT_STATE_RUNNING;
+    radarNode.m_config.maxInputBufferSize  = radarConfigBasic.maxInputBufferSize;
+    radarNode.m_config.maxOutputBufferSize = radarConfigBasic.maxOutputBufferSize;
+    radarNode.m_globalBufferIdMap          = { { "input", 0 }, { "output", 1 } };
+    radarNode.m_pImpl->m_radar.reset( new q::interface::RadarStub{} );
+    (void) radarNode.m_pImpl->Initialize( "/stub/path" );
+
+    // Section 1: fake input — both dynamic_casts on input return null → early INVALID_BUF
+    {
+        FakeBufferDescriptor fakeInput;
+        FakeBufferDescriptor fakeOutput;
+        NodeFrameDescriptor frameDesc( 2 );
+        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 0, fakeInput ) );
+        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 1, fakeOutput ) );
+        EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF,
+                   radarNode.ProcessFrameDescriptor( frameDesc ) );
+    }
+
+    // Section 2: valid input, fake output — input passes, both output casts null → INVALID_BUF
+    {
+        TBufferAllocator allocator;
+        TBuffer inputBuffer( allocator, radarConfigBasic.maxInputBufferSize );
+        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
+        FakeBufferDescriptor fakeOutput;
+        NodeFrameDescriptor frameDesc( 2 );
+        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 0, inputBuffer.tensor ) );
+        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 1, fakeOutput ) );
+        EXPECT_EQ( QCStatus_e::QC_STATUS_INVALID_BUF,
+                   radarNode.ProcessFrameDescriptor( frameDesc ) );
+    }
+}
+
+/**
  * @brief Cover Radar::Initialize() init-time buffer registration path (config.buffers.size() > 0)
  * and the "invalid descriptor" branch.
- * Coverage: Radar.cpp lines 265-304.
+ * Coverage: Initialize rejects init-time buffers of unknown descriptor type.
  */
 TEST_F( RadarNodeTest, Initialize_WithInitBuffers_InvalidDescriptorType )
 {
@@ -1912,7 +1610,7 @@ TEST_F( RadarNodeTest, Initialize_WithInitBuffers_InvalidDescriptorType )
 
 /**
  * @brief Cover Radar::Initialize() init-time buffer registration path: input index out of range.
- * Coverage: Radar.cpp lines 293-297.
+ * Coverage: Initialize rejects when input buffer index is out of range.
  */
 TEST_F( RadarNodeTest, Initialize_WithInitBuffers_InputIndexOutOfRange )
 {
@@ -1961,7 +1659,7 @@ TEST_F( RadarNodeTest, Initialize_WithInitBuffers_InputIndexOutOfRange )
 
 /**
  * @brief Cover Radar::Initialize() init-time buffer registration path: output index out of range.
- * Coverage: Radar.cpp lines 332-336.
+ * Coverage: Initialize rejects when output buffer index is out of range.
  */
 TEST_F( RadarNodeTest, Initialize_WithInitBuffers_OutputIndexOutOfRange )
 {
@@ -2010,7 +1708,7 @@ TEST_F( RadarNodeTest, Initialize_WithInitBuffers_OutputIndexOutOfRange )
 /**
  * @brief Cover Radar::Initialize() init-time buffer registration success path
  * (dynamic_cast to TensorDescriptor_t succeeds).
- * Coverage: Radar.cpp lines 268-292 and 308-331.
+ * Coverage: Initialize successfully registers input and output TensorDescriptors at init time.
  */
 TEST_F( RadarNodeTest, Initialize_WithInitBuffers_ValidTensorDescriptors )
 {
@@ -2067,12 +1765,15 @@ TEST_F( RadarNodeTest, Initialize_WithInitBuffers_ValidTensorDescriptors )
 }
 
 /**
- * @brief Cover ValidateBuffer() type branches: TENSOR, IMAGE, and unexpected.
- * Coverage: Radar.cpp lines 568-579.
+ * @brief Verify that ValidateBuffer() is type-agnostic: Execute succeeds regardless of
+ *        tensor.type because ValidateBuffer inspects only size, dmaHandle, and GetDataSize().
+ * Uses a RadarStub so the test runs deterministically without hardware.
  */
 TEST_F( RadarNodeTest, ValidateBuffer_TypeBranches )
 {
     Radar radarNode;
+
+    radarNode.m_pImpl->m_radar.reset( new q::interface::RadarStub{} );
 
     QC::DataTree dt;
     dt.Set<std::string>( "static.name", "RadarValidateTypes" );
@@ -2080,82 +1781,200 @@ TEST_F( RadarNodeTest, ValidateBuffer_TypeBranches )
     SetConfigRadarEx( &m_config, &dt );
     QC::QCNodeInit_t config = { dt.Dump() };
 
-    QC::QCStatus_e ret = radarNode.Initialize( config );
-    EXPECT_TRUE( ret == QCStatus_e::QC_STATUS_OK || ret == QCStatus_e::QC_STATUS_BAD_STATE );
-
-    if ( ret != QCStatus_e::QC_STATUS_OK )
-    {
-        return;
-    }
-
-    ret = radarNode.Start();
-    if ( ret != QCStatus_e::QC_STATUS_OK )
-    {
-        radarNode.DeInitialize();
-        return;
-    }
+    ASSERT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.Initialize( config ) );
+    ASSERT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.Start() );
 
     TBufferAllocator allocator;
+    const QCBufferType_e kTypes[] = {
+            QCBufferType_e::QC_BUFFER_TYPE_TENSOR,
+            QCBufferType_e::QC_BUFFER_TYPE_IMAGE,
+            static_cast<QCBufferType_e>( 0x7fffffff ),
+    };
 
-    // Case 1: TENSOR
+    for ( QCBufferType_e t : kTypes )
     {
-        TBuffer inputBuffer( allocator, m_config.maxInputBufferSize );
-        TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
+        TBuffer inBuf( allocator, m_config.maxInputBufferSize );
+        TBuffer outBuf( allocator, m_config.maxOutputBufferSize );
+        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inBuf.GetAllocationStatus() );
+        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outBuf.GetAllocationStatus() );
 
-        inputBuffer.tensor.type = QCBufferType_e::QC_BUFFER_TYPE_TENSOR;
-        outputBuffer.tensor.type = QCBufferType_e::QC_BUFFER_TYPE_TENSOR;
+        inBuf.tensor.type  = t;
+        outBuf.tensor.type = t;
 
-        GenerateRadarTestData( inputBuffer.tensor.GetDataPtr(), m_config.maxInputBufferSize );
-
-        NodeFrameDescriptor frameDesc( 2 );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 0, inputBuffer.tensor ) );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 1, outputBuffer.tensor ) );
-
-        (void) radarNode.ProcessFrameDescriptor( frameDesc );
-    }
-
-    // Case 2: IMAGE
-    {
-        TBuffer inputBuffer( allocator, m_config.maxInputBufferSize );
-        TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-        inputBuffer.tensor.type = QCBufferType_e::QC_BUFFER_TYPE_IMAGE;
-        outputBuffer.tensor.type = QCBufferType_e::QC_BUFFER_TYPE_IMAGE;
-
-        GenerateRadarTestData( inputBuffer.tensor.GetDataPtr(), m_config.maxInputBufferSize );
-
-        NodeFrameDescriptor frameDesc( 2 );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 0, inputBuffer.tensor ) );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 1, outputBuffer.tensor ) );
-
-        (void) radarNode.ProcessFrameDescriptor( frameDesc );
-    }
-
-    // Case 3: unexpected type
-    {
-        TBuffer inputBuffer( allocator, m_config.maxInputBufferSize );
-        TBuffer outputBuffer( allocator, m_config.maxOutputBufferSize );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuffer.GetAllocationStatus() );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuffer.GetAllocationStatus() );
-
-        inputBuffer.tensor.type = static_cast<QCBufferType_e>( 0x7fffffff );
-        outputBuffer.tensor.type = static_cast<QCBufferType_e>( 0x7fffffff );
-
-        GenerateRadarTestData( inputBuffer.tensor.GetDataPtr(), m_config.maxInputBufferSize );
-
-        NodeFrameDescriptor frameDesc( 2 );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 0, inputBuffer.tensor ) );
-        ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 1, outputBuffer.tensor ) );
-
-        (void) radarNode.ProcessFrameDescriptor( frameDesc );
+        EXPECT_EQ( QCStatus_e::QC_STATUS_OK,
+                   radarNode.Execute( &inBuf.tensor, &outBuf.tensor ) );
     }
 
     radarNode.Stop();
     radarNode.DeInitialize();
+}
+
+// ============================================================================
+// RadarImpl stub-based tests — no hardware required
+// ============================================================================
+
+TEST_F( RadarNodeTest, RadarImpl_InitializeIsOpenTrue )
+{
+    RadarImpl iface;
+    iface.m_radar.reset( new q::interface::RadarStub{} );
+    EXPECT_EQ( QC_STATUS_OK, iface.Initialize( "/stub/path" ) );
+    EXPECT_TRUE( iface.IsInitialized() );
+}
+
+TEST_F( RadarNodeTest, RadarImpl_InitializeIsOpenFalse )
+{
+    RadarImpl iface;
+    auto *s  = new q::interface::RadarStub{};
+    s->m_isOpen = false;
+    iface.m_radar.reset( s );
+    EXPECT_EQ( QC_STATUS_BAD_STATE, iface.Initialize( "/stub/path" ) );
+    EXPECT_FALSE( iface.IsInitialized() );
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_ExecuteOk )
+{
+    RadarImpl iface;
+    iface.m_radar.reset( new q::interface::RadarStub{} );
+    ASSERT_EQ( QC_STATUS_OK, iface.Initialize( "/stub/path" ) );
+    EXPECT_EQ( QC_STATUS_OK, iface.Execute( 1, 8, 2, 8 ) );
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_ExecuteTimeout )
+{
+    RadarImpl iface;
+    auto *s = new q::interface::RadarStub{};
+    s->m_executeResult = q::interface::RADAR_ETIMEOUT;
+    iface.m_radar.reset( s );
+    ASSERT_EQ( QC_STATUS_OK, iface.Initialize( "/stub/path" ) );
+#ifdef __linux__
+    EXPECT_EQ( QC_STATUS_TIMEOUT, iface.Execute( 1, 8, 2, 8 ) );
+#else
+    EXPECT_EQ( QC_STATUS_FAIL, iface.Execute( 1, 8, 2, 8 ) );
+#endif
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_ExecuteInvalid )
+{
+    RadarImpl iface;
+    auto *s = new q::interface::RadarStub{};
+    s->m_executeResult = q::interface::RADAR_EINVAL;
+    iface.m_radar.reset( s );
+    ASSERT_EQ( QC_STATUS_OK, iface.Initialize( "/stub/path" ) );
+#ifdef __linux__
+    EXPECT_EQ( QC_STATUS_INVALID_BUF, iface.Execute( 1, 8, 2, 8 ) );
+#else
+    EXPECT_EQ( QC_STATUS_FAIL, iface.Execute( 1, 8, 2, 8 ) );
+#endif
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_ExecuteFail )
+{
+    RadarImpl iface;
+    auto *s = new q::interface::RadarStub{};
+    s->m_executeResult = q::interface::RADAR_EPROTO;
+    iface.m_radar.reset( s );
+    ASSERT_EQ( QC_STATUS_OK, iface.Initialize( "/stub/path" ) );
+    EXPECT_EQ( QC_STATUS_FAIL, iface.Execute( 1, 8, 2, 8 ) );
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_ExecuteNotInitialized )
+{
+    RadarImpl iface;
+    EXPECT_EQ( QC_STATUS_BAD_STATE, iface.Execute( 1, 8, 2, 8 ) );
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_ExecuteBadArgs )
+{
+    RadarImpl iface;
+    iface.m_radar.reset( new q::interface::RadarStub{} );
+    ASSERT_EQ( QC_STATUS_OK, iface.Initialize( "/stub/path" ) );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, iface.Execute( 0, 8, 2, 8 ) );   // inputHandle == 0
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, iface.Execute( 1, 8, 0, 8 ) );   // outputHandle == 0
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, iface.Execute( 1, 0, 2, 8 ) );   // inputSize == 0
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, iface.Execute( 1, 8, 2, 0 ) );   // outputSize == 0
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_Deinitialize )
+{
+    RadarImpl iface;
+    iface.m_radar.reset( new q::interface::RadarStub{} );
+    ASSERT_EQ( QC_STATUS_OK, iface.Initialize( "/stub/path" ) );
+    EXPECT_EQ( QC_STATUS_OK, iface.Deinitialize() );
+    EXPECT_FALSE( iface.IsInitialized() );
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_DeinitializeNotInitialized )
+{
+    RadarImpl iface;
+    EXPECT_EQ( QC_STATUS_OK, iface.Deinitialize() );
+    EXPECT_FALSE( iface.IsInitialized() );
+}
+
+TEST_F( RadarNodeTest, RadarImpl_StubBased_AlreadyInitialized )
+{
+    RadarImpl iface;
+    iface.m_radar.reset( new q::interface::RadarStub{} );
+    ASSERT_EQ( QC_STATUS_OK, iface.Initialize( "/stub/path" ) );
+    EXPECT_TRUE( iface.IsInitialized() );
+    EXPECT_EQ( QC_STATUS_ALREADY, iface.Initialize( "/stub/path" ) );
+    EXPECT_TRUE( iface.IsInitialized() );
+}
+
+TEST_F( RadarNodeTest, RadarImpl_InitializePaths )
+{
+    RadarImpl iface;
+
+    // nullptr is rejected before the factory is ever called
+    EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_ARGUMENTS, iface.Initialize( nullptr ) );
+    EXPECT_FALSE( iface.IsInitialized() );
+
+    // Non-existent device: real factory opens a socket that fails to connect → IsOpen()==false
+    EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_STATE, iface.Initialize( "/dev/radar_nonexistent" ) );
+    EXPECT_FALSE( iface.IsInitialized() );
+
+    // Deinitialize on an uninitialised object must be safe
+    EXPECT_EQ( QCStatus_e::QC_STATUS_OK, iface.Deinitialize() );
+}
+
+/**
+ * @brief Full lifecycle test using RadarStub injected before Initialize.
+ *
+ * Injects a stub so m_pImpl->Initialize() succeeds deterministically,
+ * then exercises the complete Initialize→Start→ProcessFrameDescriptor→Stop→DeInitialize
+ * success path without requiring real radar hardware.
+ */
+TEST_F( RadarNodeTest, Initialize_WithStub_FullLifecycle )
+{
+    Radar radarNode;
+
+    radarNode.m_pImpl->m_radar.reset( new q::interface::RadarStub{} );
+
+    QC::DataTree dt;
+    dt.Set<std::string>( "static.name", "StubLifecycle" );
+    dt.Set<uint32_t>( "static.id", 800 );
+    SetConfigRadarEx( &m_config, &dt );
+    QC::QCNodeInit_t config = { dt.Dump() };
+
+    ASSERT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.Initialize( config ) );
+
+    ASSERT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.Start() );
+
+    TBufferAllocator allocator;
+    TBuffer inputBuf( allocator, m_config.maxInputBufferSize );
+    TBuffer outputBuf( allocator, m_config.maxOutputBufferSize );
+    ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inputBuf.GetAllocationStatus() );
+    ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outputBuf.GetAllocationStatus() );
+
+    GenerateRadarTestData( inputBuf.tensor.GetDataPtr(), m_config.maxInputBufferSize );
+
+    NodeFrameDescriptor frameDesc( 2 );
+    ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 0, inputBuf.tensor ) );
+    ASSERT_EQ( QCStatus_e::QC_STATUS_OK, frameDesc.SetBuffer( 1, outputBuf.tensor ) );
+    EXPECT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.ProcessFrameDescriptor( frameDesc ) );
+
+    EXPECT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.Stop() );
+
+    EXPECT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.DeInitialize() );
 }
 
 #ifndef GTEST_QCNODE
