@@ -681,19 +681,44 @@ The command line template example:
 
 ### 2.20 QCNode FrameSync Sample
 
-| attribute     | required | type      | default | comments |
-|---------------|----------|-----------|---------|----------|
-| number        | false    | int       | 1       | The number of input topics |
-| mode          | false    | string    | window  | The frame sync mode, options from [window] |
-| window        | false    | int       | 100     | the window time in ms |
-| perms         | false    | int list  | -       | A list of integers to permute the output frame order |
-| input_topicX  | true     | string    | -       | the input topic name for input X |
-| output_topic  | true     | string    | -       | the output topic name |
+The FrameSync sample synchronises frames from multiple input topics and publishes a combined output frame. Two synchronisation modes are supported:
 
-The command line template example:
+- **`window`** — Waits for one frame from each input within a rolling time window (`window` ms). The first frame received from input 0 starts the clock; all remaining inputs must deliver a frame before the window expires.
+- **`buffer_timestamp`** — Each subscriber maintains a ring of the last `queue_depth` frames. FrameSync peeks all rings non-consumingly and selects the combination of frames (one per camera) whose maximum timestamp spread is minimised. If the best spread is within `timestamp_threshold_ms`, the set is published immediately; otherwise the closest match found is still published. This mode is polled at the `window` interval.
+
+| attribute              | required | type      | default | comments |
+|------------------------|----------|-----------|---------|----------|
+| number                 | false    | int       | 2       | The number of input topics (minimum 2) |
+| mode                   | false    | string    | window  | The frame sync mode, options from [window, buffer_timestamp] |
+| window                 | false    | int       | 100     | The sync window / polling interval in ms |
+| timestamp_threshold_ms | false    | int       | 10      | Maximum acceptable timestamp spread in ms; used by `buffer_timestamp` mode |
+| queue_depth            | false    | int       | 1       | Per-subscriber frame ring depth; used by `buffer_timestamp` mode |
+| perms                  | false    | int list  | -       | A list of integers to permute the output frame order |
+| input_topicX           | true     | string    | -       | the input topic name for input X |
+| output_topic           | true     | string    | -       | the output topic name |
+
+Note: "X" is value from 0 to number-1.
+
+The command line template example (window mode):
 
 ```sh
   -n FS0 -t FrameSync -k number -v 4 \
+    -k mode -v window -k window -v 100 \
+    -k input_topic0 -v /sensor/camera/CAM0/raw \
+    -k input_topic1 -v /sensor/camera/CAM1/raw \
+    -k input_topic2 -v /sensor/camera/CAM2/raw \
+    -k input_topic3 -v /sensor/camera/CAM3/raw \
+    -k output_topic -v /sensor/camera/FS0/raw \
+```
+
+The command line template example (buffer_timestamp mode):
+
+```sh
+  -n FS0 -t FrameSync -k number -v 4 \
+    -k mode -v buffer_timestamp \
+    -k window -v 33 \
+    -k timestamp_threshold_ms -v 5 \
+    -k queue_depth -v 3 \
     -k input_topic0 -v /sensor/camera/CAM0/raw \
     -k input_topic1 -v /sensor/camera/CAM1/raw \
     -k input_topic2 -v /sensor/camera/CAM2/raw \

@@ -104,6 +104,55 @@ public:
         return ret;
     }
 
+    /// @brief Block until at least one frame is available in the queue (non-consuming).
+    ///
+    /// Uses the existing condition variable to wake immediately when a frame arrives.
+    /// If the queue already contains a frame the call returns without waiting.
+    ///
+    /// @param timeoutMs Maximum time to wait in milliseconds.
+    /// @return QC_STATUS_OK when a frame is available; QC_STATUS_TIMEOUT if the
+    ///         deadline expires before any frame arrives.
+    QCStatus_e WaitUntilFrame( uint32_t timeoutMs = 1000 )
+    {
+        QCStatus_e ret = QC_STATUS_OK;
+        std::unique_lock<std::mutex> lock( m_mutex );
+        if ( m_queue.empty() )
+        {
+            auto status = m_condVar.wait_for( lock, std::chrono::milliseconds( timeoutMs ) );
+            if ( std::cv_status::timeout == status )
+            {
+                ret = QC_STATUS_TIMEOUT;
+            }
+        }
+        return ret;
+    }
+
+    /// @brief Return all frames currently in the queue without consuming them.
+    ///
+    /// Copies the queue contents into @p frames (front = oldest, back = newest).
+    /// The queue is left unchanged; subsequent Publish() calls continue normally.
+    ///
+    /// @param frames Output vector; cleared and populated with all queued frames.
+    /// @return QC_STATUS_OK if at least one frame was available; QC_STATUS_TIMEOUT
+    ///         if the queue was empty.
+    QCStatus_e Peek( std::vector<T> &frames )
+    {
+        QCStatus_e ret = QC_STATUS_OK;
+        std::unique_lock<std::mutex> lock( m_mutex );
+        frames.clear();
+        std::queue<T> tmp = m_queue;
+        while ( false == tmp.empty() )
+        {
+            frames.push_back( tmp.front() );
+            tmp.pop();
+        }
+        if ( frames.empty() )
+        {
+            ret = QC_STATUS_TIMEOUT;
+        }
+        return ret;
+    }
+
     /// @brief clear the data queue
     void Clear()
     {
@@ -315,6 +364,42 @@ public:
             ret = QC_STATUS_BAD_STATE;
         }
 
+        return ret;
+    }
+
+    /// @brief Block until at least one frame is available on this subscriber (non-consuming).
+    /// @param timeoutMs Maximum time to wait in milliseconds.
+    /// @return QC_STATUS_OK when a frame is available; QC_STATUS_TIMEOUT on deadline;
+    ///         QC_STATUS_BAD_STATE if the subscriber is not initialised.
+    QCStatus_e WaitUntilFrame( uint32_t timeoutMs = 1000 )
+    {
+        QCStatus_e ret = QC_STATUS_OK;
+        if ( nullptr != m_sub )
+        {
+            ret = m_sub->WaitUntilFrame( timeoutMs );
+        }
+        else
+        {
+            ret = QC_STATUS_BAD_STATE;
+        }
+        return ret;
+    }
+
+    /// @brief Return all frames currently queued on this subscriber without consuming them.
+    /// @param frames Output vector; cleared and populated with all queued frames (front=oldest).
+    /// @return QC_STATUS_OK if frames were available; QC_STATUS_TIMEOUT if queue was empty;
+    ///         QC_STATUS_BAD_STATE if not initialised.
+    QCStatus_e Peek( std::vector<T> &frames )
+    {
+        QCStatus_e ret = QC_STATUS_OK;
+        if ( nullptr != m_sub )
+        {
+            ret = m_sub->Peek( frames );
+        }
+        else
+        {
+            ret = QC_STATUS_BAD_STATE;
+        }
         return ret;
     }
 

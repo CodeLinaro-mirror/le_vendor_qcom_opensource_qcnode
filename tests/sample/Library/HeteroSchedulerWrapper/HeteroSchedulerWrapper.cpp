@@ -27,12 +27,6 @@ HeteroSchedulerWrapper::HeteroSchedulerWrapper()
     QC_LOGGER_INIT( "HeteroSchedulerWrapper", LOGGER_LEVEL_INFO );
 }
 
-HeteroSchedulerWrapper &HeteroSchedulerWrapper::getInstance()
-{
-    static HeteroSchedulerWrapper instance;
-    return instance;
-}
-
 HeteroSchedulerWrapper::~HeteroSchedulerWrapper()
 {
     Cleanup();
