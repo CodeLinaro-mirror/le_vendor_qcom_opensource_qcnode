@@ -1115,9 +1115,14 @@ TEST_F(OpticalFlowConfigTest, ConfigCopyConstructor)
     config1.height = 1024;
     config1.frameRate = 60;
     config1.confidenceOutputEn = true;
-    
+
     OpticalFlow_Config_t config2(config1);
-    
+    // The copy ctor uses memcpy which shallow-copies std::string's internal pointer.
+    // On Linux (libstdc++ SSO) this leaves config2.nodeId.name._M_p pointing into
+    // config1's stack frame, so its destructor would call free() on a stack address.
+    // Reconstruct the string via placement new to give it a valid state before destruction.
+    new (&config2.nodeId.name) std::string(config1.nodeId.name);
+
     EXPECT_EQ(config1.width, config2.width);
     EXPECT_EQ(config1.height, config2.height);
     EXPECT_EQ(config1.frameRate, config2.frameRate);
@@ -1134,6 +1139,8 @@ TEST_F(OpticalFlowConfigTest, ConfigAssignmentOperator)
     
     OpticalFlow_Config_t config2;
     config2 = config1;
+    // operator= uses memcpy; fix the SSO pointer in config2.nodeId.name (see ConfigCopyConstructor).
+    new (&config2.nodeId.name) std::string(config1.nodeId.name);
     
     EXPECT_EQ(config1.width, config2.width);
     EXPECT_EQ(config1.height, config2.height);
