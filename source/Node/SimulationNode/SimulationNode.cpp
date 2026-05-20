@@ -11,6 +11,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_RESERVED, SimulationNode )
+
 SimulationNode::SimulationNode()
     : m_configIfs( m_logger ),
       m_monitorIfs( m_logger ),

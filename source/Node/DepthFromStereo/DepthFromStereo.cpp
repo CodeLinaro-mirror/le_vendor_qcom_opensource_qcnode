@@ -1,14 +1,16 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
+#include "QC/Node/DepthFromStereo.hpp"
 #include "svBuffer.h"
 #include <unistd.h>
-#include "QC/Node/DepthFromStereo.hpp"
 
 namespace QC
 {
 namespace Node
 {
+
+REGISTER_NODE( QC_NODE_TYPE_EVA_DFS, DepthFromStereo )
 
 DepthFromStereo_Config::DepthFromStereo_Config()
 {
@@ -576,8 +578,7 @@ QCStatus_e DepthFromStereo::UpdateIconfig( StereoDisparity::ConfigMap &configMap
     {
         if ( configuration.processingMode == PROCESSING_MODE_AUTO )
         {
-            status = configMap.Set( StereoDisparity::ConfigId::MODE,
-                                    StereoDisparity::Mode::AUTO );
+            status = configMap.Set( StereoDisparity::ConfigId::MODE, StereoDisparity::Mode::AUTO );
             if ( status != ConfigMapStatus::SUCCESS )
             {
                 QC_ERROR( "DepthFromStereo: Failed to set MODE: %d", status );

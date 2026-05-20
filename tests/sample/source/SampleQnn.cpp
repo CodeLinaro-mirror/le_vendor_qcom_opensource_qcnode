@@ -358,6 +358,7 @@ void SampleQnn::Execute()
     {
         QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
                   frames.Timestamp( 0 ) );
+        m_frameId = frames.FrameId( 0 );
         std::vector<std::shared_ptr<SharedBuffer_t>> outputBuffers;
         uint32_t globalIdx = 0;
         frameDesc.Clear();
@@ -543,7 +544,7 @@ void SampleQnn::Execute()
 #ifdef QC_ENABLE_HS
     else if ( m_bOrchestratorEnabled )
     {
-        QC_ERROR( "QNN receive failed : %d", ret );
+        QC_ERROR( "QNN receive failed : %d after %" PRIu64, ret, m_frameId );
     }
 #endif
 }

@@ -9,6 +9,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_VOXEL, Voxelization )
+
 using namespace QC::Memory;
 
 Voxelization::Voxelization()
@@ -100,4 +102,3 @@ QCObjectState_e Voxelization::GetState()
 
 }   // namespace Node
 }   // namespace QC
-

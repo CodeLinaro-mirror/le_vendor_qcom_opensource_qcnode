@@ -47,6 +47,8 @@ typedef struct RadarConfig : public QCNodeConfigBase_t
 {
     Radar_Config_t params;                              // Component-level radar configuration
     std::vector<uint32_t> bufferIds;                   // Buffer indices for initialization-time registration
+    std::vector<uint32_t> inputBufferIds;              // Buffer indices designated as inputs
+    std::vector<uint32_t> outputBufferIds;             // Buffer indices designated as outputs
     std::vector<QCNodeBufferMapEntry_t> globalBufferIdMap; // Global buffer ID mapping for frame descriptors
     bool bDeRegisterAllBuffersWhenStop;                // Flag to deregister all buffers on stop
 } RadarConfig_t;
@@ -55,6 +57,8 @@ typedef struct RadarConfig : public QCNodeConfigBase_t
 **Key Parameters:**
 - `params`: Contains the underlying component configuration including service name, timeout, buffer sizes, and performance settings
 - `bufferIds`: Optional list of buffer indices from QCNodeInit::buffers to register during initialization
+- `inputBufferIds`: Optional list of buffer indices from QCNodeInit::buffers designated as input buffers
+- `outputBufferIds`: Optional list of buffer indices from QCNodeInit::buffers designated as output buffers
 - `globalBufferIdMap`: Maps logical buffer names to global buffer IDs in frame descriptors (input at ID 0, output at ID 1 by default)
 - `bDeRegisterAllBuffersWhenStop`: Controls automatic buffer deregistration behavior during stop operations
 
@@ -114,6 +118,8 @@ The Node Radar uses JSON configuration following the standard Node configuration
     "timeoutMs": 5000,
     "bEnablePerformanceLog": false,
     "bufferIds": [],
+    "inputBufferIds": [],
+    "outputBufferIds": [],
     "globalBufferIdMap": [
       {
         "name": "input",
@@ -142,6 +148,8 @@ The Node Radar uses JSON configuration following the standard Node configuration
 **Optional Parameters:**
 - `bEnablePerformanceLog`: Enable performance logging (bool, default: false)
 - `bufferIds`: List of buffer indices for initialization-time registration (array of uint32_t, default: empty)
+- `inputBufferIds`: List of buffer indices designated as inputs (array of uint32_t, default: empty)
+- `outputBufferIds`: List of buffer indices designated as outputs (array of uint32_t, default: empty)
 - `globalBufferIdMap`: Buffer mapping for frame descriptors (array, default: input=0, output=1)
 - `deRegisterAllBuffersWhenStop`: Auto-deregister buffers on stop (bool, default: false)
 

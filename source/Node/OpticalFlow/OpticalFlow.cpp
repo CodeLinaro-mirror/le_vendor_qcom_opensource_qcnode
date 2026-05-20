@@ -12,6 +12,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_EVA_OPTICAL_FLOW, OpticalFlow )
+
 OpticalFlow_Config::OpticalFlow_Config()
 {
     this->imageFormat = QC_IMAGE_FORMAT_NV12;
@@ -501,8 +503,8 @@ QCStatus_e OpticalFlow::UpdateIconfig( LME::ConfigMap &configMap,
     {
         if ( configuration.motionMapUpscale == MOTION_MAP_UPSCALE_NONE )
         {
-            status = configMap.Set( LME::ConfigId::MOTION_MAP_UPSCALE,
-                                    LME::MotionMapUpscale::NONE );
+            status =
+                    configMap.Set( LME::ConfigId::MOTION_MAP_UPSCALE, LME::MotionMapUpscale::NONE );
             if ( status != ConfigMapStatus::SUCCESS )
             {
                 QC_ERROR( "OpticalFlow: Failed to set MOTION_MAP_UPSCALE: %d", status );
@@ -569,8 +571,8 @@ QCStatus_e OpticalFlow::UpdateIconfig( LME::ConfigMap &configMap,
     {
         if ( configuration.motionDirection == MOTION_DIRECTION_FORWARD )
         {
-            status = configMap.Set( LME::ConfigId::MOTION_DIRECTION,
-                                    LME::MotionDirection::FORWARD );
+            status =
+                    configMap.Set( LME::ConfigId::MOTION_DIRECTION, LME::MotionDirection::FORWARD );
             if ( status != ConfigMapStatus::SUCCESS )
             {
                 QC_ERROR( "OpticalFlow: Failed to set MOTION_DIRECTION: %d", status );
@@ -614,8 +616,7 @@ QCStatus_e OpticalFlow::UpdateIconfig( LME::ConfigMap &configMap,
     {
         if ( configuration.refinementLevel == REFINEMENT_LEVEL_NONE )
         {
-            status = configMap.Set( LME::ConfigId::REFINEMENT_LEVEL,
-                                    LME::RefinementLevel::NONE );
+            status = configMap.Set( LME::ConfigId::REFINEMENT_LEVEL, LME::RefinementLevel::NONE );
             if ( status != ConfigMapStatus::SUCCESS )
             {
                 QC_ERROR( "OpticalFlow: Failed to set REFINEMENT_LEVEL: %d", status );
@@ -646,8 +647,8 @@ QCStatus_e OpticalFlow::UpdateIconfig( LME::ConfigMap &configMap,
 
     if ( QC_STATUS_OK == ret )
     {
-        status = configMap.Set( LME::ConfigId::MASK_LOW_TEXTURE_EN,
-                                configuration.maskLowTextureEn );
+        status =
+                configMap.Set( LME::ConfigId::MASK_LOW_TEXTURE_EN, configuration.maskLowTextureEn );
         if ( status != ConfigMapStatus::SUCCESS )
         {
             QC_ERROR( "OpticalFlow: Failed to set MASK_LOW_TEXTURE_EN: %d", status );
@@ -907,8 +908,8 @@ QCStatus_e OpticalFlow::SetInitialFrameConfig( LME::ConfigMap &configMapFrame,
 
     if ( QC_STATUS_OK == ret )
     {
-        status = configMapFrame.Set( LME::ConfigId::IS_FIRST_REQUEST,
-                                     configuration.isFirstRequest );
+        status =
+                configMapFrame.Set( LME::ConfigId::IS_FIRST_REQUEST, configuration.isFirstRequest );
         if ( status != ConfigMapStatus::SUCCESS )
         {
             QC_ERROR( "OpticalFlow: Failed to set IS_FIRST_REQUEST: %d", status );

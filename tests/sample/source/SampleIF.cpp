@@ -76,6 +76,46 @@ void SampleIF::ShowVersion()
     }
 }
 
+#if defined( WITH_COMP_RES_SCHED )
+void SampleIF::SetupCompResSchedCmd( compressched_acquire_cmd &cmd )
+{
+    memset( cmd.res_details.requested_domain_id, 0, sizeof( cmd.res_details.requested_domain_id ) );
+    if ( m_processor == QC_PROCESSOR_HTP0 )
+    {
+        for ( size_t i = 0; i < m_coreIds.size(); i++ )
+        {
+            cmd.res_details.requested_domain_id[i] =
+                    m_crsPlatfromQuery.resource_query[m_coreIds[i]].domain_id;
+        }
+    }
+    else if ( m_processor == QC_PROCESSOR_HTP1 )
+    {
+        cmd.res_details.requested_domain_id[0] = m_crsPlatfromQuery.resource_query[4].domain_id;
+    }
+    else if ( m_processor == QC_PROCESSOR_HTP2 )
+    {
+        cmd.res_details.requested_domain_id[0] = m_crsPlatfromQuery.resource_query[5].domain_id;
+    }
+    else
+    {
+        cmd.res_details.requested_domain_id[0] = m_crsPlatfromQuery.resource_query[6].domain_id;
+    }
+    cmd.res_details.sub_res_id = NSP_SUB_RES_ID0;
+    cmd.priority = QUEUE_PRIORITY_DEFAULT;
+    cmd.duration_us = 0;
+    cmd.timeout_us = 1000000;
+    if ( m_processor == QC_PROCESSOR_HTP0 )
+    {
+        cmd.priority = QUEUE_PRIORITY_REALTIME;
+        cmd.res_details.req_type = COMPRESSCHED_SUPER_RESOURCE_REQUEST;
+    }
+    else
+    {
+        cmd.res_details.req_type = COMPRESSCHED_BASE_RESOURCE_REQUEST;
+    }
+}
+#endif
+
 QCStatus_e SampleIF::Init( std::string name, QCNodeType_e type )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -96,7 +136,7 @@ QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-#if defined( WITH_RSM_V2 )
+#if defined( WITH_RSM_V2 ) || defined( WITH_COMP_RES_SCHED )
     const char *envValue = getenv( "QC_DISABLE_RSM" );
     if ( nullptr != envValue )
     {
@@ -106,6 +146,9 @@ QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
             m_bRsmDisabled = true;
         }
     }
+#endif
+
+#if defined( WITH_RSM_V2 )
     if ( ( processor <= QC_PROCESSOR_HTP1 ) && ( false == m_bRsmDisabled ) )
     {
         memset( &m_acquireCmdV2, 0, sizeof( m_acquireCmdV2 ) );
@@ -125,6 +168,39 @@ QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
             QC_INFO( "rsm init for processor %d", processor );
             m_processor = processor;
             m_coreIds = coreIds;
+        }
+    }
+    else
+#endif
+#if defined( WITH_COMP_RES_SCHED )
+            if ( ( processor <= QC_PROCESSOR_HTP3 ) && ( false == m_bRsmDisabled ) )
+    {
+        int rc = compressched_register( &m_crsHandle );
+        if ( 0 != rc )
+        {
+            QC_ERROR( "compressched init failed: %d", rc );
+            ret = QC_STATUS_FAIL;
+        }
+        else
+        {
+            rc = compressched_query( m_crsHandle, &m_crsPlatfromQuery );
+            if ( 0 == rc )
+            {
+                for ( uint32_t i = 0; i < m_crsPlatfromQuery.num_resources; i++ )
+                {
+                    QC_INFO( "compressched res %u: domain id %d", i,
+                             m_crsPlatfromQuery.resource_query[i].domain_id );
+                }
+                m_processor = processor;
+                m_coreIds = coreIds;
+            }
+            else
+            {
+                QC_ERROR( "compressched query failed: %d", rc );
+                (void) compressched_unregister( m_crsHandle );
+                m_crsHandle = 0;
+                ret = QC_STATUS_FAIL;
+            }
         }
     }
     else
@@ -163,6 +239,17 @@ QCStatus_e SampleIF::Deinit()
         }
     }
 #endif
+#if defined( WITH_COMP_RES_SCHED )
+    if ( ( m_processor <= QC_PROCESSOR_HTP3 ) && ( false == m_bRsmDisabled ) )
+    {
+        int rc = compressched_unregister( m_crsHandle );
+        if ( 0 != rc )
+        {
+            QC_ERROR( "compressched unregister failed: %d", rc );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+#endif
     return ret;
 }
 
@@ -184,6 +271,24 @@ QCStatus_e SampleIF::Lock()
         {
             QC_ERROR( "rsm acquire failed: %d", rc );
             ret = QC_STATUS_FAIL;
+        }
+    }
+    else
+#endif
+#if defined( WITH_COMP_RES_SCHED )
+            if ( ( m_processor <= QC_PROCESSOR_HTP3 ) && ( false == m_bRsmDisabled ) )
+    {
+        compressched_acquire_cmd cmd = {};
+        SetupCompResSchedCmd( cmd );
+        int rc = compressched_acquire( m_crsHandle, &cmd, &m_crsAcquireRsp );
+        if ( 0 != rc )
+        {
+            QC_ERROR( "compressched acquire failed : %d", rc );
+            ret = QC_STATUS_FAIL;
+        }
+        else
+        {
+            QC_DEBUG( "compressched acquire OK with token: %u", m_crsAcquireRsp.token );
         }
     }
     else
@@ -223,6 +328,22 @@ QCStatus_e SampleIF::Unlock()
         {
             QC_ERROR( "rsm release failed: %d", rc );
             ret = QC_STATUS_FAIL;
+        }
+    }
+    else
+#endif
+#if defined( WITH_COMP_RES_SCHED )
+            if ( ( m_processor <= QC_PROCESSOR_HTP3 ) && ( false == m_bRsmDisabled ) )
+    {
+        int rc = compressched_release( m_crsHandle, m_crsAcquireRsp.token );
+        if ( 0 != rc )
+        {
+            QC_ERROR( "compressched release failed for token %u: %d", m_crsAcquireRsp.token, rc );
+            ret = QC_STATUS_FAIL;
+        }
+        else
+        {
+            QC_DEBUG( "compressched release OK for token %u", m_crsAcquireRsp.token );
         }
     }
     else

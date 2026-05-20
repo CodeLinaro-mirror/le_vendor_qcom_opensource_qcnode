@@ -285,6 +285,7 @@ These options can be used with all build methods.
 | `ENABLE_EVA_AUTO` | Enable EVA Auto support | Default: `OFF` for 8797, else `ON` |
 | `ENABLE_TRACE` | Enable Tracing | Default: `ON` |
 | `ENABLE_HS` | Enable Hetero Scheduler | Default: `OFF` |
+| `ENABLE_COMP_RES_SCHED` | Enable Compure Resource Scheduler | Default: `OFF` |
 
 ## 5. Directory Structure
 

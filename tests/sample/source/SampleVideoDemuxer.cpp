@@ -134,10 +134,7 @@ void SampleVideoDemuxer::ThreadMain()
         std::shared_ptr<SharedBuffer_t> buffer = m_framePool.Get();
         if ( nullptr != buffer )
         {
-            if ( QC_STATUS_OK == ret )
-            {
-                ret = m_vidcDemuxer.GetFrame( buffer->GetBuffer(), frameInfo );
-            }
+            ret = m_vidcDemuxer.GetFrame( buffer->GetBuffer(), frameInfo );
 
             if ( QC_STATUS_OK == ret )
             {

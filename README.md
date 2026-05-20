@@ -19,6 +19,7 @@ Below is a summary information of the current implemented nodes.
 | [CL2DFlex](./docs/CL2DFlex.md) | YES| Yes| OpenCL | GPU | Color Conversion, Resize, ROI Crop, Undistortion |
 | [OpticalFlow](./docs/OpticalFlow.md) | YES | YES| SV | EVA | Optical flow computation |
 | [DepthFromStereo](./docs/DepthFromStereo.md) | YES | YES| SV | EVA | Depth estimation from stereo images |
+| [Radar](./docs/NodeRadar.md) | YES | YES| Radar Service | CPU | Radar raw data ingestion and offload to external processing service |
 
 # How to build
 

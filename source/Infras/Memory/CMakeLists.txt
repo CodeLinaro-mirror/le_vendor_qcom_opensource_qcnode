@@ -1,3 +1,4 @@
+
 set(HEADERS_DIR ${PROJECT_SOURCE_DIR}/include)
 
 set(MEMORY_HEADERS
@@ -14,6 +15,7 @@ set(MEMORY_HEADERS
     ${HEADERS_DIR}/QC/Infras/Memory/ManagerLocal.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/UtilsBase.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/VideoFrameDescriptor.hpp
+    ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryFactory.hpp
 )
 
 # Use the ENABLE_SIMNODE option to conditionally include source files
@@ -36,6 +38,7 @@ else()
         HeapAllocator.cpp
         UtilsBase.cpp
         VideoFrameDescriptor.cpp
+        QCMemoryFactory.cpp
     )
 
     # Set full libraries for on-target build

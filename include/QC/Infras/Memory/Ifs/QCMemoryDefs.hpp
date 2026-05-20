@@ -103,6 +103,26 @@ typedef enum
 } QCAllocationCache_e;
 
 /**
+ * @enum QCMemoryManagerType_e
+ * @brief Enumerates the types of memory manager implementations.
+ */
+typedef enum
+{
+    /**
+     * @brief Local (in-process) memory manager.
+     */
+    QC_MEMORY_MANAGER_LOCAL = 0,
+    /**
+     * @brief Last memory manager type sentinel.
+     */
+    QC_MEMORY_MANAGER_LAST,
+    /**
+     * @brief Maximum memory manager type value.
+     */
+    QC_MEMORY_MANAGER_MAX = UINT32_MAX
+} QCMemoryManagerType_e;
+
+/**
  * @typedef QCAlignment_t
  * @brief Type definition for memory alignment values.
  *
@@ -167,7 +187,7 @@ typedef struct QCBufferPropBase
     QCBufferPropBase()
         : size( 0 ),
           alignment( QC_MEMORY_DEFAULT_ALLIGNMENT ),
-          cache( QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES ){};
+          cache( QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES ) {};
 
     /**
      * @var size
@@ -201,7 +221,7 @@ typedef struct QCBufferPropBase
 #define QC_CALC_ALIGN_SIZE( size, ALLIGNMENT )                                                     \
     ( {                                                                                            \
         size_t ret;                                                                                \
-        ret = (size) + (ALLIGNMENT) - 1ul;                                                         \
+        ret = ( size ) + ( ALLIGNMENT ) - 1ul;                                                     \
         ret;                                                                                       \
     } )
 
@@ -215,7 +235,8 @@ typedef struct QCBufferPropBase
  * @param ALLIGNMENT The alignment of the buffer.
  */
 #define QC_ALIGN_POINTER( pVoid, ALLIGNMENT )                                                      \
-    void *ptr = (void *) ( ((long) (pVoid) + (ALLIGNMENT) - 1ul ) & ~( (ALLIGNMENT) - 1ul ) );     \
+    void *ptr =                                                                                    \
+            (void *) ( ( (long) ( pVoid ) + ( ALLIGNMENT ) - 1ul ) & ~( ( ALLIGNMENT ) - 1ul ) );  \
       ptr )
 
 /**
@@ -228,7 +249,7 @@ typedef struct QCBufferPropBase
  * @param ALLIGNMENT The alignment of the buffer.
  */
 #define QC_ALIGN_SIZE( size, ALLIGNMENT )                                                          \
-    ( ( ( ( size ) + (ALLIGNMENT) -1 ) / ( ALLIGNMENT ) ) * ( ALLIGNMENT ) )
+    ( ( ( ( size ) + ( ALLIGNMENT ) - 1 ) / ( ALLIGNMENT ) ) * ( ALLIGNMENT ) )
 
 }   // namespace Memory
 }   // namespace QC

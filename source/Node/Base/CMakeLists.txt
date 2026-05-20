@@ -5,6 +5,7 @@ set( NODEBASE_HEADERS
     ${HEADERS_DIR}/QC/Node/NodeConfigBase.hpp
     ${HEADERS_DIR}/QC/Node/NodeFrameDescriptor.hpp
     ${HEADERS_DIR}/QC/Node/NodeFrameDescriptorPool.hpp
+    ${HEADERS_DIR}/QC/Node/Ifs/QCNodeFactory.hpp
 )
 
 set( NODEBASE_SOURCES
@@ -12,6 +13,7 @@ set( NODEBASE_SOURCES
     DataTree.cpp
     NodeFrameDescriptor.cpp
     NodeFrameDescriptorPool.cpp
+    QCNodeFactory.cpp
 )
 
 # Set libraries based on build type

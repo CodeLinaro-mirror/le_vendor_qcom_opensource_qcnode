@@ -151,6 +151,10 @@ if ! [[ -v ENABLE_HS ]] ; then
   export ENABLE_HS=OFF
 fi
 
+if ! [[ -v ENABLE_COMP_RES_SCHED ]] ; then
+  export ENABLE_COMP_RES_SCHED=OFF
+fi
+
 
 # Get dependent packages
 export THIRD_PARTY_DIR=$topdir/third_party
@@ -476,6 +480,7 @@ cmake \
     -DENABLE_RESMON=${ENABLE_RESMON} \
     -DENABLE_RADAR=${ENABLE_RADAR} \
     -DENABLE_HS=${ENABLE_HS} \
+    -DENABLE_COMP_RES_SCHED=${ENABLE_COMP_RES_SCHED} \
     -DQC_TARGET_SOC=${QC_TARGET_SOC} \
     .. || exit -1
 ${CTC_BUILD_PREFIX} make -j 16 || exit -1

@@ -213,8 +213,8 @@ public:
     virtual QCStatus_e Place( void *pData, uint32_t &size ) { return QC_STATUS_UNSUPPORTED; }
 
 private:
-    CameraImpl *m_pCamImpl;
     Logger &m_logger;
+    CameraImpl *m_pCamImpl;
     std::string m_options;
 };
 

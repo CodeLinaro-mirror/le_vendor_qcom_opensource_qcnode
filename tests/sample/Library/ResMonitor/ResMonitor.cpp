@@ -18,11 +18,7 @@ QCStatus_e ResMonitor::GetCpuUtil( ResMon_CPU_MetricData_t &cpuMetricData )
 
     uint64_t startTime = 0;
     uint64_t endTime = 0;
-#if defined( __QNXNTO__ )
-    cpuUtils_t cpuStats = { 0 };
-#else
     CpuUtilStats_t cpuStats = { 0 };
-#endif
 
     uint64_t sampleTime = cpuMetricData.sampleTimeData.sampleTime;
 
@@ -88,11 +84,7 @@ QCStatus_e ResMonitor::GetGpuUtil( ResMon_GPU_MetricData_t &gpuMetricData )
         gpuMetricData.processNum = gpuStats.processNum;
         for ( uint32_t i = 0; i < gpuStats.processNum; i++ )
         {
-#if defined( __QNXNTO__ )
-            gpuMetricData.processId[i] = gpuStats.processId[i];
-#else
             gpuMetricData.processId[i] = gpuStats.processID[i];
-#endif
             gpuMetricData.busyPercentage[i] = gpuStats.busyPercentage[i];
             memcpy( gpuMetricData.processName[i], gpuStats.processName[i],
                     sizeof( gpuStats.processName[i] ) );
@@ -237,4 +229,3 @@ QCStatus_e ResMonitor::DeInit()
 
 }   // namespace sample
 }   // namespace QC
-

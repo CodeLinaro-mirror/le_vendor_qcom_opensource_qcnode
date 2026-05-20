@@ -105,6 +105,7 @@ private:
     int m_rsmPriority;
 
     NodeFrameDescriptorPool *m_pFrameDescPool = nullptr;
+    uint64_t m_frameId = 0; /* track current processed frame Id */
 };   // class SampleQnn
 
 }   // namespace sample

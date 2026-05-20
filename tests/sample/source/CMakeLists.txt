@@ -120,6 +120,11 @@ else()
 endif()
 endif()
 
+if ( ENABLE_COMP_RES_SCHED )
+  list( APPEND QCNODE_SAMPLE_DEFINITIONS WITH_COMP_RES_SCHED )
+  list( APPEND TARGET_LIBRARIES compressched )
+endif()
+
 if ( ENABLE_C2C )
   list( APPEND QCNODE_SAMPLE_SOURCES SampleC2C.cpp )
   list( APPEND TARGET_LIBRARIES c2c )

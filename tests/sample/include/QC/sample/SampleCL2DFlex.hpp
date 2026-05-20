@@ -95,6 +95,7 @@ private:
     TensorDescriptor_t m_mapYBufferDesc[QC_MAX_INPUTS];
 
     BufferManager *m_pBufMgr = nullptr;
+    uint64_t m_frameId = 0; /* track current processed frame Id */
 };   // class SampleCL2DFlex
 
 }   // namespace sample

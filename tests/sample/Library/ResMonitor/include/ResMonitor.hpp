@@ -11,7 +11,7 @@
 
 #include "QC/Common/Types.hpp"
 #include "QC/Infras/Log/Logger.hpp"
-#include "amss/compresmon.h"
+#include <compresmon.h>
 
 namespace QC
 {

@@ -10,6 +10,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_QNN, Qnn )
+
 using namespace QC::Memory;
 
 Qnn::Qnn()

@@ -10,6 +10,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_FADAS_REMAP, Remap )
+
 Remap::Remap()
     : m_pRemapImpl( new RemapImpl( m_nodeId, m_logger ) ),
       m_configIfs( m_logger, m_pRemapImpl ),

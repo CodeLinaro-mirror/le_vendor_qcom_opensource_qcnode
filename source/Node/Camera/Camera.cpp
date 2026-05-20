@@ -9,6 +9,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_QCX, Camera )
+
 using namespace QC::Memory;
 
 Camera::Camera()

@@ -194,6 +194,9 @@ copyList = [ { "desc":"host files", "src":"qnx_ap/qnx_bins/prebuilt_" + sdpStrin
              { "desc":"license files", "src":"qnx_ap/qnx_bins/prebuilt_" + sdpString + "/target/qnx7/license", "dst":"license", "op":"merge" } ]
 
 for item in copyList:
+    if os.name == "nt":
+        print("Skip copy toolchian on windows.")
+        break
     srcDir = inputDir + '/' + item["src"]
     dstDir = tcRootPath + '/' + item["dst"]
     print( "Copying " + item["desc"] + "\n  source: " + srcDir + "\n  destination: " + dstDir + "\n" )

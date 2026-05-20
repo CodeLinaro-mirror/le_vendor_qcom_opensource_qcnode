@@ -94,7 +94,7 @@ docker run -it \\
     -v {BUILD_DIR}:/opt/build \\
     -v {BUILD_DIR}/bld-aarch64-{VARIANT}:/data/qcnode/bld-aarch64-{VARIANT} \\
     -v {BUILD_DIR}/run-aarch64-{VARIANT}:/data/qcnode/run-aarch64-{VARIANT} \\
-    --net=host --privileged -v /dev/bus/usb:/dev/bus/usb \\
+    --net=host \\
     --rm {DOCKER} bash \\
     -c "set -xe; {OPT_ENV_SETUP} \\
         cd /data/qcnode; \\

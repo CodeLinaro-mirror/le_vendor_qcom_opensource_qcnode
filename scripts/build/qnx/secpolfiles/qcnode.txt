@@ -30,4 +30,5 @@ allow qcnode_t {
     sv_server_t
     compresmgr_service_t
     mqueue_t
+    compresmon_rm_t
 }:channel connect;

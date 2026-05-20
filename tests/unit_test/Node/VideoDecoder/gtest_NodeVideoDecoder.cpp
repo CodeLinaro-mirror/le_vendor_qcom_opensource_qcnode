@@ -353,7 +353,7 @@ void VdTestDynamic( uint32_t bufferNum, QCImageFormat_e outFormat, const char *v
             inFmt = "h265";
             break;
         default:
-            printf( "error: unrecognized input format %s\n", inFmt );
+            printf( "error: unrecognized input format %d\n", videoInfo.format );
             return;
     }
 
@@ -694,7 +694,8 @@ TEST_F( VideoDecoderTest, SubmitInputAndOutput_InvokesCallbacks )
     ASSERT_EQ( QC_STATUS_OK, dec.Start() );
     ASSERT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
 
-    auto in = MakeFrame( 0x1001, (void *) 0xA000, 2048, 1280, 720, QC_IMAGE_FORMAT_COMPRESSED_H264 );
+    auto in =
+            MakeFrame( 0x1001, (void *) 0xA000, 2048, 1280, 720, QC_IMAGE_FORMAT_COMPRESSED_H264 );
     auto out = MakeFrame( 0x2001, (void *) 0xB000, 8192, 1280, 720, QC_IMAGE_FORMAT_NV12 );
     NodeFrameDescriptor inFd( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1 );
     inFd.Clear();
@@ -706,7 +707,7 @@ TEST_F( VideoDecoderTest, SubmitInputAndOutput_InvokesCallbacks )
     ASSERT_EQ( QC_STATUS_OK,
                dec.ProcessFrameDescriptor( inFd ) );   // → EMPTY_INPUT_BUFFER → RESP_INPUT_DONE
     ASSERT_EQ( QC_STATUS_OK,
-               dec.ProcessFrameDescriptor( outFd ) );  // → FILL_OUTPUT_BUFFER → RESP_OUTPUT_DONE
+               dec.ProcessFrameDescriptor( outFd ) );   // → FILL_OUTPUT_BUFFER → RESP_OUTPUT_DONE
 
     EXPECT_GE( counters.in_cb.load(), 1 );
     EXPECT_GE( counters.out_cb.load(), 1 );

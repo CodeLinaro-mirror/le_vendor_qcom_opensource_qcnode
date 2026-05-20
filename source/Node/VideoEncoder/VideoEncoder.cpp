@@ -12,6 +12,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_VENC, VideoEncoder )
+
 #define ARRAY_SIZE( a ) ( sizeof( ( a ) ) / sizeof( ( a )[0] ) )
 
 #define VIDEO_ENCODER_DEFAULT_NUM_P_BET_2I 30
@@ -936,26 +938,26 @@ QCStatus_e VideoEncoderConfigIfs::VerifyAndSet( const std::string config, std::s
 void VideoEncoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc, void *pPrivData )
 {
     VideoEncoder *pNve = static_cast<VideoEncoder *>( pPrivData );
-    if( pNve != nullptr )
+    if ( pNve != nullptr )
     {
         pNve->InFrameCallback( inFrameDesc );
     }
     else
     {
-        QC_LOG_ERROR( "pPrivData of InFrameCallback is NULL");
+        QC_LOG_ERROR( "pPrivData of InFrameCallback is NULL" );
     }
 }
 
 void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc, void *pPrivData )
 {
     VideoEncoder *pNve = static_cast<VideoEncoder *>( pPrivData );
-    if( pNve != nullptr )
+    if ( pNve != nullptr )
     {
         pNve->OutFrameCallback( outFrameDesc );
     }
     else
     {
-        QC_LOG_ERROR( "pPrivData of OutFrameCallback is NULL");
+        QC_LOG_ERROR( "pPrivData of OutFrameCallback is NULL" );
     }
 }
 
@@ -963,13 +965,13 @@ void VideoEncoder::EventCallback( VideoCodec_EventType_e eventId, const void *pE
                                   void *pPrivData )
 {
     VideoEncoder *pNve = static_cast<VideoEncoder *>( pPrivData );
-    if( pNve != nullptr )
+    if ( pNve != nullptr )
     {
         pNve->EventCallback( eventId, pEvent );
     }
     else
     {
-        QC_LOG_ERROR( "pPrivData of EventCallback is NULL");
+        QC_LOG_ERROR( "pPrivData of EventCallback is NULL" );
     }
 }
 

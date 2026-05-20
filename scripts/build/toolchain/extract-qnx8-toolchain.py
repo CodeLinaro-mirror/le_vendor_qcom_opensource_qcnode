@@ -181,6 +181,9 @@ copyList = [ { "desc":"host files", "src":"qnx_ap/qnx_bins/prebuilt_" + sdpStrin
              { "desc":"license files", "src":"qnx_ap/qnx_bins/prebuilt_" + sdpString + "_patches/license", "dst":"license", "op":"copy" } ]
 
 for item in copyList:
+    if os.name == "nt":
+        print("Skip copy toolchian on windows.")
+        break
     srcDir = inputDir + '/' + item["src"]
     dstDir = tcRootPath + '/' + item["dst"]
     print( "Copying " + item["desc"] + "\n  source: " + srcDir + "\n  destination: " + dstDir + "\n" )
@@ -263,6 +266,28 @@ for L in OneOfIncList:
     else:
         incList.append(h)
 
+CompResIncList = [
+    FindFile(inputDir  + "/qnx_ap/AMSS/compute_ressched", "compressched_client.h") + [
+        srcIncDir + "/compressched_client.h",
+    ],
+    FindFile(inputDir  + "/qnx_ap/AMSS/compute_resmon", "compresmon.h") + [
+        srcIncDir + "/amss/compresmon.h",
+    ],
+    FindFile(inputDir  + "/qnx_ap/AMSS/compute", "compresmgr_client_api.h") + [
+        srcIncDir + "/compresmgr_client_api.h",
+    ]
+]
+
+for L in CompResIncList:
+    h = None
+    for x in L:
+        if os.path.isfile(x):
+            h = x
+            break
+    if h is None:
+        print(f"warining: header {os.path.basename(L[0])} not found")
+    else:
+        incList.append(h)
 
 for inc in incList:
     print( "Copying header file: " + inc + " to: " + tcIncDir )
@@ -331,15 +356,17 @@ libListFastADAS = [ "libfadas.so", "libfastrpc.so", "libfastrpc_pmem.so", "libfa
 libListQcx = [ "libqcxclient.so", "libqcxosal.so", "libmemorylogger.so", "libcamera_metadata.a" ]
 libListSv = [ "libsvplatform.so", "libsvcl.so", "libdevioClient.so", "libsoftsku.so.1", "libpm_client.so" ]
 libListFuSa = [ "libFuSa-CRC32.so" ]
+libListCompRes = [ "libcompressched.so", "libcompresmon.so", "libcompresmgr_client.so", "libcompute_osal.so",
+                    "libprocinfo.so.1", "libfdt_procinfo.so.1", "libfdt_utils.so.1" ]
 libList = libListVidc + libListPmem + libListFastADAS + libListQcx + [
         "libplanedef.so", "libcdsprpc.so", "libapdf.so", "libaosal.so", "libfastrpc_pmem.so",
         "liblibstd.so", "libmmap_peer.so", "libOSAbstraction.so"
-    ] + libListDemux + libListSv + libListXml + libListC2C + libListFuSa
+    ] + libListDemux + libListSv + libListXml + libListC2C + libListFuSa + libListCompRes
 targetLibDirs = [
         inputDir + '/qnx_ap/install/aarch64le/lib',
     ]
 
-AllowMissingLibs = libListSv + libListXml + libListC2C
+AllowMissingLibs = libListSv + libListXml + libListC2C + libListCompRes
 
 for lib in libList:
     print( "Copying library/symbol file: " + lib + " to: " + tcLibDir )

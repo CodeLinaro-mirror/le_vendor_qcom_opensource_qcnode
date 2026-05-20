@@ -9,6 +9,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_RADAR, Radar )
+
 QCStatus_e RadarConfigIfs::VerifyStaticConfig( DataTree &dt, std::string &errors )
 {
     QCStatus_e status = QC_STATUS_OK;

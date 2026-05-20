@@ -541,6 +541,7 @@ void SampleCL2DFlex::Execute()
     {
         QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
                   frames.Timestamp( 0 ) );
+        m_frameId = frames.FrameId( 0 );
         std::shared_ptr<SharedBuffer_t> bufferOutput = m_imagePool.Get();
         if ( nullptr != bufferOutput )
         {
@@ -592,7 +593,7 @@ void SampleCL2DFlex::Execute()
 #ifdef QC_ENABLE_HS
     else if ( m_bOrchestratorEnabled )
     {
-        QC_ERROR( "CL2D receive failed : %d", ret );
+        QC_ERROR( "CL2D receive failed : %d after %" PRIu64, ret, m_frameId );
     }
 #endif
 }

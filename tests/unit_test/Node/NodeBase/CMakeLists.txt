@@ -9,3 +9,8 @@ target_compile_definitions( gtest_NodeBase PUBLIC QC_ENABLE_NODETRACE )
 target_include_directories( gtest_NodeBase PUBLIC ${HEADERS_DIR})
 target_link_libraries( gtest_NodeBase gtest QCNode QCNodeTestUtils BufferManager )
 install(TARGETS gtest_NodeBase DESTINATION bin)
+
+add_executable( gtest_QCNodeFactory gtest_QCNodeFactory.cpp )
+target_include_directories( gtest_QCNodeFactory PUBLIC ${HEADERS_DIR})
+target_link_libraries( gtest_QCNodeFactory gtest QCNode QCNodeTestUtils BufferManager )
+install(TARGETS gtest_QCNodeFactory DESTINATION bin)

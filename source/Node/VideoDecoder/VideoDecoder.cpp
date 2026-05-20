@@ -20,6 +20,8 @@ namespace QC
 namespace Node
 {
 
+REGISTER_NODE( QC_NODE_TYPE_VDEC, VideoDecoder )
+
 QCStatus_e VideoDecoder::Initialize( QCNodeInit_t &config )
 {
     QCStatus_e status = QC_STATUS_OK;
@@ -288,48 +290,50 @@ QCStatus_e VideoDecoder::ValidateConfig()
     if ( QC_STATUS_OK == ret )
     {
         if ( ( m_pConfig->width < VIDEO_DECODER_MIN_RESOLUTION ) ||
-            ( m_pConfig->height < VIDEO_DECODER_MIN_RESOLUTION ) ||
-            ( m_pConfig->width > VIDEO_DECODER_MAX_RESOLUTION ) ||
-            ( m_pConfig->height > VIDEO_DECODER_MAX_RESOLUTION ) )
+             ( m_pConfig->height < VIDEO_DECODER_MIN_RESOLUTION ) ||
+             ( m_pConfig->width > VIDEO_DECODER_MAX_RESOLUTION ) ||
+             ( m_pConfig->height > VIDEO_DECODER_MAX_RESOLUTION ) )
         {
             QC_ERROR( "width %" PRIu32 " height %" PRIu32 " not in [%d, %d] ", m_pConfig->width,
-                    m_pConfig->height, VIDEO_DECODER_MIN_RESOLUTION, VIDEO_DECODER_MAX_RESOLUTION );
+                      m_pConfig->height, VIDEO_DECODER_MIN_RESOLUTION,
+                      VIDEO_DECODER_MAX_RESOLUTION );
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
 
-        if ( ( QC_STATUS_OK == ret ) && ( QC_IMAGE_FORMAT_COMPRESSED_H265 != m_pConfig->inFormat ) &&
-            ( QC_IMAGE_FORMAT_COMPRESSED_H264 != m_pConfig->inFormat ) )
+        if ( ( QC_STATUS_OK == ret ) &&
+             ( QC_IMAGE_FORMAT_COMPRESSED_H265 != m_pConfig->inFormat ) &&
+             ( QC_IMAGE_FORMAT_COMPRESSED_H264 != m_pConfig->inFormat ) )
         {
             QC_ERROR( "input format: %d not supported!", m_pConfig->inFormat );
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
 
         if ( ( QC_STATUS_OK == ret ) && ( QC_IMAGE_FORMAT_NV12 != m_pConfig->outFormat ) &&
-            ( QC_IMAGE_FORMAT_P010 != m_pConfig->outFormat ) )
+             ( QC_IMAGE_FORMAT_P010 != m_pConfig->outFormat ) )
         {
             QC_ERROR( "output format: %d not supported!", m_pConfig->outFormat );
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
 
         if ( ( QC_STATUS_OK == ret ) &&
-            ( ( m_pConfig->numInputBufferReq > VIDEO_DECODER_MAX_BUFFER_REQ ) ||
-            ( m_pConfig->numInputBufferReq < VIDEO_DECODER_MIN_BUFFER_REQ ) ) )
+             ( ( m_pConfig->numInputBufferReq > VIDEO_DECODER_MAX_BUFFER_REQ ) ||
+               ( m_pConfig->numInputBufferReq < VIDEO_DECODER_MIN_BUFFER_REQ ) ) )
         {
             QC_ERROR( "numInputBufferReq: %" PRIu32 " too small or too large! (MIN_BUFFER_REQ %d, "
-                    "MAX_BUFFER_REQ %d) ",
-                    m_pConfig->numInputBufferReq, VIDEO_DECODER_MIN_BUFFER_REQ,
-                    VIDEO_DECODER_MAX_BUFFER_REQ );
+                      "MAX_BUFFER_REQ %d) ",
+                      m_pConfig->numInputBufferReq, VIDEO_DECODER_MIN_BUFFER_REQ,
+                      VIDEO_DECODER_MAX_BUFFER_REQ );
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
 
         if ( ( QC_STATUS_OK == ret ) &&
-            ( ( m_pConfig->numOutputBufferReq > VIDEO_DECODER_MAX_BUFFER_REQ ) ||
-            ( m_pConfig->numOutputBufferReq < VIDEO_DECODER_MIN_BUFFER_REQ ) ) )
+             ( ( m_pConfig->numOutputBufferReq > VIDEO_DECODER_MAX_BUFFER_REQ ) ||
+               ( m_pConfig->numOutputBufferReq < VIDEO_DECODER_MIN_BUFFER_REQ ) ) )
         {
             QC_ERROR( "numOutputBufferReq: %" PRIu32 " too small or too large! (MIN_BUFFER_REQ %d, "
-                    "MAX_BUFFER_REQ %d) ",
-                    m_pConfig->numOutputBufferReq, VIDEO_DECODER_MIN_BUFFER_REQ,
-                    VIDEO_DECODER_MAX_BUFFER_REQ );
+                      "MAX_BUFFER_REQ %d) ",
+                      m_pConfig->numOutputBufferReq, VIDEO_DECODER_MIN_BUFFER_REQ,
+                      VIDEO_DECODER_MAX_BUFFER_REQ );
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
     }
@@ -350,7 +354,7 @@ QCStatus_e VideoDecoder::CheckBuffer( const VideoFrameDescriptor_t &frameDesc,
     {
         if ( bufferType == VIDEO_CODEC_BUF_OUTPUT )
         {
-            if ( frameDesc.size < static_cast<size_t>( m_bufSize[VIDEO_CODEC_BUF_OUTPUT] ))
+            if ( frameDesc.size < static_cast<size_t>( m_bufSize[VIDEO_CODEC_BUF_OUTPUT] ) )
             {
                 QC_ERROR( "pBuffer size %zu is smaller than vidcOutputBufferSize %" PRIu32,
                           frameDesc.size, m_bufSize[VIDEO_CODEC_BUF_OUTPUT] );
@@ -612,7 +616,7 @@ void VideoDecoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc, void *p
     }
     else
     {
-        QC_LOG_ERROR( "pPrivData of InFrameCallback is NULL");
+        QC_LOG_ERROR( "pPrivData of InFrameCallback is NULL" );
     }
 }
 
@@ -626,7 +630,7 @@ void VideoDecoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc, void 
     }
     else
     {
-        QC_LOG_ERROR( "pPrivData of OutFrameCallback is NULL");
+        QC_LOG_ERROR( "pPrivData of OutFrameCallback is NULL" );
     }
 }
 
@@ -641,7 +645,7 @@ void VideoDecoder::EventCallback( VideoCodec_EventType_e eventId, const void *pE
     }
     else
     {
-        QC_LOG_ERROR( "pPrivData of EventCallback is NULL");
+        QC_LOG_ERROR( "pPrivData of EventCallback is NULL" );
     }
 }
 

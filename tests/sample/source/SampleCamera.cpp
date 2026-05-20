@@ -23,7 +23,11 @@ void SampleCamera::RunnableCallback( const std::uint32_t *rids, std::size_t coun
 {
     CameraFrameDescriptor_t camFrameDesc;
     std::unique_lock<std::mutex> lck( m_mutex );
-    m_condVar.wait( lck );
+
+    if ( m_camFrameQueue.empty() )
+    {
+        (void) m_condVar.wait_for( lck, std::chrono::milliseconds( 1000 ) );
+    }
 
     if ( !m_camFrameQueue.empty() )
     {
@@ -31,6 +35,10 @@ void SampleCamera::RunnableCallback( const std::uint32_t *rids, std::size_t coun
         m_camFrameQueue.pop();
         lck.unlock();
         ProcessFrame( &camFrameDesc );
+    }
+    else
+    {
+        QC_ERROR( "camera frame timeout." );
     }
 }
 #endif

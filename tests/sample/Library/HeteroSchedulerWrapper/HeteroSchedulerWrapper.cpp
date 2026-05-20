@@ -8,7 +8,10 @@
 
 #include "HeteroSchedulerWrapper.hpp"
 #include "QC/sample/SampleIF.hpp"
+#include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <thread>
 
 namespace QC
 {
@@ -49,24 +52,35 @@ QCStatus_e HeteroSchedulerWrapper::Initialize( const std::string &clientName )
         m_clientName = clientName;
 
         // Step 1: Initialize orchestrator client runtime
-        if ( cf::OrchInit( m_clientName.c_str(), nullptr ) != cf::CF_ORCH_ERROR::SUCCESS )
+        cf::CF_ORCH_ERROR orchInitResult = cf::OrchInit( m_clientName.c_str(), nullptr );
+        if ( orchInitResult != cf::CF_ORCH_ERROR::SUCCESS )
         {
-            QC_ERROR( "[HeteroSchedulerClient] OrchInit failed for client: %s",
-                      m_clientName.c_str() );
-            status = QC_STATUS_FAIL;
-        }
-        else if ( cf::OrchVertList( m_vertNames ) != cf::CF_ORCH_ERROR::SUCCESS )
-        {
-            // Step 2: Obtain the names of node vertices
-            QC_ERROR( "[HeteroSchedulerClient] OrchVertList failed" );
-            (void)cf::OrchDeinit();
+            QC_ERROR( "[HeteroSchedulerClient] OrchInit failed for client: %s, error: %d",
+                      m_clientName.c_str(), static_cast<int>( orchInitResult ) );
             status = QC_STATUS_FAIL;
         }
         else
         {
-            m_bInitialized = true;
-            QC_DEBUG( "[HeteroSchedulerClient] Initialized successfully for client: %s",
-                      m_clientName.c_str() );
+            // Step 2: Obtain the names of node vertices
+            cf::CF_ORCH_ERROR orchVertListResult = cf::OrchVertList( m_vertNames );
+            if ( orchVertListResult != cf::CF_ORCH_ERROR::SUCCESS )
+            {
+                QC_ERROR( "[HeteroSchedulerClient] OrchVertList failed, error: %d",
+                          static_cast<int>( orchVertListResult ) );
+                cf::CF_ORCH_ERROR orchDeinitResult = cf::OrchDeinit();
+                if ( orchDeinitResult != cf::CF_ORCH_ERROR::SUCCESS )
+                {
+                    QC_ERROR( "[HeteroSchedulerClient] OrchDeinit failed during cleanup, error: %d",
+                              static_cast<int>( orchDeinitResult ) );
+                }
+                status = QC_STATUS_FAIL;
+            }
+            else
+            {
+                m_bInitialized = true;
+                QC_DEBUG( "[HeteroSchedulerClient] Initialized successfully for client: %s",
+                          m_clientName.c_str() );
+            }
         }
     }
 
@@ -94,10 +108,12 @@ QCStatus_e HeteroSchedulerWrapper::RegisterVertex( const std::vector<SampleIF *>
         {
             // Resolve vertex ID from task name
             std::uint32_t vid = 0;
-            if ( cf::OrchVertIdFromString( name.c_str(), &vid ) !=
-                 cf::CF_ORCH_ERROR::SUCCESS )
+            cf::CF_ORCH_ERROR orchVertIdResult = cf::OrchVertIdFromString( name.c_str(), &vid );
+            if ( orchVertIdResult != cf::CF_ORCH_ERROR::SUCCESS )
             {
-                QC_ERROR( "OrchVertIdFromString failed for task %s", name.c_str() );
+                QC_ERROR( "[HeteroSchedulerClient] OrchVertIdFromString failed for task %s, "
+                          "error: %d",
+                          name.c_str(), static_cast<int>( orchVertIdResult ) );
                 continue;
             }
 
@@ -126,11 +142,13 @@ QCStatus_e HeteroSchedulerWrapper::RegisterVertex( const std::vector<SampleIF *>
                         return 0;
                     };
 
-                    // 6.3 Register the callback with the orchestrator
-                    if ( cf::OrchVertRegister( 0, vid, run_cb ) != cf::CF_ORCH_ERROR::SUCCESS )
+                    // Register the callback with the orchestrator
+                    cf::CF_ORCH_ERROR orchVertRegResult = cf::OrchVertRegister( 0, vid, run_cb );
+                    if ( orchVertRegResult != cf::CF_ORCH_ERROR::SUCCESS )
                     {
-                        QC_ERROR( "OrchVertRegister failed for VID %u (task %s)", vid,
-                                  name.c_str() );
+                        QC_ERROR( "[HeteroSchedulerClient] OrchVertRegister failed for VID %u "
+                                  "(task %s), error: %d",
+                                  vid, name.c_str(), static_cast<int>( orchVertRegResult ) );
                         status = QC_STATUS_FAIL;
                         break;
                     }
@@ -140,8 +158,9 @@ QCStatus_e HeteroSchedulerWrapper::RegisterVertex( const std::vector<SampleIF *>
                 }
                 else
                 {
-                    QC_DEBUG( "[HeteroSchedulerClient] Sample %s does not support orchestrator mode",
-                              matchingSample->GetName() );
+                    QC_DEBUG(
+                            "[HeteroSchedulerClient] Sample %s does not support orchestrator mode",
+                            matchingSample->GetName() );
                 }
             }
             else
@@ -155,11 +174,12 @@ QCStatus_e HeteroSchedulerWrapper::RegisterVertex( const std::vector<SampleIF *>
         // Register the client with the orchestrator
         if ( status == QC_STATUS_OK )
         {
-            if ( cf::OrchClientRegister( m_clientName.c_str() ) !=
-                 cf::CF_ORCH_ERROR::SUCCESS )
+            cf::CF_ORCH_ERROR orchClientRegResult = cf::OrchClientRegister( m_clientName.c_str() );
+            if ( orchClientRegResult != cf::CF_ORCH_ERROR::SUCCESS )
             {
-                QC_ERROR( "[HeteroSchedulerClient] OrchClientRegister failed for client: %s",
-                          m_clientName.c_str() );
+                QC_ERROR( "[HeteroSchedulerClient] OrchClientRegister failed for client: %s, "
+                          "error: %d",
+                          m_clientName.c_str(), static_cast<int>( orchClientRegResult ) );
                 status = QC_STATUS_FAIL;
             }
         }
@@ -182,19 +202,43 @@ QCStatus_e HeteroSchedulerWrapper::Start()
         QC_ERROR( "[HeteroSchedulerClient] Client already running" );
         status = QC_STATUS_FAIL;
     }
-    else if ( cf::OrchClientStart( m_clientName.c_str() ) != cf::CF_ORCH_ERROR::SUCCESS )
-    {
-        // Start the client execution
-        QC_ERROR( "[HeteroSchedulerClient] OrchClientStart failed for client: %s",
-                  m_clientName.c_str() );
-        cf::OrchClientStop( m_clientName.c_str() );
-        status = QC_STATUS_FAIL;
-    }
     else
     {
-        m_bRunning = true;
-        QC_DEBUG( "[HeteroSchedulerClient] Started successfully for client: %s",
-                  m_clientName.c_str() );
+        // Check for optional start delay controlled by QC_HS_START_DELAY (in ms)
+        const char *delayEnv = std::getenv( "QC_HS_START_DELAY" );
+        if ( delayEnv != nullptr )
+        {
+            int delayMs = std::atoi( delayEnv );
+            if ( delayMs > 0 )
+            {
+                QC_DEBUG( "[HeteroSchedulerClient] Delaying OrchClientStart by %d ms "
+                          "(QC_HS_START_DELAY)",
+                          delayMs );
+                std::this_thread::sleep_for( std::chrono::milliseconds( delayMs ) );
+            }
+        }
+
+        // Start the client execution
+        cf::CF_ORCH_ERROR orchStartResult = cf::OrchClientStart( m_clientName.c_str() );
+        if ( orchStartResult != cf::CF_ORCH_ERROR::SUCCESS )
+        {
+            QC_ERROR( "[HeteroSchedulerClient] OrchClientStart failed for client: %s, error: %d",
+                      m_clientName.c_str(), static_cast<int>( orchStartResult ) );
+            cf::CF_ORCH_ERROR orchStopResult = cf::OrchClientStop( m_clientName.c_str() );
+            if ( orchStopResult != cf::CF_ORCH_ERROR::SUCCESS )
+            {
+                QC_ERROR( "[HeteroSchedulerClient] OrchClientStop failed during cleanup for "
+                          "client: %s, error: %d",
+                          m_clientName.c_str(), static_cast<int>( orchStopResult ) );
+            }
+            status = QC_STATUS_FAIL;
+        }
+        else
+        {
+            m_bRunning = true;
+            QC_DEBUG( "[HeteroSchedulerClient] Started successfully for client: %s",
+                      m_clientName.c_str() );
+        }
     }
 
     return status;
@@ -216,8 +260,8 @@ QCStatus_e HeteroSchedulerWrapper::Stop()
 
         if ( result != cf::CF_ORCH_ERROR::SUCCESS )
         {
-            QC_ERROR( "[HeteroSchedulerClient] OrchClientStop failed for client: %s",
-                      m_clientName.c_str() );
+            QC_ERROR( "[HeteroSchedulerClient] OrchClientStop failed for client: %s, error: %d",
+                      m_clientName.c_str(), static_cast<int>( result ) );
             status = QC_STATUS_FAIL;
         }
         else
@@ -255,8 +299,8 @@ QCStatus_e HeteroSchedulerWrapper::Deinit()
         cf::CF_ORCH_ERROR result = cf::OrchDeinit();
         if ( result != cf::CF_ORCH_ERROR::SUCCESS )
         {
-            QC_ERROR( "[HeteroSchedulerClient] OrchDeinit failed for client: %s",
-                      m_clientName.c_str() );
+            QC_ERROR( "[HeteroSchedulerClient] OrchDeinit failed for client: %s, error: %d",
+                      m_clientName.c_str(), static_cast<int>( result ) );
             m_bInitialized = false;
             status = QC_STATUS_FAIL;
         }

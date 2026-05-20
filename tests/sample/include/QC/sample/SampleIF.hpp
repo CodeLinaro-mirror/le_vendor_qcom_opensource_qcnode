@@ -24,6 +24,10 @@
 #include <rsm_client_v2.h>
 #endif
 
+#if defined( WITH_COMP_RES_SCHED )
+#include <compressched_client.h>
+#endif
+
 namespace QC
 {
 namespace sample
@@ -271,11 +275,21 @@ protected:
     QC_DECLARE_LOGGER();
 
 private:
+#if defined( WITH_RSM_V2 ) || defined( WITH_COMP_RES_SCHED )
+    bool m_bRsmDisabled = false;
+#endif
+
 #if defined( WITH_RSM_V2 )
     rsm_acquire_cmd_v2 m_acquireCmdV2;
     rsm_acquire_rsp_v2 m_acquireRspV2;
     rsm_handle m_handle = 0;
-    bool m_bRsmDisabled = false;
+#endif
+
+#if defined( WITH_COMP_RES_SCHED )
+    compressched_acquire_rsp m_crsAcquireRsp = {};
+    compressched_handle m_crsHandle = 0;
+    compressched_platform_query m_crsPlatfromQuery = {};
+    void SetupCompResSchedCmd( compressched_acquire_cmd &cmd );
 #endif
 
     QCProcessorType_e m_processor = QC_PROCESSOR_MAX;

@@ -4,6 +4,10 @@ set( HEADERS_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/include 
     ${CMAKE_CURRENT_SOURCE_DIR}/../../include )
 
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    list(APPEND HEADERS_DIR ${CMAKE_SYSROOT}/usr/include/amss)
+endif()
+
 set ( RESMON_SRC ResMonitor.cpp )
 
 add_library( ResMonitor STATIC ${RESMON_SRC} )

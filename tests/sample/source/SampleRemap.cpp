@@ -485,6 +485,7 @@ void SampleRemap::Execute()
     {
         QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frames.FrameId( 0 ),
                   frames.Timestamp( 0 ) );
+        m_frameId = frames.FrameId( 0 );
         std::shared_ptr<SharedBuffer_t> bufferOutput = m_imagePool.Get();
         ret = SampleIF::Lock();
         if ( ( nullptr != bufferOutput ) && ( QC_STATUS_OK == ret ) )
@@ -538,7 +539,7 @@ void SampleRemap::Execute()
 #ifdef QC_ENABLE_HS
     else if ( m_bOrchestratorEnabled )
     {
-        QC_ERROR( "Remap receive failed : %d", ret );
+        QC_ERROR( "Remap receive failed : %d after %" PRIu64, ret, m_frameId );
     }
 #endif
 }
