@@ -83,7 +83,7 @@ Note: the "-n componentX_name -t componentX_type" must be in the begin for each 
 | widthX    | false    | int       | 1920    | The image width for the simulated camera X |
 | heightX   | false    | int       | 1024    | The image height for the simulated camera X |
 | data_pathX | true    | string    | -       | The data path for the simulated sensor X that contain the image files |
-| tensor_typeX | false | string    | float32 | The tensor type, options from [int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, sfixed_point8, sfixed_point16, sfixed_point32, ufixed_point8, ufixed_point16, ufixed_point32 ] |
+| tensor_typeX | false | string    | float32 | The tensor type, options from [int8, int16, int32, int64, uint8, uint16, uint32, uint64, float16, float32, float64, sfixed_point8, sfixed_point16, sfixed_point32, ufixed_point8, ufixed_point16, ufixed_point32,bool8 ] |
 | dimsX     | true     | string    | -       | The tensor dimensions, in format "N,H,W,C", "N,S,C", "N,C", or "N" depends on the number of dimensions. |
 | offset   | false    | int      | 0    | Specifies the starting index for the simulated sensor data. |
 | fps       | false    | int       | 30      | The frame rate per second |

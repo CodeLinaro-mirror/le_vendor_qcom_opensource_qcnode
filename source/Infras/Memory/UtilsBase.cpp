@@ -54,7 +54,9 @@ const uint32_t UtilsBase::s_qcTensorTypeToDataSize[QC_TENSOR_TYPE_MAX] = {
 
         1, /* QC_TENSOR_TYPE_UFIXED_POINT_8 */
         2, /* QC_TENSOR_TYPE_UFIXED_POINT_16 */
-        4  /* QC_TENSOR_TYPE_UFIXED_POINT_32 */
+        4, /* QC_TENSOR_TYPE_UFIXED_POINT_32 */
+
+        1 /* QC_TENSOR_TYPE_BOOL_8 */
 };
 
 const uint32_t UtilsBase::s_qcFormatToBytesPerPixel[QC_IMAGE_FORMAT_MAX] = {

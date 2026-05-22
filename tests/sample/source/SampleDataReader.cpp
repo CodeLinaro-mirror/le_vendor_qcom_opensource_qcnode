@@ -43,7 +43,8 @@ static uint32_t s_qcTensorTypeToDataSize[QC_TENSOR_TYPE_MAX] = {
 
         sizeof( uint8_t ),  /* QC_TENSOR_TYPE_UFIXED_POINT_8 */
         sizeof( uint16_t ), /* QC_TENSOR_TYPE_UFIXED_POINT_16 */
-        sizeof( uint32_t )  /* QC_TENSOR_TYPE_UFIXED_POINT_32 */
+        sizeof( uint32_t ), /* QC_TENSOR_TYPE_UFIXED_POINT_32 */
+        sizeof( uint8_t ),  /* QC_TENSOR_TYPE_BOOL_8 */
 };
 
 SampleDataReader::SampleDataReader() {}

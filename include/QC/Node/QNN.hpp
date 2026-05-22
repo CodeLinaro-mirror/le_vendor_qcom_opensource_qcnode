@@ -15,7 +15,7 @@ namespace Node
 /** @brief The QCNode QNN Version */
 #define QCNODE_QNN_VERSION_MAJOR 2U
 #define QCNODE_QNN_VERSION_MINOR 0U
-#define QCNODE_QNN_VERSION_PATCH 7U
+#define QCNODE_QNN_VERSION_PATCH 8U
 
 #define QCNODE_QNN_VERSION                                                                         \
     ( ( QCNODE_QNN_VERSION_MAJOR << 16U ) | ( QCNODE_QNN_VERSION_MINOR << 8U ) |                   \

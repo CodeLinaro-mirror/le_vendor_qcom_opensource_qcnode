@@ -930,7 +930,7 @@ QCStatus_e QnnImpl::CreateFromBinaryBuffer( QCBufferDescriptorBase &bufDesc )
             &binaryInfoSize );
     if ( QNN_SUCCESS != retVal )
     {
-        QC_ERROR( "Failed to get context binary info." );
+        QC_ERROR( "Failed to get context binary info: %" PRIu64, retVal );
         status = QC_STATUS_FAIL;
     }
 
@@ -999,7 +999,7 @@ QCStatus_e QnnImpl::CreateFromBinaryFile( std::string modelFile )
 {
     QCStatus_e status = QC_STATUS_OK;
     QCBufferDescriptorBase bufDesc;
-    uint32_t bufferSize = 0;
+    uint64_t bufferSize = 0;
     FILE *pFile = fopen( modelFile.c_str(), "rb" );
     if ( nullptr == pFile )
     {
@@ -1009,7 +1009,7 @@ QCStatus_e QnnImpl::CreateFromBinaryFile( std::string modelFile )
     else
     {
         fseek( pFile, 0, SEEK_END );
-        bufferSize = static_cast<uint32_t>( ftell( pFile ) );
+        bufferSize = static_cast<uint64_t>( ftell( pFile ) );
         fseek( pFile, 0, SEEK_SET );
         if ( 0 == bufferSize )
         {
@@ -2863,6 +2863,10 @@ QCTensorType_e QnnImpl::SwitchFromQnnDataType( Qnn_DataType_t dataType )
             tensorType = QC_TENSOR_TYPE_UFIXED_POINT_32;
             break;
 
+        case QNN_DATATYPE_BOOL_8:
+            tensorType = QC_TENSOR_TYPE_BOOL_8;
+            break;
+
         default:
             QC_ERROR( "unsupported qnn data type: %d", (int) dataType );
             break;
@@ -2941,6 +2945,10 @@ Qnn_DataType_t QnnImpl::SwitchToQnnDataType( QCTensorType_e tensorType )
 
         case QC_TENSOR_TYPE_UFIXED_POINT_32:
             dataType = QNN_DATATYPE_UFIXED_POINT_32;
+            break;
+
+        case QC_TENSOR_TYPE_BOOL_8:
+            dataType = QNN_DATATYPE_BOOL_8;
             break;
 
         default:

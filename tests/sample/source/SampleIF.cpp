@@ -707,6 +707,10 @@ QCTensorType_e SampleIF::Get( SampleConfig_t &config, std::string key, QCTensorT
         {
             ret = QC_TENSOR_TYPE_UFIXED_POINT_32;
         }
+        else if ( "bool8" == format )
+        {
+            ret = QC_TENSOR_TYPE_BOOL_8;
+        }
         else
         {
             ret = QC_TENSOR_TYPE_MAX;
