@@ -738,6 +738,14 @@ QCProcessorType_e SampleIF::Get( SampleConfig_t &config, std::string key,
         {
             ret = QC_PROCESSOR_HTP1;
         }
+        else if ( "htp2" == processor )
+        {
+            ret = QC_PROCESSOR_HTP2;
+        }
+        else if ( "htp3" == processor )
+        {
+            ret = QC_PROCESSOR_HTP3;
+        }
         else if ( "cpu" == processor )
         {
             ret = QC_PROCESSOR_CPU;

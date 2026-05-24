@@ -1,5 +1,6 @@
 
 add_subdirectory(BufferManager)
+add_subdirectory(FrameSync)
 add_subdirectory(SharedRing)
 add_subdirectory(TinyViz)
 if( ENABLE_HS )

@@ -63,7 +63,7 @@ if( NOT TARGET QCNode )
   endif()
 endif()
 
-set( TARGET_LIBRARIES QCNode SharedRing BufferManager )
+set( TARGET_LIBRARIES QCNode SharedRing BufferManager TimestampSync )
 
 if ( ENABLE_GENIE )
   list( APPEND QCNODE_SAMPLE_SOURCES SampleGenie.cpp )

@@ -43,10 +43,23 @@ public:
     std::function<void( const std::uint32_t *, std::size_t )> GetRunnableCallback() override;
 #endif
 
+    /// @brief Wait until all input subscribers have received at least one frame.
+    ///
+    /// Called after Start() and before starting the HeteroScheduler.  Blocks until
+    /// every camera input topic has data available, indicating the upstream camera
+    /// pipeline is live and the HS scheduling cycle can safely begin.
+    ///
+    /// @return QC_STATUS_OK when all inputs are ready; QC_STATUS_FAIL if stopped early.
+    QCStatus_e WaitReady() override;
+
 private:
     QCStatus_e ParseConfig( SampleConfig_t &config );
     void threadWindowMain();
+    void threadBufferTimestampMain();
     void Execute();
+    void ExecuteWindowSync();
+    void ExecuteBufferTimestamp();
+    void PublishFrames( std::vector<DataFrames_t> &selectedFrames, uint64_t frameId );
 
 #ifdef QC_ENABLE_HS
     void RunnableCallback( const std::uint32_t *rids, std::size_t count );
@@ -55,7 +68,8 @@ private:
 private:
     typedef enum
     {
-        FRAME_SYNC_MODE_WINDOW,
+        FRAME_SYNC_MODE_WINDOW,             ///< time-window based collection (existing)
+        FRAME_SYNC_MODE_BUFFER_TIMESTAMP,   ///< peek-based best-match timestamp selection
     } FrameSyncMode_e;
 
 private:
@@ -66,6 +80,8 @@ private:
 
     uint32_t m_number;
     uint32_t m_windowMs;
+    uint32_t m_timestampThresholdMs;
+    uint32_t m_queueDepth;
 
     std::vector<std::string> m_inputTopicNames;
     std::string m_outputTopicName;
