@@ -1184,13 +1184,13 @@ Typical usage in a Qwen2.5-VL pipeline:
       -k output_topic -v /sensor/camera/VIT/pixel_values \
   -n VIT_INPUT_AUX -t DataReader -k number -v 4 -k fps -v 1 \
       -k type0 -v tensor -k tensor_type0 -v ufixed_point16 -k dims0 -v "1,46,46,40" \
-      -k data_path0 -v /data/mingdaic/qwen25input/data_uint16_vitScaleOffset/position_ids_cos \
+      -k data_path0 -v /data/qwen25input/data_uint16_vitScaleOffset/position_ids_cos \
       -k type1 -v tensor -k tensor_type1 -v ufixed_point16 -k dims1 -v "1,46,46,40" \
-      -k data_path1 -v /data/mingdaic/qwen25input/data_uint16_vitScaleOffset/position_ids_sin \
+      -k data_path1 -v /data/qwen25input/data_uint16_vitScaleOffset/position_ids_sin \
       -k type2 -v tensor -k tensor_type2 -v ufixed_point16 -k dims2 -v "1,46,46,2116" \
-      -k data_path2 -v /data/mingdaic/qwen25input/data_uint16_vitScaleOffset/window_attention_mask \
+      -k data_path2 -v /data/qwen25input/data_uint16_vitScaleOffset/window_attention_mask \
       -k type3 -v tensor -k tensor_type3 -v ufixed_point16 -k dims3 -v "1,46,46,2116" \
-      -k data_path3 -v /data/mingdaic/qwen25input/data_uint16_vitScaleOffset/full_attention_mask \
+      -k data_path3 -v /data/qwen25input/data_uint16_vitScaleOffset/full_attention_mask \
       -k topic -v /sensor/camera/VIT/aux_inputs \
   -n VIT_MERGER -t FrameSync \
       -k window -v 1500 \
@@ -1198,16 +1198,16 @@ Typical usage in a Qwen2.5-VL pipeline:
       -k input_topic1 -v /sensor/camera/VIT/aux_inputs \
       -k output_topic -v /sensor/camera/VIT/input \
   -n VIT -t Qnn -k processor -v htp0 -k perf_profile -v burst \
-      -k model_path -v /data/mingdaic/qwen25input/data/vit/veg.serialized.bin -k core_ids -v 0,1,2,3 \
+      -k model_path -v /data/qwen25input/data/vit/veg.serialized.bin -k core_ids -v 0,1,2,3 \
       -k input_topic -v /sensor/camera/VIT/input \
       -k output_topic -v /sensor/camera/VIT/embdeds \
   -n CAT_VIS -t ConcatVision \
       -k input_topic -v /sensor/camera/VIT/embdeds \
-      -k input_ids_file -v /data/mingdaic/qwen25input/input_ids_cmd.raw \
-      -k input_embeds_file -v /data/mingdaic/qwen25input/inputs_embeds_before_replacement553x2048.bin \
+      -k input_ids_file -v /data/qwen25input/input_ids_cmd.raw \
+      -k input_embeds_file -v /data/qwen25input/inputs_embeds_before_replacement553x2048.bin \
       -k output_topic -v /sensor/genie/embeding/raw \
-  -n GENIE0 -t Genie -k config -v /data/mingdaic/qwen25input/qwen2vl_absolute10.json \
-      -k embedding_table -v /data/mingdaic/qwen25input/embedding_weights_151936x2048.raw \
+  -n GENIE0 -t Genie -k config -v /data/qwen25input/qwen2vl_absolute10.json \
+      -k embedding_table -v /data/qwen25input/embedding_weights_151936x2048.raw \
       -k input_topic -v /sensor/genie/embeding/raw \
       -k output_topic -v /sensor/genie/decoder/text \
   -d
