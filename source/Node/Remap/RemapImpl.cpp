@@ -104,7 +104,8 @@ RemapImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorBase
                     m_config.params.numOfInputs, m_config.params.outputWidth,
                     m_config.params.outputHeight, m_config.params.outputFormat,
                     m_config.params.normlzR, m_config.params.normlzG, m_config.params.normlzB,
-                    m_config.params.bEnableUndistortion, m_config.params.bEnableNormalize );
+                    m_config.params.bEnableUndistortion, m_config.params.bEnableNormalize,
+                    m_config.params.cpuThreadsAffinity );
 
             if ( QC_STATUS_OK != status )
             {

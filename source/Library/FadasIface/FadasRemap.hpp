@@ -24,7 +24,8 @@ public:
     QCStatus_e SetRemapParams( uint32_t numOfInputs, uint32_t outputWidth, uint32_t outputHeight,
                                QCImageFormat_e outputFormat, FadasNormlzParams_t normlzR,
                                FadasNormlzParams_t normlzG, FadasNormlzParams_t normlzB,
-                               bool bEnableUndistortion, bool bEnableNormalize );
+                               bool bEnableUndistortion, bool bEnableNormalize,
+                               const std::vector<int32_t> &cpuThreadsAffinity = {} );
     QCStatus_e CreatRemapTable( uint32_t inputId, uint32_t mapWidth, uint32_t mapHeight,
                                 const TensorDescriptor_t &bufDescMapX,
                                 const TensorDescriptor_t &bufDescMapY );
@@ -62,6 +63,7 @@ private:
     uint32_t m_outputHeight;
     bool m_bEnableUndistortion;
     bool m_bEnableNormalize;
+    std::vector<int32_t> m_cpuThreadsAffinity; /**< CPU thread affinity list for CPU workers */
 };
 
 }   // namespace FadasIface
