@@ -1772,10 +1772,11 @@ QCStatus_e QnnImpl::RemoteRegisterBuf( const TensorDescriptor_t &tensorDesc, int
     extDomainId = get_extended_domains_id( domain, client );
 #endif
 
+    std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
+
     int rpcFd = rpcmem_to_fd( tensorDesc.pBuf );
     if ( rpcFd < 0 )
     {
-        std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
 #ifdef QC_USE_REMOTE_REGISTER_V2
 #if defined( __QNXNTO__ )
         remote_register_buf_v2( extDomainId, tensorDesc.pBuf, static_cast<int>( tensorDesc.size ),
@@ -1808,7 +1809,6 @@ QCStatus_e QnnImpl::RemoteRegisterBuf( const TensorDescriptor_t &tensorDesc, int
     }
     else
     {
-        std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
         auto it = s_dmaMemRefMap[m_config.processorType].find( tensorDesc.pBuf );
         if ( it != s_dmaMemRefMap[m_config.processorType].end() )
         {
