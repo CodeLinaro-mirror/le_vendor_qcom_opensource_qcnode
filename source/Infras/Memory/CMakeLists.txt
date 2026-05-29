@@ -6,16 +6,21 @@ set(MEMORY_HEADERS
     ${HEADERS_DIR}/QC/Infras/Memory/ImageDescriptor.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/TensorDescriptor.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/CameraBufferDescriptor.hpp
+    ${HEADERS_DIR}/QC/Infras/Memory/HeapAllocator.hpp
+    ${HEADERS_DIR}/QC/Infras/Memory/ManagerLocal.hpp
+    ${HEADERS_DIR}/QC/Infras/Memory/Pool.hpp
+    ${HEADERS_DIR}/QC/Infras/Memory/UtilsBase.hpp
+    ${HEADERS_DIR}/QC/Infras/Memory/VideoFrameDescriptor.hpp
+)
+
+set(MEMORY_IFS_HEADERS
+    ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCBufferDescriptorBase.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryAllocatorIfs.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryDefs.hpp
+    ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryFactory.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryManagerIfs.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryPoolIfs.hpp
     ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryUtilsIfs.hpp
-    ${HEADERS_DIR}/QC/Infras/Memory/HeapAllocator.hpp
-    ${HEADERS_DIR}/QC/Infras/Memory/ManagerLocal.hpp
-    ${HEADERS_DIR}/QC/Infras/Memory/UtilsBase.hpp
-    ${HEADERS_DIR}/QC/Infras/Memory/VideoFrameDescriptor.hpp
-    ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryFactory.hpp
 )
 
 # Use the ENABLE_SIMNODE option to conditionally include source files
@@ -94,6 +99,7 @@ target_link_libraries(QCNodeMemory PUBLIC ${TARGET_LIBRARIES})
 target_compile_options(QCNodeMemory PRIVATE -Wall)
 
 install(FILES ${MEMORY_HEADERS} DESTINATION include/QC/Infras/Memory)
+install(FILES ${MEMORY_IFS_HEADERS} DESTINATION include/QC/Infras/Memory/Ifs)
 
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     target_include_directories(QCNodeMemory PUBLIC ${CMAKE_SYSROOT}/usr/include/mm-osal/include)

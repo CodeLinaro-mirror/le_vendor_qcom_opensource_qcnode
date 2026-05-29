@@ -5,6 +5,9 @@ set( NODEBASE_HEADERS
     ${HEADERS_DIR}/QC/Node/NodeConfigBase.hpp
     ${HEADERS_DIR}/QC/Node/NodeFrameDescriptor.hpp
     ${HEADERS_DIR}/QC/Node/NodeFrameDescriptorPool.hpp
+)
+
+set( NODEBASE_IFS_HEADERS
     ${HEADERS_DIR}/QC/Node/Ifs/QCNodeFactory.hpp
 )
 
@@ -40,6 +43,7 @@ target_link_libraries( QCNodeBase PUBLIC ${TARGET_LIBRARIES} )
 target_compile_options( QCNodeBase PRIVATE -Wall )
 
 install( FILES ${NODEBASE_HEADERS} DESTINATION include/QC/Node )
+install( FILES ${NODEBASE_IFS_HEADERS} DESTINATION include/QC/Node/Ifs )
 install( FILES  ${HEADERS_DIR}/QC/Common/DataTree.hpp
                 ${HEADERS_DIR}/QC/Common/QCDefs.hpp
                 DESTINATION include/QC/Common )
