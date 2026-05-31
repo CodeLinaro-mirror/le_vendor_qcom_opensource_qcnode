@@ -11,6 +11,10 @@ set ( HETERO_SCHEDULER_WRAPPER_SRC HeteroSchedulerWrapper.cpp )
 add_library( HeteroSchedulerWrapper STATIC ${HETERO_SCHEDULER_WRAPPER_SRC} )
 target_link_libraries( HeteroSchedulerWrapper PUBLIC sched-client )
 
+if ( ENABLE_TRACE )
+    target_link_libraries( HeteroSchedulerWrapper PUBLIC QCNodeTrace )
+endif()
+
 target_include_directories( HeteroSchedulerWrapper PUBLIC  ${HEADERS_DIR} ${CMAKE_CURRENT_SOURCE_DIR} )
 
 set_property( TARGET HeteroSchedulerWrapper PROPERTY LINKER_LANGUAGE CXX )

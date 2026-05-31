@@ -191,7 +191,7 @@ QCStatus_e SimulationNodeConfig::ParseStaticConfig( DataTree &dt, std::string &e
         // Set node ID
         m_config.nodeId.name = dt.Get<std::string>( "name", "" );
         m_config.nodeId.id = dt.Get<uint32_t>( "id", UINT32_MAX );
-        m_config.nodeId.type = QC_NODE_TYPE_CUSTOM_4;
+        m_config.nodeId.type = QC_NODE_TYPE_SIMNODE;
 
         // Set name and id in the config structure
         m_config.name = m_config.nodeId.name;

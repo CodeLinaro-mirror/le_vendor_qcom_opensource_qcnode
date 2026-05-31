@@ -24,6 +24,12 @@
 #include <sys/un.h>
 #include <unistd.h>
 #endif
+#include <memory>
+
+// ---------------------------------------------------------------------------
+// Abstract interface (platform-agnostic)
+// ---------------------------------------------------------------------------
+#include "IRadarIf.hpp"
 
 // ---------------------------------------------------------------------------
 // Protocol wire types — always defined on all platforms
@@ -68,12 +74,6 @@ static constexpr uint32_t RADAR_FLAG_INPUT_FD = ( 1u << 0 );
 static constexpr uint32_t RADAR_FLAG_OUTPUT_FD = ( 1u << 1 );
 static constexpr uint32_t RADAR_FLAG_OUT_OWNABLE = ( 1u << 2 );
 
-// Return sentinels used by both platforms (0 = success, negative = error)
-static constexpr int RADAR_OK = 0;
-static constexpr int RADAR_ETIMEOUT = -1;
-static constexpr int RADAR_EINVAL = -2;
-static constexpr int RADAR_EPROTO = -3;
-
 // ---------------------------------------------------------------------------
 // QNX transport (devctl)
 // ---------------------------------------------------------------------------
@@ -89,22 +89,25 @@ typedef struct CommandExecute
 
 constexpr int DCMD_EXECUTE_CMD = __DIOT( _DCMD_MISC, 1, CommandExecute_t );
 
-class Radar
+class RadarQnx : public IRadar
 {
 public:
-    Radar( const char *device, uint32_t /*timeoutMs*/ = 5000 ) { m_fd = open( device, O_RDWR ); }
+    explicit RadarQnx( const char *device, uint32_t /*timeoutMs*/ = 5000 ) noexcept
+    {
+        m_fd = open( device, O_RDWR );
+    }
 
-    bool IsOpen() const { return m_fd != -1; }
+    bool IsOpen() const override { return m_fd != -1; }
 
-    ~Radar() { close( m_fd ); }
+    ~RadarQnx() override { close( m_fd ); }
 
-    Radar( const Radar & ) = delete;
-    Radar &operator=( const Radar & ) = delete;
-    Radar( Radar && ) = delete;
-    Radar &operator=( Radar && ) = delete;
+    RadarQnx( const RadarQnx & ) = delete;
+    RadarQnx &operator=( const RadarQnx & ) = delete;
+    RadarQnx( RadarQnx && ) = delete;
+    RadarQnx &operator=( RadarQnx && ) = delete;
 
     int Execute( uint64_t input_handle, size_t input_size, uint64_t output_handle,
-                 size_t output_size )
+                 size_t output_size ) override
     {
         CommandExecute_t cmd{};
         cmd.input_handle = input_handle;
@@ -124,10 +127,11 @@ private:
 // ---------------------------------------------------------------------------
 #else
 
-class Radar
+class RadarLinux : public IRadar
 {
 public:
-    Radar( const char *device, uint32_t timeoutMs = 5000 ) : m_timeoutMs( timeoutMs )
+    explicit RadarLinux( const char *device, uint32_t timeoutMs = 5000 ) noexcept
+        : m_timeoutMs( timeoutMs )
     {
         m_sockfd = socket( AF_UNIX, SOCK_SEQPACKET, 0 );
         if ( m_sockfd != -1 )
@@ -136,12 +140,18 @@ public:
             {
             };
             addr.sun_family = AF_UNIX;
-            strncpy( addr.sun_path, device, sizeof( addr.sun_path ) - 1 );
+            (void) strncpy( static_cast<char *>( addr.sun_path ), device,
+                            sizeof( addr.sun_path ) - 1U );
+            /**
+             * reinterpret_cast is a required POSIX pattern for connect function
+             * POSIX connect() requires struct sockaddr* for all address families;
+             * sockaddr_un is layout-compatible - MISRA 8.2.5 deviation
+             */
             int ret = connect( m_sockfd, reinterpret_cast<struct sockaddr *>( &addr ),
                                sizeof( addr ) );
             if ( ret == -1 )
             {
-                close( m_sockfd );
+                (void) close( m_sockfd );
                 m_sockfd = -1;
             }
             else
@@ -149,30 +159,30 @@ public:
                 struct timeval tv
                 {
                 };
-                tv.tv_sec = timeoutMs / 1000;
-                tv.tv_usec = ( timeoutMs % 1000 ) * 1000;
-                setsockopt( m_sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof( tv ) );
+                tv.tv_sec = static_cast<time_t>( timeoutMs / 1000U );
+                tv.tv_usec = static_cast<suseconds_t>( ( timeoutMs % 1000U ) * 1000U );
+                (void) setsockopt( m_sockfd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof( tv ) );
             }
         }
     }
 
-    bool IsOpen() const { return m_sockfd != -1; }
+    bool IsOpen() const override { return m_sockfd != -1; }
 
-    ~Radar()
+    ~RadarLinux() override
     {
         if ( m_sockfd != -1 )
         {
-            close( m_sockfd );
+            (void) close( m_sockfd );
         }
     }
 
-    Radar( const Radar & ) = delete;
-    Radar &operator=( const Radar & ) = delete;
-    Radar( Radar && ) = delete;
-    Radar &operator=( Radar && ) = delete;
+    RadarLinux( const RadarLinux & ) = delete;
+    RadarLinux &operator=( const RadarLinux & ) = delete;
+    RadarLinux( RadarLinux && ) = delete;
+    RadarLinux &operator=( RadarLinux && ) = delete;
 
     int Execute( uint64_t input_handle, size_t input_size, uint64_t output_handle,
-                 size_t output_size )
+                 size_t output_size ) override
     {
         int returnCode = RADAR_OK;
         int input_fd = static_cast<int>( input_handle );
@@ -200,7 +210,7 @@ public:
 
         int fds[2] = { input_fd, output_fd };
         char cmsg_buf[CMSG_SPACE( sizeof( fds ) )];
-        memset( cmsg_buf, 0, sizeof( cmsg_buf ) );
+        (void) memset( static_cast<void *>( cmsg_buf ), 0, sizeof( cmsg_buf ) );
 
         struct msghdr msg
         {
@@ -304,6 +314,17 @@ private:
 };
 
 #endif   // __linux__
+
+inline std::unique_ptr<IRadar> CreateRadar( const char *device, uint32_t timeoutMs )
+{
+    std::unique_ptr<IRadar> result;
+#ifdef __linux__
+    result = std::make_unique<RadarLinux>( device, timeoutMs );
+#else
+    result = std::make_unique<RadarQnx>( device, timeoutMs );
+#endif
+    return result;
+}
 
 }   // namespace interface
 }   // namespace q

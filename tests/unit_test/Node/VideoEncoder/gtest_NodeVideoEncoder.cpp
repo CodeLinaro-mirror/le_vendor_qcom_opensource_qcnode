@@ -1,16 +1,17 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-#include <gtest/gtest.h>
+#include "QC/Node/VideoEncoder.hpp"
+#include "QC/sample/BufferManager.hpp"
+#include "vidc_driver_mockup.hpp"
+#include <MMTimer.h>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <gtest/gtest.h>
 #include <stdio.h>
 #include <string>
-#include "QC/Node/VideoEncoder.hpp"
-#include "QC/sample/BufferManager.hpp"
-#include "vidc_driver_mockup.hpp"
 
 using namespace QC;
 using namespace QC::Node;
@@ -175,8 +176,7 @@ int __mockup_MM_Timer_Sleep( unsigned int ms )
 {
     if ( !g_mockup_cfg.use_timer_mockup )
     {
-        usleep( ms % 1000 );
-        for ( ; ( ms /= 1000 ); ) usleep( 1000 );
+        (void) MM_Timer_Sleep( ms );
     }
     return 0;
 }
@@ -1659,8 +1659,8 @@ TEST( NodeVideoEncoder, EventCallback_ForwardsEventId_ToUserCallback )
     emit_evt( VIDC_EVT_RESP_RESUME );
 
     ASSERT_GE( eventNames.size(), 2u );
-    EXPECT_EQ(eventNames[0], std::to_string(VIDC_IOCTL_PAUSE));
-    EXPECT_EQ(eventNames[1], std::to_string(VIDC_IOCTL_SET_BUFFER));
+    EXPECT_EQ( eventNames[0], std::to_string( VIDC_IOCTL_PAUSE ) );
+    EXPECT_EQ( eventNames[1], std::to_string( VIDC_IOCTL_SET_BUFFER ) );
     (void) node->Stop();
     Mockup_Cfg_Reset();
 }
@@ -1693,19 +1693,17 @@ TEST( NodeVideoEncoder, SUCCESS_Init_RateCtrlMode )
     Mockup_Cfg_Reset();
 
     auto cfg = BuildConfig( 10, 1920, 1080, 30, 5'000'000,
-                            /*dynIn*/ true, /*dynOut*/ true, 4, 4, "p010", "h264", "H264_HIGH",
-                            "VBR_CFR" );
+                            /*dynIn*/ true, /*dynOut*/ true, 4, 4, "p010", "h265", "HEVC_MAIN10",
+                            "CBR_CFR" );
     QCNodeIfs *node = new QC::Node::VideoEncoder();
     ASSERT_EQ( QC_STATUS_OK, node->Initialize( cfg ) );
     ASSERT_EQ( QC_OBJECT_STATE_READY, node->GetState() );
-
-    printf( "Starting...\n" );
 
     ASSERT_EQ( QC_STATUS_OK, node->DeInitialize() );
     ASSERT_EQ( QC_OBJECT_STATE_INITIAL, node->GetState() );
 
     cfg = BuildConfig( 10, 1920, 1080, 30, 5'000'000,
-                       /*dynIn*/ true, /*dynOut*/ true, 4, 4, "p010", "h264", "H264_HIGH",
+                       /*dynIn*/ true, /*dynOut*/ true, 4, 4, "p010", "h265", "HEVC_MAIN",
                        "VBR_CFR" );
     ASSERT_EQ( QC_STATUS_OK, node->Initialize( cfg ) );
     ASSERT_EQ( QC_OBJECT_STATE_READY, node->GetState() );
@@ -1714,7 +1712,7 @@ TEST( NodeVideoEncoder, SUCCESS_Init_RateCtrlMode )
     ASSERT_EQ( QC_OBJECT_STATE_INITIAL, node->GetState() );
 
     cfg = BuildConfig( 10, 1920, 1080, 30, 5'000'000,
-                       /*dynIn*/ true, /*dynOut*/ true, 4, 4, "p010", "h264", "H264_BASELINE",
+                       /*dynIn*/ true, /*dynOut*/ true, 4, 4, "p010", "h265", "HEVC_MAIN10",
                        "VBR_VFR" );
     ASSERT_EQ( QC_STATUS_OK, node->Initialize( cfg ) );
     ASSERT_EQ( QC_OBJECT_STATE_READY, node->GetState() );

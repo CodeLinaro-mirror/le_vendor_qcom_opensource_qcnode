@@ -1135,6 +1135,7 @@ void Coverage1()
     EXPECT_EQ( QC_STATUS_OK, ret );
     ret = pCL2DFlex5->Initialize( config5 );
     EXPECT_EQ( QC_STATUS_BAD_STATE, ret );
+    (void) pCL2DFlex5->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex5 )->~CL2DFlex();
 
     // invalid workmode
@@ -1249,6 +1250,7 @@ void Coverage1()
     QCNodeInit_t config13 = { dt13.Dump() };
     ret = pCL2DFlex13->Initialize( config13 );
     EXPECT_EQ( QC_STATUS_OK, ret );
+    (void) pCL2DFlex13->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex13 )->~CL2DFlex();
 
     // low priority
@@ -1261,6 +1263,7 @@ void Coverage1()
     QCNodeInit_t config14 = { dt14.Dump() };
     ret = pCL2DFlex14->Initialize( config14 );
     EXPECT_EQ( QC_STATUS_OK, ret );
+    (void) pCL2DFlex14->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex14 )->~CL2DFlex();
 
     // invalid priority
@@ -1296,11 +1299,12 @@ void Coverage1()
     SetConfigCL2D( &CL2DFlexConfig, &dt17 );
     QCNodeInit_t config17 = { dt17.Dump() };
     ret = pCL2DFlex17->Initialize( config17 );
-    ret = pCL2DFlex17->Start();
     EXPECT_EQ( QC_STATUS_OK, ret );
+    ret = pCL2DFlex17->Start();
     EXPECT_EQ( QC_STATUS_OK, ret );
     ret = pCL2DFlex17->Stop();
     EXPECT_EQ( QC_STATUS_OK, ret );
+    (void) pCL2DFlex17->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex17 )->~CL2DFlex();
 
     // wrong bufferIds
@@ -1401,6 +1405,8 @@ void Coverage2()
     ret = pCL2DFlex1->Start();
     ret = pCL2DFlex1->ProcessFrameDescriptor( frameDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    (void) pCL2DFlex1->Stop();
+    (void) pCL2DFlex1->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex1 )->~CL2DFlex();
     CL2DFlexConfig.outputFormat = QC_IMAGE_FORMAT_RGB888;
 
@@ -1416,6 +1422,8 @@ void Coverage2()
     ret = pCL2DFlex2->Start();
     ret = pCL2DFlex2->ProcessFrameDescriptor( frameDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    (void) pCL2DFlex2->Stop();
+    (void) pCL2DFlex2->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex2 )->~CL2DFlex();
     CL2DFlexConfig.outputHeight = 64;
 
@@ -1431,6 +1439,8 @@ void Coverage2()
     ret = pCL2DFlex3->Start();
     ret = pCL2DFlex3->ProcessFrameDescriptor( frameDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    (void) pCL2DFlex3->Stop();
+    (void) pCL2DFlex3->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex3 )->~CL2DFlex();
     CL2DFlexConfig.outputWidth = 64;
 
@@ -1446,6 +1456,8 @@ void Coverage2()
     ret = pCL2DFlex4->Start();
     ret = pCL2DFlex4->ProcessFrameDescriptor( frameDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    (void) pCL2DFlex4->Stop();
+    (void) pCL2DFlex4->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex4 )->~CL2DFlex();
     CL2DFlexConfig.inputFormats[0] = QC_IMAGE_FORMAT_NV12;
 
@@ -1461,6 +1473,8 @@ void Coverage2()
     ret = pCL2DFlex5->Start();
     ret = pCL2DFlex5->ProcessFrameDescriptor( frameDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    (void) pCL2DFlex5->Stop();
+    (void) pCL2DFlex5->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex5 )->~CL2DFlex();
     CL2DFlexConfig.inputHeights[0] = 128;
 
@@ -1476,6 +1490,8 @@ void Coverage2()
     ret = pCL2DFlex6->Start();
     ret = pCL2DFlex6->ProcessFrameDescriptor( frameDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    (void) pCL2DFlex6->Stop();
+    (void) pCL2DFlex6->DeInitialize();
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex6 )->~CL2DFlex();
     CL2DFlexConfig.inputWidths[0] = 128;
 

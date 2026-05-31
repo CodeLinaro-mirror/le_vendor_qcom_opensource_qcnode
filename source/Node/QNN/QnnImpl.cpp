@@ -102,7 +102,7 @@ QCStatus_e QnnImpl::GetQnnFunctionPointers( std::string backendPath, std::string
     QCStatus_e status = QC_STATUS_OK;
     void *libModelHandle = nullptr;
     void *libBackendHandle =
-            dlopen( backendPath.c_str(), (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_GLOBAL ) );
+            dlopen( backendPath.c_str(), (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_LOCAL ) );
     if ( nullptr == libBackendHandle )
     {
         QC_ERROR( "Unable to load backend. dlerror(): %s", dlerror() );
@@ -177,7 +177,7 @@ QCStatus_e QnnImpl::GetQnnFunctionPointers( std::string backendPath, std::string
         {
             QC_INFO( "Loading model shared library (%s)", modelPath.c_str() );
             libModelHandle = dlopen( modelPath.c_str(),
-                                     (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_GLOBAL ) );
+                                     (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_LOCAL ) );
             if ( nullptr == libModelHandle )
             {
                 QC_ERROR( "Unable to load model. dlerror(): %s", dlerror() );
@@ -930,7 +930,7 @@ QCStatus_e QnnImpl::CreateFromBinaryBuffer( QCBufferDescriptorBase &bufDesc )
             &binaryInfoSize );
     if ( QNN_SUCCESS != retVal )
     {
-        QC_ERROR( "Failed to get context binary info." );
+        QC_ERROR( "Failed to get context binary info: %" PRIu64, retVal );
         status = QC_STATUS_FAIL;
     }
 
@@ -999,7 +999,7 @@ QCStatus_e QnnImpl::CreateFromBinaryFile( std::string modelFile )
 {
     QCStatus_e status = QC_STATUS_OK;
     QCBufferDescriptorBase bufDesc;
-    uint32_t bufferSize = 0;
+    uint64_t bufferSize = 0;
     FILE *pFile = fopen( modelFile.c_str(), "rb" );
     if ( nullptr == pFile )
     {
@@ -1009,7 +1009,7 @@ QCStatus_e QnnImpl::CreateFromBinaryFile( std::string modelFile )
     else
     {
         fseek( pFile, 0, SEEK_END );
-        bufferSize = static_cast<uint32_t>( ftell( pFile ) );
+        bufferSize = static_cast<uint64_t>( ftell( pFile ) );
         fseek( pFile, 0, SEEK_SET );
         if ( 0 == bufferSize )
         {
@@ -1299,7 +1299,13 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
 #if ( QC_TARGET_SOC == 8797 )
                                                                              &powerHmxConfig,
 #endif
-                                                                             NULL };
+                                                                             nullptr };
+#if ( QC_TARGET_SOC == 8797 )
+            if ( QNN_PROCESSOR_HTP0 != m_config.processorType )
+            { /* No HMX for HPASS */
+                powerConfigs[1] = nullptr;
+            }
+#endif
             retVal = m_perfInfra->setPowerConfig( powerConfigId, powerConfigs );
             if ( QNN_SUCCESS != retVal )
             {
@@ -2857,6 +2863,10 @@ QCTensorType_e QnnImpl::SwitchFromQnnDataType( Qnn_DataType_t dataType )
             tensorType = QC_TENSOR_TYPE_UFIXED_POINT_32;
             break;
 
+        case QNN_DATATYPE_BOOL_8:
+            tensorType = QC_TENSOR_TYPE_BOOL_8;
+            break;
+
         default:
             QC_ERROR( "unsupported qnn data type: %d", (int) dataType );
             break;
@@ -2935,6 +2945,10 @@ Qnn_DataType_t QnnImpl::SwitchToQnnDataType( QCTensorType_e tensorType )
 
         case QC_TENSOR_TYPE_UFIXED_POINT_32:
             dataType = QNN_DATATYPE_UFIXED_POINT_32;
+            break;
+
+        case QC_TENSOR_TYPE_BOOL_8:
+            dataType = QNN_DATATYPE_BOOL_8;
             break;
 
         default:

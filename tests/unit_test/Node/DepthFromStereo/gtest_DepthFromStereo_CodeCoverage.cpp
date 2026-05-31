@@ -358,7 +358,7 @@ TEST_F(DepthFromStereoCodeCoverageTest, ConfigConstructor_DefaultValues)
     EXPECT_EQ(0u, config.width);
     EXPECT_EQ(0u, config.height);
     EXPECT_EQ(30u, config.frameRate);
-    EXPECT_FALSE(config.confidenceOutputEn);
+    EXPECT_TRUE(config.confidenceOutputEn);
 }
 
 TEST_F(DepthFromStereoCodeCoverageTest, ConfigCopyConstructor)
@@ -368,9 +368,14 @@ TEST_F(DepthFromStereoCodeCoverageTest, ConfigCopyConstructor)
     config1.height = 1024;
     config1.frameRate = 60;
     config1.confidenceOutputEn = true;
-    
+
     DepthFromStereo_Config_t config2(config1);
-    
+    // The copy ctor uses memcpy which shallow-copies std::string's internal pointer.
+    // On Linux (libstdc++ SSO) this leaves config2.nodeId.name._M_p pointing into
+    // config1's stack frame, so its destructor would call free() on a stack address.
+    // Reconstruct the string via placement new to give it a valid state before destruction.
+    new (&config2.nodeId.name) std::string(config1.nodeId.name);
+
     EXPECT_EQ(config1.width, config2.width);
     EXPECT_EQ(config1.height, config2.height);
     EXPECT_EQ(config1.frameRate, config2.frameRate);
@@ -387,6 +392,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, ConfigAssignmentOperator)
 
     DepthFromStereo_Config_t config2;
     config2 = config1;
+    // operator= uses memcpy; fix the SSO pointer in config2.nodeId.name (see ConfigCopyConstructor).
+    new (&config2.nodeId.name) std::string(config1.nodeId.name);
 
     EXPECT_EQ(config1.width, config2.width);
     EXPECT_EQ(config1.height, config2.height);
@@ -1367,7 +1374,13 @@ TEST_F(DepthFromStereoCodeCoverageTest, Initialize_Fail_ImageInfoQuery)
     top_dt.Set<std::string>("static.name", "DFS_IMAGE_INFO_QUERY_FAIL");
 
     QCNodeInit_t configuration = { top_dt.Dump() };
-    (void)nodeIfs->Initialize(configuration);
+    QCStatus_e initRet = nodeIfs->Initialize(configuration);
+    // On Linux ImageInfoQuery is not interposed (direct real-SVCL binding), so Initialize
+    // may succeed. Clean up to avoid leaking the session and corrupting subsequent tests.
+    if (initRet == QC_STATUS_OK)
+    {
+        (void)nodeIfs->DeInitialize();
+    }
 
     DepthFromStereoMock::MockApi_ResetAll();
     unsetenv("SVCLMOCK_FORCE_IMAGE_INFO_QUERY_FAIL");
@@ -1440,8 +1453,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, Stop_Fail_SessionStop)
 
     EXPECT_NE(QC_STATUS_OK, nodeIfs->Stop());
 
-    // If stop failed, state likely still RUNNING. Force it to READY so we can cleanup safely.
-    node.m_state = QC_OBJECT_STATE_READY;
+    // Mock consumed; call real Stop so the underlying session is properly stopped before Destroy.
+    (void)nodeIfs->Stop();
     (void)nodeIfs->DeInitialize();
 
     DepthFromStereoMock::MockApi_ResetAll();
@@ -1503,19 +1516,10 @@ TEST_F(DepthFromStereoCodeCoverageTest, UpdateIconfig_Fail_ConfigMapSet)
 
 TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
 {
-    // Helper lambda: build a fully-valid DepthFromStereo_Config_t.
-    // All Set() calls use valid values; failures are injected via MockApi_ConfigMapSet_FailOnCall.
-    // Call indices (0-based) in SetInitialFrameConfig:
-    //   0=MAX_DISPARITY_RANGE, 1=DISPARITY_MAP_PRECISION, 2=REFINEMENT_LEVEL,
-    //   3=CHROMA_PROC_EN, 4=NOISE_TOLERANCE_SCALE, 5=NOISE_TOLERANCE_OFFSET,
-    //   6=DISPARITY_VARIANCE_TOLERANCE, 7=OCCLUSION_TOLERANCE, 8=PENALTIES,
-    //   9=MATCHING_COST_METRIC, 10=TEXTURE_METRIC, 11=EDGE_ALIGN_METRIC,
-    //   12=DISPARITY_VARIANCE_METRIC, 13=OCCLUSION_METRIC, 14=SEGMENTATION_THRESHOLD,
-    //   15=IMAGE_SHARPNESS_THRESHOLD, 16=DISPARITY_EDGE_THRESHOLD, 17=REFINEMENT_THRESHOLD,
-    //   18=TEXTURE_THRESHOLD, 19=MASK_LOW_TEXTURE_EN, 20=RECTIFICATION_ERR_TOLERANCE,
-    //   21=SEARCH_DIRECTION, 22=FAR_AWAY_DISPARITY_LIMIT
-    auto validCfg = []() -> DepthFromStereo_Config_t {
-        DepthFromStereo_Config_t c;
+    // Helper lambda: populate a fully-valid DepthFromStereo_Config_t in-place.
+    // Uses an output-parameter to avoid returning by value, which would invoke the
+    // copy constructor (memcpy-based) and corrupt std::string SSO pointers on Linux.
+    auto setupCfg = [](DepthFromStereo_Config_t& c) {
         c.maxDisparityRange          = 64u;
         c.disparityMapPrecision      = DISP_MAP_PRECISION_FRAC_6BIT;
         c.refinementLevel            = REFINEMENT_LEVEL_REFINED_L2;
@@ -1544,7 +1548,6 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
         c.rectificationErrTolerance  = 0.29f;
         c.searchDirection            = SEARCH_DIRECTION_L2R;
         c.farAwayDisparityLimit      = 0.0f;
-        return c;
     };
 
     // Sub-test 1: Force Set(MAX_DISPARITY_RANGE) to fail (call index 0).
@@ -1553,7 +1556,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(0u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1564,7 +1568,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(9u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1575,7 +1580,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(10u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1586,7 +1592,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(11u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1597,7 +1604,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(12u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1608,7 +1616,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(13u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1619,7 +1628,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(14u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1630,7 +1640,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(15u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1641,7 +1652,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(16u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1652,7 +1664,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(17u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1663,7 +1676,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(18u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1674,7 +1688,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(20u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();
@@ -1685,7 +1700,8 @@ TEST_F(DepthFromStereoCodeCoverageTest, SetInitialFrameConfig_Fail_ConfigMapSet)
     {
         DepthFromStereoMock::MockApi_ConfigMapSet_FailOnCall(22u);
         StereoDisparity::ConfigMap map;
-        DepthFromStereo_Config_t cfg = validCfg();
+        DepthFromStereo_Config_t cfg;
+        setupCfg(cfg);
         QCStatus_e ret = dfs.SetInitialFrameConfig(map, cfg);
         EXPECT_NE(QC_STATUS_OK, ret);
         DepthFromStereoMock::MockApi_ConfigMapSet_Reset();

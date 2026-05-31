@@ -400,7 +400,11 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
         }
         else
         {
+            #if defined(__linux__)
+            int32_t pThreadsAffinity[] = { 12, 13, 14, 15 };
+            #else
             int32_t pThreadsAffinity[] = { 0, 1, 2, 3 };
+            #endif
             FadasRemapPipeline_e pipeline = RemapGetPipelineCPU(
                     m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
             if ( FADAS_REMAP_PIPELINE_MAX == pipeline )

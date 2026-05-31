@@ -23,6 +23,8 @@ set( QCNODE_SAMPLE_SOURCES
     SampleGL2DFlex.cpp
     SampleTemporal.cpp
     SampleComputeLidarCoord.cpp
+    SampleConcatVision.cpp
+    SamplePreProcVisionEncoder.cpp
 )
 
 if ( ENABLE_EVA )
@@ -61,7 +63,7 @@ if( NOT TARGET QCNode )
   endif()
 endif()
 
-set( TARGET_LIBRARIES QCNode SharedRing BufferManager )
+set( TARGET_LIBRARIES QCNode SharedRing BufferManager TimestampSync )
 
 if ( ENABLE_GENIE )
   list( APPEND QCNODE_SAMPLE_SOURCES SampleGenie.cpp )

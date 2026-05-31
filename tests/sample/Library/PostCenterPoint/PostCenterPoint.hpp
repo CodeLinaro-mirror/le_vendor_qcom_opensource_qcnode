@@ -68,7 +68,8 @@ typedef struct
      * NOTE: This flag will be used only if bMapPtsToBBox is set to true. */
     bool bBBoxFilter;
 
-    uint8_t nodeId; /**< a unique instance ID used by buffer manager */
+    uint8_t nodeId;  /**< a unique instance ID used by buffer manager */
+    uint32_t coreId; /**< NSP core ID */
 } PostCenterPoint_Config_t;
 
 typedef struct

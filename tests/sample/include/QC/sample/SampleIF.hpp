@@ -52,10 +52,7 @@ typedef SampleIF *( *Sample_CreateFunction_t )();
     class Register##class_name                                                                     \
     {                                                                                              \
     public:                                                                                        \
-        Register##class_name()                                                                     \
-        {                                                                                          \
-            SampleIF::RegisterSample( #name, CreatSample##name );                                  \
-        }                                                                                          \
+        Register##class_name() { SampleIF::RegisterSample( #name, CreatSample##name ); }           \
     };                                                                                             \
     const Register##class_name g_register##name;
 
@@ -135,6 +132,19 @@ public:
         return nullptr;
     }
 #endif
+
+    /**
+     * @brief Waits until the sample is ready to participate in HS scheduling.
+     *
+     * Called by the user application after Start() and before starting the
+     * HeteroScheduler. The default implementation returns immediately with
+     * QC_STATUS_OK. Derived classes override this to block until their specific
+     * readiness condition is met (e.g., SampleFrameSync waits until all input
+     * topics have at least one frame available).
+     *
+     * @return QC_STATUS_OK when the sample is ready; an error code on failure or timeout.
+     */
+    virtual QCStatus_e WaitReady() { return QC_STATUS_OK; }
 
     /**
      * @brief Retrieves the unique name of the QC sample instance.
@@ -290,6 +300,7 @@ private:
     compressched_handle m_crsHandle = 0;
     compressched_platform_query m_crsPlatfromQuery = {};
     void SetupCompResSchedCmd( compressched_acquire_cmd &cmd );
+    compressched_queue_priority m_rsmPriority = QUEUE_PRIORITY_DEFAULT;
 #endif
 
     QCProcessorType_e m_processor = QC_PROCESSOR_MAX;

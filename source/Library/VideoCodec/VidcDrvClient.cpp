@@ -539,7 +539,7 @@ QCStatus_e VidcDrvClient::SetBuffer(
         vidc_buffer_info_type buf_info = { VIDC_BUFFER_UNUSED, 0 };
 
         buf_info.buf_addr = static_cast<uint8_t *>( buf.pBuf );
-        buf_info.buf_handle = (typeof(buf_info.buf_handle)) buf.dmaHandle;
+        buf_info.buf_handle = (typeof( buf_info.buf_handle )) buf.dmaHandle;
 #if !defined( __QNXNTO__ )
         buf_info.pid = buf.pid;
 #endif
@@ -551,7 +551,8 @@ QCStatus_e VidcDrvClient::SetBuffer(
                   "type:%d, buf_size:%d",
                   i, buf_info.buf_addr, buf_info.buf_handle, buf_info.buf_type, buf_info.buf_size );
         // for non dynamic mode, need to set buffer to driver
-        rc = device_ioctl( m_pIoHandle, VIDC_IOCTL_SET_BUFFER, reinterpret_cast<uint8_t*>( &buf_info ),
+        rc = device_ioctl( m_pIoHandle, VIDC_IOCTL_SET_BUFFER,
+                           reinterpret_cast<uint8_t *>( &buf_info ),
                            sizeof( vidc_buffer_info_type ), nullptr, 0 );
         if ( static_cast<int32_t>( VIDC_ERR_NONE ) != rc )
         {
@@ -566,18 +567,20 @@ QCStatus_e VidcDrvClient::SetBuffer(
 
         if ( VIDEO_CODEC_BUF_INPUT == bufferType )
         {
+            std::unique_lock<std::mutex> auto_lock( m_inLock );
             VideoCodec_InputInfo_t inputInfo;
             inputInfo.inFrameDesc = buf;
             inputInfo.bUsedFlag = false;
             m_inputMap[buf.dmaHandle] = inputInfo;
-        }
+        }    // Release @m_inLock
         else /* VIDEO_CODEC_BUF_OUTPUT == bufferType */
         {
+            std::unique_lock<std::mutex> auto_lock( m_outLock );
             VideoCodec_OutputInfo_t outputInfo;
             outputInfo.outFrameDesc = buf;
             outputInfo.bUsedFlag = false;
             m_outputMap[buf.dmaHandle] = outputInfo;
-        }
+        }   // Release @m_outLock
 
         i++;
     }
@@ -607,13 +610,14 @@ QCStatus_e VidcDrvClient::FreeBuffers(
         vidc_buffer_info_type buf_info = { VIDC_BUFFER_UNUSED, 0 };
 
         buf_info.buf_addr = static_cast<uint8_t *>( buf.pBuf );
-        buf_info.buf_handle = (typeof(buf_info.buf_handle)) buf.dmaHandle;
+        buf_info.buf_handle = (typeof( buf_info.buf_handle )) buf.dmaHandle;
         buf_info.buf_type = vidcBufType;
         buf_info.contiguous = true;
         buf_info.buf_size = static_cast<uint32>( buf.size );
 
         QC_DEBUG( "FREE_BUFFER, i:%d, size:%d", i, buf_info.buf_size );
-        rc = device_ioctl( m_pIoHandle, VIDC_IOCTL_FREE_BUFFER, reinterpret_cast<uint8_t*>( &buf_info ),
+        rc = device_ioctl( m_pIoHandle, VIDC_IOCTL_FREE_BUFFER,
+                           reinterpret_cast<uint8_t *>( &buf_info ),
                            sizeof( vidc_buffer_info_type ), nullptr, 0 );
         if ( static_cast<int32_t>( VIDC_ERR_NONE ) != rc )
         {
@@ -643,10 +647,10 @@ QCStatus_e VidcDrvClient::EmptyBuffer( VideoFrameDescriptor &frameDesc )
 
     frameData.frm_clnt_data = handle;
     frameData.buf_type = VIDC_BUFFER_INPUT;
-    frameData.frame_addr = static_cast<uint8_t *>( frameDesc.pBuf );
     frameData.alloc_len = static_cast<uint32_t>( frameDesc.size );
     frameData.offset = static_cast<uint32_t>( frameDesc.offset );
-    frameData.frame_handle = (typeof(frameData.frame_handle))  handle;
+    frameData.frame_handle = (typeof( frameData.frame_handle )) handle;
+    frameData.frame_addr = static_cast<uint8_t *>( frameDesc.pBuf );
 #if !defined( __QNXNTO__ )
     frameData.pid = frameDesc.pid;
 #endif
@@ -794,29 +798,29 @@ QCStatus_e VidcDrvClient::FillBuffer( VideoFrameDescriptor &frameDesc )
     if ( QC_STATUS_OK == ret )
     {
         frameData.buf_type = VIDC_BUFFER_OUTPUT;
-        frameData.frame_addr = static_cast<uint8_t *>( frameDesc.pBuf );
-        frameData.alloc_len = static_cast<uint32_t>( frameDesc.size);
+        frameData.alloc_len = static_cast<uint32_t>( frameDesc.size );
         frameData.offset = static_cast<uint32_t>( frameDesc.offset );
-        frameData.pid = frameDesc.pid;
-        frameData.frame_handle = (typeof(frameData.frame_handle)) handle;
+        frameData.frame_handle = (typeof( frameData.frame_handle )) handle;
+        frameData.frame_addr = static_cast<uint8_t *>( frameDesc.pBuf );
 #if !defined( __QNXNTO__ )
         frameData.pid = frameDesc.pid;
 #endif
         frameData.frm_clnt_data = handle;
         frameData.data_len = static_cast<uint32_t>( frameDesc.size );
 
-        QC_DEBUG( "FillBuffer: frame_handle=0x%x , frameData.frame_addr=0x%x "
+        QC_DEBUG( "FillBuffer: frame_handle=0x%x, "
                   "frameData.alloc_len %" PRIu32 " frameData.data_len=%" PRIu32,
-                  handle, frameData.frame_addr, frameData.alloc_len, frameData.data_len );
+                  handle, frameData.alloc_len, frameData.data_len );
 
         rc = device_ioctl( m_pIoHandle, VIDC_IOCTL_FILL_OUTPUT_BUFFER, (uint8_t *) ( &frameData ),
                            sizeof( frameData ), nullptr, 0 );
         if ( static_cast<int32_t>( VIDC_ERR_NONE ) != rc )
         {
             QC_ERROR( "FillBuffer 0x%x failed rc 0x%x", handle, rc );
+            std::unique_lock<std::mutex> auto_lock( m_outLock );
             m_outputMap[handle].bUsedFlag = false;
             ret = QC_STATUS_FAIL;
-        }
+        }   // Release @m_outLock
         else
         {
             QC_DEBUG( "%s-output-begin, handle 0x%x", ( m_encDecType == VIDEO_ENC ) ? "enc" : "dec",
@@ -851,7 +855,8 @@ QCStatus_e VidcDrvClient::StopDecoder()
         ret = WaitForCmdCompleted( VIDEO_CODEC_COMMAND_LAST_FLAG, WAIT_TIMEOUT_10_MSEC );
         if ( ( QC_STATUS_OK != ret ) || ( m_bCmdDrainReceived == false ) )
         {
-            QC_ERROR( "WaitFor last flag fail or drain recv:%d", static_cast<int>( m_bCmdDrainReceived ));
+            QC_ERROR( "WaitFor last flag fail or drain recv:%d",
+                      static_cast<int>( m_bCmdDrainReceived ) );
             ret = QC_STATUS_FAIL;
         }
     }
@@ -960,19 +965,12 @@ int VidcDrvClient::DeviceCbHandler( uint8_t *pMsg, uint32_t length )
             case VIDC_EVT_RESP_INPUT_DONE:
                 QC_DEBUG( "Vidc event VIDC_EVT_RESP_INPUT_DONE" );
                 pFrameData = &pEvent->payload.frame_data;
-                if ( nullptr == pFrameData || nullptr == pFrameData->frame_addr )
-                {
-                    QC_ERROR( "Invalid frame data in input done event" );
-                    ret = -1;
-                    break;
-                }
                 QC_DEBUG( "%s-input-done: handle 0x%x",
                           ( m_encDecType == VIDEO_ENC ) ? "enc" : "dec",
                           pFrameData->frm_clnt_data );
                 {
                     VideoCodec_InputInfo_t inputInfo;
                     bool found = false;
-
                     {
                         std::unique_lock<std::mutex> lck( m_inLock );
                         if ( m_inputMap.end() != m_inputMap.find( pFrameData->frm_clnt_data ) )
@@ -981,8 +979,7 @@ int VidcDrvClient::DeviceCbHandler( uint8_t *pMsg, uint32_t length )
                             inputInfo = m_inputMap[pFrameData->frm_clnt_data];
                             found = true;
                         }
-                    }   // Release @lck
-
+                    }   // Release @m_inLock
                     if ( found )
                     {
                         m_inputDoneCb( inputInfo.inFrameDesc, m_pAppPriv );
@@ -997,15 +994,12 @@ int VidcDrvClient::DeviceCbHandler( uint8_t *pMsg, uint32_t length )
             case VIDC_EVT_RESP_OUTPUT_DONE:
                 QC_DEBUG( "Vidc event VIDC_EVT_RESP_OUTPUT_DONE" );
                 pFrameData = &pEvent->payload.frame_data;
-                QC_DEBUG( "%s-output-done: handle 0x%x ts %" PRIu64
-                          " size %u alloc_len %u frameType %" PRIu64 " "
-                          "pFrameData %p frame_addr %p flag 0x%x ",
+                QC_DEBUG( "%s-output-done: handle 0x%x ts %" PRIu64 " "
+                          "size %u alloc_len %u frameType %" PRIu64 " "
+                          "pFrameData %p flag 0x%x ",
                           ( m_encDecType == VIDEO_ENC ) ? "enc" : "dec", pFrameData->frm_clnt_data,
                           pFrameData->timestamp, pFrameData->data_len, pFrameData->alloc_len,
-                          pFrameData->frame_type, pFrameData, pFrameData->frame_addr,
-                          pFrameData->flags );
-
-                if ( nullptr != pFrameData->frame_addr )
+                          pFrameData->frame_type, pFrameData, pFrameData->flags );
                 {
                     VideoCodec_OutputInfo_t outputInfo;
                     bool found = false;
@@ -1017,29 +1011,18 @@ int VidcDrvClient::DeviceCbHandler( uint8_t *pMsg, uint32_t length )
                             outputInfo = m_outputMap[pFrameData->frm_clnt_data];
                             found = true;
                         }
-                        // release @lck
+                        // release @m_outLock
                     }
                     if ( found )
                     {
                         QC_DEBUG( "Frame is ready - calling callback!" );
-                        if ( (uint8_t *) outputInfo.outFrameDesc.pBuf == pFrameData->frame_addr )
-                        {
-                            outputInfo.outFrameDesc.validSize = pFrameData->data_len;
-                            outputInfo.outFrameDesc.appMarkData = (uint64_t) pFrameData->mark_data;
-                            outputInfo.outFrameDesc.timestampNs =
-                                    (uint64_t) pFrameData->timestamp * 1000;
-                            outputInfo.outFrameDesc.frameFlag = pFrameData->flags;
-                            outputInfo.outFrameDesc.frameType = pFrameData->frame_type;
-                            m_outputDoneCb( outputInfo.outFrameDesc, m_pAppPriv );
-                        }
-                        else
-                        {
-                            QC_ERROR( "output handle = 0x%x, frame_addr %p does not match with "
-                                      "buffer data %p",
-                                      pFrameData->frm_clnt_data, pFrameData->frame_addr,
-                                      (uint8_t *) outputInfo.outFrameDesc.pBuf );
-                            m_eventCb( VIDEO_CODEC_EVT_ERROR, pEvent, m_pAppPriv );
-                        }
+                        outputInfo.outFrameDesc.validSize = pFrameData->data_len;
+                        outputInfo.outFrameDesc.appMarkData = (uint64_t) pFrameData->mark_data;
+                        outputInfo.outFrameDesc.timestampNs =
+                                (uint64_t) pFrameData->timestamp * 1000;
+                        outputInfo.outFrameDesc.frameFlag = pFrameData->flags;
+                        outputInfo.outFrameDesc.frameType = pFrameData->frame_type;
+                        m_outputDoneCb( outputInfo.outFrameDesc, m_pAppPriv );
                     }
                     else
                     {
@@ -1190,8 +1173,8 @@ QCStatus_e VidcDrvClient::GetDrvProperty( uint32_t id, uint32_t nPktSize, uint8_
     // pProp->payload buffer is more than 1 byte as the struct defined;
     // this is the technique to handle variable name size and the struct memory
     // is more than the struct size
-    if( nPktSize > VIDEO_MAX_DEV_CMD_BUFFER_SIZE ||
-        nMsgSize > VIDEO_MAX_DEV_CMD_BUFFER_SIZE )
+    if ( ( nPktSize > VIDEO_MAX_DEV_CMD_BUFFER_SIZE ) ||
+         ( nMsgSize > VIDEO_MAX_DEV_CMD_BUFFER_SIZE ) )
     {
         return QC_STATUS_BAD_ARGUMENTS;
     }
@@ -1223,8 +1206,8 @@ QCStatus_e VidcDrvClient::SetDrvProperty( uint32_t id, uint32_t nPktSize, const 
     // pProp->payload buffer is more than 1 byte as the struct defined;
     // this is the technique to handle variable name size and the struct memory
     // is more than the struct size
-    if( nPktSize > VIDEO_MAX_DEV_CMD_BUFFER_SIZE ||
-        nMsgSize > VIDEO_MAX_DEV_CMD_BUFFER_SIZE )
+    if ( ( nPktSize > VIDEO_MAX_DEV_CMD_BUFFER_SIZE ) ||
+         ( nMsgSize > VIDEO_MAX_DEV_CMD_BUFFER_SIZE ) )
     {
         return QC_STATUS_BAD_ARGUMENTS;
     }

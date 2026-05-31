@@ -294,6 +294,10 @@ QCTensorType_e DataTree::GetTensorType( const std::string key, QCTensorType_e dv
         {
             retV = QC_TENSOR_TYPE_UFIXED_POINT_32;
         }
+        else if ( "bool8" == tensorType )
+        {
+            retV = QC_TENSOR_TYPE_BOOL_8;
+        }
         else
         {
             retV = QC_TENSOR_TYPE_MAX;
@@ -538,6 +542,9 @@ void DataTree::SetTensorType( const std::string key, QCTensorType_e kv )
             break;
         case QC_TENSOR_TYPE_UFIXED_POINT_32:
             tensorType = "ufixed_point32";
+            break;
+        case QC_TENSOR_TYPE_BOOL_8:
+            tensorType = "bool8";
             break;
         default:
             tensorType = "unknown";
