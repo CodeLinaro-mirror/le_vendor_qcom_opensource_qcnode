@@ -288,6 +288,17 @@ FadasError_e FadasDeInit( void )
     return FADAS_ERROR_NONE;
 }
 
+FadasError_e FadasRegBuf( FadasBufType_e bufType, const void *buf, size_t bufSize, int32_t fd , int32_t offset )
+{
+    FadasError_e ret = FADAS_ERROR_NONE;
+    if ( MOCK_CONTROL_RETURN == s_MockParams[MOCK_API_FADAS_REG_BUF].action )
+    {
+        ret = *(FadasError_e *) s_MockParams[MOCK_API_FADAS_REG_BUF].param;
+        s_MockParams[MOCK_API_FADAS_REG_BUF].action = MOCK_CONTROL_NONE;
+    }
+    return ret;
+}
+
 FadasError_e FadasRegBuf( FadasBufType_e bufType, const void *buf, size_t bufSize, int32_t fd )
 {
     FadasError_e ret = FADAS_ERROR_NONE;
