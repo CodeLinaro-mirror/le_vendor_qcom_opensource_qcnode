@@ -47,8 +47,8 @@ QCStatus_e SampleFrameSync::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    m_number = Get( config, "number", 2 );
-    if ( m_number < 2 )
+    m_number = Get( config, "number", 1 );
+    if ( m_number < 1 )
     {
         QC_ERROR( "invalid number = %u\n", m_number );
         ret = QC_STATUS_BAD_ARGUMENTS;

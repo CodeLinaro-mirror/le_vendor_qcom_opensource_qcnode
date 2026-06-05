@@ -693,7 +693,7 @@ The FrameSync sample synchronises frames from multiple input topics and publishe
 
 | attribute              | required | type      | default | comments |
 |------------------------|----------|-----------|---------|----------|
-| number                 | false    | int       | 2       | The number of input topics (minimum 2) |
+| number                 | false    | int       | 1       | The number of input topics (minimum 1) |
 | mode                   | false    | string    | window  | The frame sync mode, options from [window, buffer_timestamp] |
 | window                 | false    | int       | 100     | The sync window / polling interval in ms |
 | timestamp_threshold_ms | false    | int       | 10      | Maximum acceptable timestamp spread in ms; used by `buffer_timestamp` mode |
