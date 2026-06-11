@@ -195,11 +195,11 @@ AEEResult FadasIface_close( remote_handle64 handle )
 AEEResult FadasIface_FadasInitSafe( remote_handle64 handle, int32_t *status, uint32_t *crcRx )
 {
     AEEResult ret = AEE_SUCCESS;
-    *status = static_cast<int32_t>( FadasInit( nullptr ) );
 
     /* Generate crcRx from out-arguments */
     if ( crcRx != nullptr && status != nullptr )
     {
+        *status = static_cast<int32_t>( FadasInit( nullptr ) );
         struct scatter_buffer sbRx[1] = {};
         sbRx[0].buf = reinterpret_cast<const char *>( status );
         sbRx[0].len = sizeof( *status );
