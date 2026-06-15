@@ -290,6 +290,7 @@ The command line template example:
 | udo           | false    | string    | -       | udo lib path and interface provider name. e.g. libQnnAutoAiswOpPackage.so:AutoAiswOpPackageInterfaceProvider |
 | model_io_info_topic | false    | string    | ""       | if configured, this topic will be used to publish the input/output tensor informatin of the model, generally used by the QCNode DataOnline Sample for the QNN online inference.  |
 | perf_profile | false | string    | `burst`  | Specifies perf profile to set. <br> Options: `low_balanced`, `balanced`, `default`, `high_performance`, `sustained_high_performance`, `burst`, `low_power_saver`, `power_saver`, `high_power_saver`, `extreme_power_saver` <br> Default: `default` |
+| priority      | false    | string    | normal  | QNN model scheduling priority. <br> Options: `low`, `normal`, `normal_high`, `high` |
 | weight_sharing_enabled | fasle    | bool      | false   | If true, enable the weight sharing. |
 | extended_udma  | fasle    | bool      | false   | If true, enable the extended udma feature. |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |

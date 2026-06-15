@@ -14,7 +14,7 @@ set( VIDEOCODEC_SOURCES
 set( TARGET_LIBRARIES QCNodeMemory )
 
 if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
-    list( APPEND TARGET_LIBRARIES vidc vidc_client mmosal )
+    list( APPEND TARGET_LIBRARIES vidc_client mmosal )
 endif()
 
 if( DEFINED QC_VIDC_LIBS )

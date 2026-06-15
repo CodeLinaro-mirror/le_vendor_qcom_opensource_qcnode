@@ -144,6 +144,7 @@ QCStatus_e SampleQnn::ParseConfig( SampleConfig_t &config )
     dt.Set<uint32_t>( "coreIds", m_coreIds );
     dt.Set( "udoPackages", udoPkgs );
     dt.Set<std::string>( "perfProfile", Get( config, "perf_profile", "burst" ) );
+    dt.Set<std::string>( "priority", Get( config, "priority", "normal" ) );
     dt.Set<bool>( "weightSharingEnabled", Get( config, "weight_sharing_enabled", false ) );
     dt.Set<bool>( "extendedUdma", Get( config, "extended_udma", false ) );
     m_dataTree.Set( "static", dt );
