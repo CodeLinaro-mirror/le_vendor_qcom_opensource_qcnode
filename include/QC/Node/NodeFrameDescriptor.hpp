@@ -45,8 +45,9 @@ class NodeFrameDescriptor : public QCFrameDescriptorNodeIfs
 {
 public:
     NodeFrameDescriptor() = delete;
-    NodeFrameDescriptor( uint32_t numOfBuffers ) noexcept : m_buffers( numOfBuffers, Dummy() ) {}
-    ~NodeFrameDescriptor() {}
+    explicit NodeFrameDescriptor( uint32_t numOfBuffers ) noexcept : m_buffers( numOfBuffers, Dummy() ) {}
+    NodeFrameDescriptor( const NodeFrameDescriptor &other ) = default;
+    ~NodeFrameDescriptor() override = default;
 
     /**
      * @brief Copies buffer descriptors from another QCFrameDescriptorNodeIfs object.
@@ -54,7 +55,7 @@ public:
      * copied.
      * @return The updated QCFrameDescriptorNodeIfs object.
      */
-    QCFrameDescriptorNodeIfs &operator=( QCFrameDescriptorNodeIfs &other )
+    QCFrameDescriptorNodeIfs &operator=( QCFrameDescriptorNodeIfs &other ) override
     {
         if ( this != &other )
         {
@@ -90,7 +91,7 @@ public:
      * configuration structure. Follow the usage of QCNodeBufferMapEntry_t in the QCNodeBase.hpp
      * file. If the globalBufferId is out of range, a dummy buffer descriptor is returned.
      */
-    virtual QCBufferDescriptorBase_t &GetBuffer( uint32_t globalBufferId )
+    QCBufferDescriptorBase_t &GetBuffer( uint32_t globalBufferId ) override
     {
         std::reference_wrapper<QCBufferDescriptorBase_t> buffer = Dummy();
         if ( globalBufferId < m_buffers.size() )
@@ -106,7 +107,7 @@ public:
      * @param[in] buffer The buffer descriptor.
      * @return QC_STATUS_OK on success, or an error code on failure.
      */
-    virtual QCStatus_e SetBuffer( uint32_t globalBufferId, QCBufferDescriptorBase_t &buffer )
+    QCStatus_e SetBuffer( uint32_t globalBufferId, QCBufferDescriptorBase_t &buffer ) override
     {
         QCStatus_e status = QC_STATUS_OK;
         if ( globalBufferId < m_buffers.size() )
@@ -124,7 +125,7 @@ public:
      * @brief Clear all the buffer descriptor to dummy.
      * @return None.
      */
-    virtual void Clear()
+    void Clear() override
     {
         for ( auto &buffer : m_buffers )
         {

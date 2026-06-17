@@ -27,6 +27,9 @@ public:
      */
     UtilsBase();
 
+    UtilsBase( const UtilsBase & ) = default;
+    UtilsBase& operator=( const UtilsBase& ) = default;
+
     /**
      * @brief Destructor for the UtilsBase class.
      * This destructor releases any resources allocated by the ManagerLocal object.

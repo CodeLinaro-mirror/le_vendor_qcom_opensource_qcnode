@@ -178,7 +178,9 @@ typedef void ( *Logger_Destroy_t )( Logger_Handle_t hHandle );
 class Logger
 {
 public:
-    Logger();
+    Logger() noexcept;
+    Logger( const Logger & ) = default;
+    Logger& operator=( const Logger& ) = default;
     ~Logger();
 
     /**

@@ -54,8 +54,9 @@ QCStatus_e PMEMAllocator::Allocate( const QCBufferPropBase_t &request,
 
     if ( QC_STATUS_OK == status )
     {
-        response.pBuf = pmem_malloc_ext_v2( static_cast<uint32_t>(request.size), pmemId, pmemFlags, static_cast<uint32_t>(request.alignment), 0x0,
-                                            &pmemHandle, NULL );
+        response.pBuf = pmem_malloc_ext_v2( static_cast<uint32_t>( request.size ), pmemId,
+                                            pmemFlags, static_cast<uint32_t>( request.alignment ),
+                                            0x0, &pmemHandle, NULL );
 
         if ( nullptr == response.pBuf )
         {
