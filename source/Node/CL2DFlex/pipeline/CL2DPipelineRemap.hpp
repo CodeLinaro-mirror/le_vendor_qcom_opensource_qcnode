@@ -17,18 +17,19 @@ class CL2DPipelineRemap : public CL2DPipelineBase
 public:
     CL2DPipelineRemap();
 
-    ~CL2DPipelineRemap();
+    ~CL2DPipelineRemap() override;
 
     CL2DPipelineRemap( const CL2DPipelineRemap & ) = delete;
     CL2DPipelineRemap &operator=( const CL2DPipelineRemap & ) = delete;
 
-    QCStatus_e Init( uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig,
-                     OpenclSrv *pOpenclSrvObj,
-                     std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers );
+    QCStatus_e
+    Init( uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig,
+          OpenclSrv *pOpenclSrvObj,
+          std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers ) override;
 
-    QCStatus_e Deinit();
+    QCStatus_e Deinit() override;
 
-    QCStatus_e Execute( ImageDescriptor_t &input, ImageDescriptor_t &output );
+    QCStatus_e Execute( ImageDescriptor_t &input, ImageDescriptor_t &output ) override;
 
 private:
     QCStatus_e RemapFromNV12ToRGB( cl_mem bufferSrc, uint32_t srcOffset, cl_mem bufferDst,
