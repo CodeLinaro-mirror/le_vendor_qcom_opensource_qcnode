@@ -228,7 +228,7 @@ QCStatus_e FadasSrv::InitDSP( QCProcessorType_e processor, uint32_t coreId )
         char *endptr;
         errno = 0;
         s_client = strtol( envValue, &endptr, 10 );
-        if ( (0 != errno) || ( endptr == envValue ) || ( '\0' != *endptr ) )
+        if ( ( 0 != errno ) || ( endptr == envValue ) || ( '\0' != *endptr ) )
         {
             QC_INFO( "Invalid client reset to 1!" );
             s_client = 1;
@@ -733,7 +733,7 @@ int32_t FadasSrv::RegisterImage( const ImageDescriptor_t &imageDesc, FadasBufTyp
     size_t size = imageDesc.size;
     size_t offset = imageDesc.offset;
     uint32_t batch = imageDesc.batchSize;
-    size_t sizeOne = (size_t) ( imageDesc.size / batch );
+    size_t sizeOne = ( size_t )( imageDesc.size / batch );
     QCImageFormat_e format = imageDesc.format;
     uint32_t sizePlane0 = imageDesc.planeBufSize[0];
     uint32_t sizePlane1 = imageDesc.planeBufSize[1];
@@ -927,7 +927,7 @@ void FadasSrv::DeregBuf( void *pBuffer )
                 }
 
                 retVal = fastrpc_munmap( extDomainId, fd, ptr, size );
-                if ( AEE_SUCCESS != retVal )
+                if ( ( AEE_SUCCESS != retVal ) && ( QC_AEE_ENOSUCHMAP != retVal ) )
                 {
                     QC_ERROR( "Failed to fastrpc_munmap %p(%d, %llu): ret = %x\n", ptr, fd, size,
                               retVal );
