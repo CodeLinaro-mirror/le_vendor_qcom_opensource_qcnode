@@ -146,8 +146,10 @@ typedef struct RadarMonitorConfig : public QCNodeMonitoringBase_t
 class RadarMonitoringIfs : public QCNodeMonitoringIfs
 {
 public:
-    RadarMonitoringIfs() {}
-    ~RadarMonitoringIfs() {}
+    RadarMonitoringIfs() = default;
+    RadarMonitoringIfs( const RadarMonitoringIfs & ) = default;
+    RadarMonitoringIfs& operator=( const RadarMonitoringIfs& ) = default;
+    ~RadarMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
     {

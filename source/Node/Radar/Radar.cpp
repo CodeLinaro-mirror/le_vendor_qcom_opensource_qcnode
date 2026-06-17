@@ -14,7 +14,7 @@ REGISTER_NODE( QC_NODE_TYPE_RADAR, Radar )
 
 Radar::Radar() : m_pImpl( std::make_unique<RadarImpl>() ), m_configIfs( m_logger ) {}
 
-Radar::~Radar() {}
+Radar::~Radar() = default;
 
 QCStatus_e RadarConfigIfs::VerifyStaticConfig( DataTree &dt, std::string &errors )
 {
@@ -243,6 +243,10 @@ QCStatus_e Radar::Initialize( QCNodeInit_t &config )
         {
             status = QC_STATUS_BAD_ARGUMENTS;
             QC_ERROR( "Service name cannot be empty" );
+        }
+        else
+        {
+            /* no action required */
         }
     }
 
