@@ -951,8 +951,8 @@ QCStatus_e OpticalFlow::RegisterMemory( const BufferDescriptor_t &bufferDesc, Bu
             QC_DEBUG( "OpticalFlow: Buffer offset %d", bufferDesc.offset );
             QC_DEBUG( "OpticalFlow: Buffer dmahandle %lu", bufferDesc.dmaHandle );
 
-            buff.nSize = bufferDesc.GetDataSize();
-            buff.nOffset = bufferDesc.offset;
+            buff.nSize = static_cast<uint32_t>( bufferDesc.GetDataSize() );
+            buff.nOffset = static_cast<uint32_t>( bufferDesc.offset );
             buff.pAddress = bufferDesc.pBuf;
             buff.hHandle = (BufferHandle) bufferDesc.dmaHandle;
 
