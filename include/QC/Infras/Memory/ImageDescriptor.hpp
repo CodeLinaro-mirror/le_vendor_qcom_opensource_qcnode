@@ -222,6 +222,10 @@ public:
         }
     }
 
+    ~ImageDescriptor() override = default;
+
+    ImageDescriptor( const ImageDescriptor &other ) = default;
+
     /**
      * @brief Sets up the image descriptor from another buffer descriptor object.
      * @param[in] other The buffer descriptor object from which buffer members are copied.

@@ -52,7 +52,7 @@ QCStatus_e HeapAllocator::Allocate( const QCBufferPropBase_t &request,
         QC_DEBUG(
                 "%s: Allocating %zu bytes aligned at %lu byte boundary from the process's heap...",
                 GetConfiguration().name.c_str(), request.size, request.alignment );
-        uint32_t ret = posix_memalign( &response.pBuf, request.alignment, request.size );
+        int ret = posix_memalign( &response.pBuf, request.alignment, request.size );
         // check if nullptr is the result
         if ( 0 != ret )
         {

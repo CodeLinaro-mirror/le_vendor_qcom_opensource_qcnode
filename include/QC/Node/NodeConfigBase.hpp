@@ -36,10 +36,11 @@ public:
      * @brief NodeConfigBase Destructor
      * @return None
      */
-    ~NodeConfigBase() {}
+    virtual ~NodeConfigBase() = default;
 
 
     NodeConfigBase( const NodeConfigBase &other ) = delete;
+    NodeConfigBase& operator=( const NodeConfigBase &other ) = delete;
 
 
     /**

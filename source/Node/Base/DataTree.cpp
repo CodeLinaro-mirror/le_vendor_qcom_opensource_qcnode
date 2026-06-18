@@ -12,6 +12,15 @@ DataTree::DataTree( const json &js ) : m_json( js ) {}
 
 DataTree::DataTree( const DataTree &rhs ) : m_json( rhs.m_json ) {}
 
+DataTree& DataTree::operator=( const DataTree &rhs )
+{
+    if ( this != &rhs )
+    {
+        m_json = rhs.m_json;
+    }
+    return *this;
+}
+
 DataTree::~DataTree() {}
 
 QCStatus_e DataTree::Load( const std::string &context, std::string &errors )

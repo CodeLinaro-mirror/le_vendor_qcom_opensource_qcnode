@@ -43,6 +43,7 @@ public:
      * @return void
      */
     DataTree( const DataTree &rhs );
+    DataTree& operator=( const DataTree &rhs );
 
     /**
      * @brief Loads the DataTree from the input string context.
