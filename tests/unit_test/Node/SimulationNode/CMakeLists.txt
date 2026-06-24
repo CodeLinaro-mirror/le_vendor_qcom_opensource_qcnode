@@ -22,3 +22,19 @@ target_link_libraries( gtest_NodeSimulationNode
 )
 
 install(TARGETS gtest_NodeSimulationNode DESTINATION bin)
+
+add_executable( gtest_NodeSimulationNode_unit gtest_SimulationNode.cpp )
+
+target_include_directories(gtest_NodeSimulationNode_unit PUBLIC
+    ${GTEST_INCLUDE_DIRS}
+    ${PROJECT_SOURCE_DIR}/include
+)
+
+target_link_libraries( gtest_NodeSimulationNode_unit
+    ${GTEST_LIBRARIES}
+    QCNode
+    QCNodeMemory
+    Threads::Threads
+)
+
+install(TARGETS gtest_NodeSimulationNode_unit DESTINATION bin)
