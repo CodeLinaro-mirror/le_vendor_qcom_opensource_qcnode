@@ -212,6 +212,10 @@ QCStatus_e CL2DFlexConfig::ParseStaticConfig( DataTree &dt, std::string &errors 
                 config.params.remapTable[inputId].mapYBufferId =
                         idt.Get<uint32_t>( "mapYBufferId", UINT32_MAX );
             }
+            else
+            {
+                /* no action required */
+            }
 
             inputId++;
         }

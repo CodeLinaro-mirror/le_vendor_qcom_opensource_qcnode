@@ -11,7 +11,7 @@ namespace Node
 
 CL2DPipelineBase::CL2DPipelineBase() {}
 
-CL2DPipelineBase::~CL2DPipelineBase() {}
+CL2DPipelineBase::~CL2DPipelineBase() = default;
 
 void CL2DPipelineBase::InitLogger( const char *pName, Logger_Level_e level )
 {
