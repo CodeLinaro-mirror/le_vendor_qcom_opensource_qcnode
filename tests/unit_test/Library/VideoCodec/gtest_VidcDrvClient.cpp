@@ -387,7 +387,7 @@ protected:
         self->last_out = frame;
         self->calls.out_done++;
     }
-    static void EvtCb( VideoCodec_EventType_e evt, const void * /*pMsg*/, void *ctx )
+    static void EvtCb( VideoCodec_EventType_e evt, void * /*pMsg*/, void *ctx )
     {
         auto *self = static_cast<VidcDrvClientTest *>( ctx );
         self->last_evt = evt;
@@ -479,7 +479,7 @@ static void TestOutputDoneCb( VideoFrameDescriptor &frame, void *priv )
     g_outputDoneCnt++;
 }
 
-static void TestEventCb( VideoCodec_EventType_e event, const void *payload, void *priv )
+static void TestEventCb( VideoCodec_EventType_e event, void *payload, void *priv )
 {
     (void) payload;
     (void) priv;
