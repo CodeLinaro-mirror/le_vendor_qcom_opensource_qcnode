@@ -482,4 +482,300 @@ TEST_F( SimulationNodeTest, AsyncProcessing )
         timeoutMs -= 10;
     }
 
-    EXPECT_TRUE( m_callbackC
+    EXPECT_TRUE( m_callbackCalled );
+    EXPECT_EQ( m_lastCallbackStatus, QC_STATUS_OK );
+
+    status = m_pSimulationNode->Stop();
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    for ( auto &bufDesc : bufferDescs )
+    {
+        FreeBufferDescriptor( bufDesc );
+    }
+}
+
+// Tests error simulation
+TEST_F( SimulationNodeTest, ErrorSimulation )
+{
+    std::vector<BufferDescriptor_t> bufferDescs;
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        bufferDescs.push_back( CreateBufferDescriptor( i, 1024 ) );
+    }
+
+    std::string config = CreateErrorConfig( "bad_arguments", 1 );
+
+    QCNodeInit_t nodeInit;
+    nodeInit.config = config;
+    nodeInit.buffers.reserve( bufferDescs.size() );
+    for ( size_t i = 0; i < bufferDescs.size(); i++ )
+    {
+        nodeInit.buffers.push_back( bufferDescs[i] );
+    }
+
+    QCStatus_e status = m_pSimulationNode->Initialize( nodeInit );
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    status = m_pSimulationNode->Start();
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    std::unique_ptr<NodeFrameDescriptor> frameDesc( CreateFrameDescriptor( 4 ) );
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        status = frameDesc->SetBuffer( i, bufferDescs[i] );
+        EXPECT_EQ( status, QC_STATUS_OK );
+    }
+
+    status = m_pSimulationNode->ProcessFrameDescriptor( *frameDesc );
+    EXPECT_EQ( status, QC_STATUS_BAD_ARGUMENTS );
+
+    status = m_pSimulationNode->Stop();
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    for ( auto &bufDesc : bufferDescs )
+    {
+        FreeBufferDescriptor( bufDesc );
+    }
+}
+
+// Tests forced state functionality
+TEST_F( SimulationNodeTest, ForcedState )
+{
+    std::vector<BufferDescriptor_t> bufferDescs;
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        bufferDescs.push_back( CreateBufferDescriptor( i, 1024 ) );
+    }
+
+    std::string config = CreateForcedStateConfig( "error" );
+
+    QCNodeInit_t nodeInit;
+    nodeInit.config = config;
+    nodeInit.buffers.reserve( bufferDescs.size() );
+    for ( size_t i = 0; i < bufferDescs.size(); i++ )
+    {
+        nodeInit.buffers.push_back( bufferDescs[i] );
+    }
+
+    QCStatus_e status = m_pSimulationNode->Initialize( nodeInit );
+    EXPECT_EQ( status, QC_STATUS_OK );
+    EXPECT_EQ( m_pSimulationNode->GetState(), QC_OBJECT_STATE_ERROR );
+
+    for ( auto &bufDesc : bufferDescs )
+    {
+        FreeBufferDescriptor( bufDesc );
+    }
+}
+
+// Tests return status for functions
+TEST_F( SimulationNodeTest, ReturnStatus )
+{
+    std::vector<BufferDescriptor_t> bufferDescs;
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        bufferDescs.push_back( CreateBufferDescriptor( i, 1024 ) );
+    }
+
+    std::string config = CreateReturnStatusConfig( "Start", static_cast<int>( QC_STATUS_FAIL ) );
+
+    QCNodeInit_t nodeInit;
+    nodeInit.config = config;
+    nodeInit.buffers.reserve( bufferDescs.size() );
+    for ( size_t i = 0; i < bufferDescs.size(); i++ )
+    {
+        nodeInit.buffers.push_back( bufferDescs[i] );
+    }
+
+    QCStatus_e status = m_pSimulationNode->Initialize( nodeInit );
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    status = m_pSimulationNode->Start();
+    EXPECT_EQ( status, QC_STATUS_FAIL );
+
+    for ( auto &bufDesc : bufferDescs )
+    {
+        FreeBufferDescriptor( bufDesc );
+    }
+}
+
+// Tests processing in invalid state
+TEST_F( SimulationNodeTest, ProcessInvalidState )
+{
+    std::vector<BufferDescriptor_t> bufferDescs;
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        bufferDescs.push_back( CreateBufferDescriptor( i, 1024 ) );
+    }
+
+    std::string config = CreateBasicConfig();
+
+    QCNodeInit_t nodeInit;
+    nodeInit.config = config;
+    nodeInit.buffers.reserve( bufferDescs.size() );
+    for ( size_t i = 0; i < bufferDescs.size(); i++ )
+    {
+        nodeInit.buffers.push_back( bufferDescs[i] );
+    }
+
+    QCStatus_e status = m_pSimulationNode->Initialize( nodeInit );
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    std::unique_ptr<NodeFrameDescriptor> frameDesc( CreateFrameDescriptor( 4 ) );
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        status = frameDesc->SetBuffer( i, bufferDescs[i] );
+        EXPECT_EQ( status, QC_STATUS_OK );
+    }
+
+    status = m_pSimulationNode->ProcessFrameDescriptor( *frameDesc );
+    EXPECT_EQ( status, QC_STATUS_BAD_STATE );
+
+    for ( auto &bufDesc : bufferDescs )
+    {
+        FreeBufferDescriptor( bufDesc );
+    }
+}
+
+// Tests deinitialize without stopping first
+TEST_F( SimulationNodeTest, DeinitWithoutStop )
+{
+    std::vector<BufferDescriptor_t> bufferDescs;
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        bufferDescs.push_back( CreateBufferDescriptor( i, 1024 ) );
+    }
+
+    std::string config = CreateBasicConfig();
+
+    QCNodeInit_t nodeInit;
+    nodeInit.config = config;
+    nodeInit.buffers.reserve( bufferDescs.size() );
+    for ( size_t i = 0; i < bufferDescs.size(); i++ )
+    {
+        nodeInit.buffers.push_back( bufferDescs[i] );
+    }
+
+    QCStatus_e status = m_pSimulationNode->Initialize( nodeInit );
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    status = m_pSimulationNode->Start();
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    status = m_pSimulationNode->DeInitialize();
+    EXPECT_EQ( status, QC_STATUS_BAD_STATE );
+
+    status = m_pSimulationNode->Stop();
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    status = m_pSimulationNode->DeInitialize();
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    for ( auto &bufDesc : bufferDescs )
+    {
+        FreeBufferDescriptor( bufDesc );
+    }
+}
+
+// Tests multiple frame processing
+TEST_F( SimulationNodeTest, MultipleFrameProcessing )
+{
+    std::vector<BufferDescriptor_t> bufferDescs;
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        bufferDescs.push_back( CreateBufferDescriptor( i, 1024 ) );
+    }
+
+    std::string config = CreateBasicConfig( false );
+
+    QCNodeInit_t nodeInit;
+    nodeInit.config = config;
+    nodeInit.buffers.reserve( bufferDescs.size() );
+    for ( size_t i = 0; i < bufferDescs.size(); i++ )
+    {
+        nodeInit.buffers.push_back( bufferDescs[i] );
+    }
+
+    QCStatus_e status = m_pSimulationNode->Initialize( nodeInit );
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    status = m_pSimulationNode->Start();
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    std::unique_ptr<NodeFrameDescriptor> frameDesc( CreateFrameDescriptor( 4 ) );
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        status = frameDesc->SetBuffer( i, bufferDescs[i] );
+        EXPECT_EQ( status, QC_STATUS_OK );
+    }
+
+    const int numFrames = 5;
+    for ( int frame = 0; frame < numFrames; frame++ )
+    {
+        uint8_t *pInput0 = static_cast<uint8_t *>( bufferDescs[0].pBuf );
+        uint8_t *pInput1 = static_cast<uint8_t *>( bufferDescs[1].pBuf );
+        for ( size_t i = 0; i < 1024; i++ )
+        {
+            pInput0[i] = static_cast<uint8_t>( ( frame * 10 + i ) & 0xFF );
+            pInput1[i] = static_cast<uint8_t>( ( frame * 10 + i + 128 ) & 0xFF );
+        }
+
+        status = m_pSimulationNode->ProcessFrameDescriptor( *frameDesc );
+        EXPECT_EQ( status, QC_STATUS_OK );
+
+        uint8_t *pOutput0 = static_cast<uint8_t *>( bufferDescs[2].pBuf );
+        uint8_t *pOutput1 = static_cast<uint8_t *>( bufferDescs[3].pBuf );
+        for ( size_t i = 0; i < 1024; i++ )
+        {
+            EXPECT_EQ( pOutput0[i], pInput0[i] );
+            EXPECT_EQ( pOutput1[i], pInput1[i] );
+        }
+    }
+
+    status = m_pSimulationNode->Stop();
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    for ( auto &bufDesc : bufferDescs )
+    {
+        FreeBufferDescriptor( bufDesc );
+    }
+}
+
+// Tests configuration options retrieval
+TEST_F( SimulationNodeTest, ConfigurationOptions )
+{
+    std::vector<BufferDescriptor_t> bufferDescs;
+    for ( uint32_t i = 0; i < 4; i++ )
+    {
+        bufferDescs.push_back( CreateBufferDescriptor( i, 1024 ) );
+    }
+
+    std::string config = CreateBasicConfig();
+
+    QCNodeInit_t nodeInit;
+    nodeInit.config = config;
+    nodeInit.buffers.reserve( bufferDescs.size() );
+    for ( size_t i = 0; i < bufferDescs.size(); i++ )
+    {
+        nodeInit.buffers.push_back( bufferDescs[i] );
+    }
+
+    QCStatus_e status = m_pSimulationNode->Initialize( nodeInit );
+    EXPECT_EQ( status, QC_STATUS_OK );
+
+    const std::string &options = m_pSimulationNode->GetConfigurationIfs().GetOptions();
+    EXPECT_FALSE( options.empty() );
+    EXPECT_NE( options.find( "version" ), std::string::npos );
+    EXPECT_NE( options.find( "processingMode" ), std::string::npos );
+
+    for ( auto &bufDesc : bufferDescs )
+    {
+        FreeBufferDescriptor( bufDesc );
+    }
+}
+
+int main( int argc, char **argv )
+{
+    ::testing::InitGoogleTest( &argc, argv );
+    std::cout << "Running SimulationNode tests..." << std::endl;
+    return RUN_ALL_TESTS();
+}
