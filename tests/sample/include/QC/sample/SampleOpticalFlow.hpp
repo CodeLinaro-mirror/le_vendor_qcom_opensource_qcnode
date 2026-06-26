@@ -72,14 +72,17 @@ private:
     uint32_t m_nStepSize;
     uint32_t m_width;
     uint32_t m_height;
+    MotionDirection_e m_motionDirection = MOTION_DIRECTION_FORWARD;
 
     std::string m_inputTopicName;
     std::string m_outputTopicName;
     bool m_bLatest = true;
 
     std::thread m_thread;
-    SharedBufferPool m_mvPool;
-    SharedBufferPool m_mvConfPool;
+    SharedBufferPool m_mvFwdPool;     ///< Forward motion vector pool (FORWARD / BIDIRECTIONAL)
+    SharedBufferPool m_mvFwdConfPool; ///< Forward confidence pool    (FORWARD / BIDIRECTIONAL)
+    SharedBufferPool m_mvBwdPool;     ///< Backward motion vector pool (BACKWARD / BIDIRECTIONAL)
+    SharedBufferPool m_mvBwdConfPool; ///< Backward confidence pool    (BACKWARD / BIDIRECTIONAL)
     bool m_stop;
 
     DataSubscriber<DataFrames_t> m_sub;
