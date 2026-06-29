@@ -225,7 +225,7 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
+| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu, gpu] |
 | core_id        | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
 | cpu_threads_affinity | false | int list | [] | CPU core IDs to pin worker threads to (CPU processor only). If absent or empty, platform defaults are used: [12,13,14,15] on Linux, [0,1,2,3] otherwise |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
@@ -279,7 +279,7 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
+| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu, gpu] |
 | core_ids      | false    | int list  | 0       | Comma-separated list of core IDs on which the QNN model will run. |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | async         | fasle    | bool      | false   | If true, enable to use QNN Async Execute API, else use QNN Sync Execute API. |
@@ -418,7 +418,7 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
+| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu, gpu] |
 | core_id       | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | pillar_size_x | false    | float     | 0.16    | Pillar size in x direction in meters |
@@ -453,7 +453,7 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu] |
+| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu] |
 | core_id       | false    | int       | 0       | The processor core ID, options from [0,1,2,3] |
 | rsm_priority  | false    | int       | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | pillar_size_x | false    | float     | 0.16    | Pillar size in x direction in meters |
@@ -640,12 +640,12 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| eva_mode      | false    | string    | dsp     | the eval filter mode, options from [dsp, cpu, disable] |
+| eva_mode      | false    | string    | dsp     | the eval filter mode, options from [dsp, cpu, disable]. Only parsed in EVA_AUTO builds (SampleOpticalFlowEvaAuto); ignored in the default EVA build |
 | direction     | false    | string    | forward | the opticalflow direction, options from [forward, backward] |
 | step_size     | false    | int       | 1       | the step size, options from [0, 1, 2] |
 | width         | true     | int       | -       | The input image width |
 | height        | true     | int       | -       | The input image height |
-| format        | false    | string    | nv12    | The input image format, options from [nv12, nv12_ubwc] |
+| format        | false    | string    | nv12    | The input image format. EVA build: [nv12, nv12_ubwc]. EVA_AUTO build: [uyvy, nv12, p010] |
 | pool_size     | false    | int       | 4       | The image memory pool size |
 | fps           | false    | int       | 30      | The frame rate per second |
 | input_topic   | true     | string    | -       | the input topic name |
@@ -738,7 +738,7 @@ The command line template example (buffer_timestamp mode):
 | direction     | false    | string    | l2r     | the search direction, options from [l2r, r2l] |
 | width         | true     | int       | -       | The input image width |
 | height        | true     | int       | -       | The input image height |
-| format        | false    | string    | nv12    | The input image format, options from [nv12, nv12_ubwc, p010, tp10_ubwc] |
+| format        | false    | string    | nv12    | The input image format. EVA build: [nv12, nv12_ubwc]. EVA_AUTO build: [nv12, p010, nv12_ubwc, tp10_ubwc] |
 | pool_size     | false    | int       | 4       | The image memory pool size |
 | fps           | false    | int       | 30      | The frame rate per second |
 | cache         | false    | bool      | true    | use cached memory or not for the buffer pool |
@@ -811,7 +811,6 @@ The command line template example:
 | timeout_ms | false | int | 5000 | Processing timeout in milliseconds (max 60 seconds) |
 | enable_performance_log | false | bool | false | Enable/disable performance logging |
 | pool_size | false | int | 4 | Number of buffers in output buffer pool (max 32) |
-| cache | false | bool | true | Enable/disable cached memory allocation |
 | input_topic | true | string | - | Input topic name for radar data |
 | output_topic | true | string | - | Output topic name for processed results |
 
@@ -835,7 +834,6 @@ The command line template example:
     -k timeout_ms -v 10000 \
     -k enable_performance_log -v true \
     -k pool_size -v 8 \
-    -k cache -v true \
     -k input_topic -v /sensor/radar/RADAR0/raw \
     -k output_topic -v /sensor/radar/RADAR0/processed \
 ```
