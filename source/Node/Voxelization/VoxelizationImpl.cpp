@@ -19,7 +19,7 @@ VoxelizationImpl::VoxelizationImpl( QCNodeID_t &nodeId, Logger &logger )
       m_state( QC_OBJECT_STATE_INITIAL )
 {}
 
-VoxelizationImpl::~VoxelizationImpl() {}
+VoxelizationImpl::~VoxelizationImpl() = default;
 
 QCStatus_e
 VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
@@ -832,7 +832,7 @@ QCStatus_e VoxelizationImpl::DeRegisterBuffer( QCBufferDescriptorBase_t &buffer 
     }
     QC_INFO( "Buffer(%p) deregister", buffer.pBuf );
 
-    m_bufferMap.erase( bufferHandle );
+    (void) m_bufferMap.erase( bufferHandle );
 
     return ret;
 }
