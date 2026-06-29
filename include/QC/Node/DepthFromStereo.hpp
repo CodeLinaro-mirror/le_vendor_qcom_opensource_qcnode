@@ -19,7 +19,7 @@ using namespace SV;
 /** @brief The QCNode Depth from Stereo Version */
 #define QCNODE_DFS_VERSION_MAJOR 2U
 #define QCNODE_DFS_VERSION_MINOR 0U
-#define QCNODE_DFS_VERSION_PATCH 0U
+#define QCNODE_DFS_VERSION_PATCH 1U
 
 #define QCNODE_DFS_VERSION                                                                         \
     ( ( QCNODE_DFS_VERSION_MAJOR << 16U ) | ( QCNODE_DFS_VERSION_MINOR << 8U ) |                   \
@@ -144,6 +144,7 @@ public:
     DepthFromStereo_Config();
     DepthFromStereo_Config( const DepthFromStereo_Config &rhs );
     DepthFromStereo_Config &operator=( const DepthFromStereo_Config &rhs );
+    ~DepthFromStereo_Config() override = default;
 
 } DepthFromStereo_Config_t;
 
@@ -258,8 +259,10 @@ typedef struct DepthFromStereoMonitorConfig : public QCNodeMonitoringBase_t
 class DepthFromStereoMonitoringIfs : public QCNodeMonitoringIfs
 {
 public:
-    DepthFromStereoMonitoringIfs() {}
-    ~DepthFromStereoMonitoringIfs() {}
+    DepthFromStereoMonitoringIfs() = default;
+    DepthFromStereoMonitoringIfs( const DepthFromStereoMonitoringIfs & ) = default;
+    DepthFromStereoMonitoringIfs& operator=( const DepthFromStereoMonitoringIfs& ) = default;
+    ~DepthFromStereoMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
     {

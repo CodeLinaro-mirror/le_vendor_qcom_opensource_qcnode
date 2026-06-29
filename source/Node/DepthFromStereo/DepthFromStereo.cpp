@@ -129,7 +129,7 @@ QCStatus_e DepthFromStereoConfigIfs::VerifyStaticConfig( DataTree &dt, std::stri
     }
 
     uint8_t modelType = dt.Get<uint8_t>( "modelType", 1 );
-    if ( modelType < 0 or modelType > 4 )
+    if ( static_cast<int32_t>( modelType ) < 0 or static_cast<int32_t>( modelType ) > 4 )
     {
         errors += "model type out of range, ";
         status = QC_STATUS_BAD_ARGUMENTS;
@@ -994,8 +994,8 @@ QCStatus_e DepthFromStereo::RegisterMemory( const BufferDescriptor_t &bufferDesc
             QC_DEBUG( "DepthFromStereo: Buffer offset %d", bufferDesc.offset );
             QC_DEBUG( "DepthFromStereo: Buffer dmahandle %lu", bufferDesc.dmaHandle );
 
-            buff.nSize = bufferDesc.GetDataSize();
-            buff.nOffset = bufferDesc.offset;
+            buff.nSize = static_cast<uint32_t>( bufferDesc.GetDataSize() );
+            buff.nOffset = static_cast<uint32_t>( bufferDesc.offset );
             buff.pAddress = bufferDesc.pBuf;
             buff.hHandle = (BufferHandle) bufferDesc.dmaHandle;
 
