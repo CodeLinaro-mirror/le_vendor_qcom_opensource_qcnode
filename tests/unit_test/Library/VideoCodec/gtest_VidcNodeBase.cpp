@@ -279,7 +279,7 @@ public:
         // Not needed for state; provided for completeness
         (void) self;
     }
-    static void EvtCb( VideoCodec_EventType_e evt, const void *pMsg, void *ctx )
+    static void EvtCb( VideoCodec_EventType_e evt, void *pMsg, void *ctx )
     {
         auto *self = static_cast<TestableVidcNodeBase *>( ctx );
         self->EventCallback( evt, pMsg );   // protected → accessible here
