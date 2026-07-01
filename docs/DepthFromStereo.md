@@ -53,7 +53,7 @@
 | `width`    | true      | uint32_t    | The width in pixels of the input stereo frames. Must be greater than 0. |
 | `height`   | true      | uint32_t    | The height in pixels of the input stereo frames. Must be greater than 0. |
 | `fps`      | false     | uint32_t    | Input frames per second. Must be greater than 0. <br> Default: `30` |
-| `format`   | false     | string      | Input image format. <br> Options: `NV12`, `NV12_UBWC` <br> Default: `NV12` |
+| `format`   | false     | string      | Input image format. <br> Options: `nv12`, `nv12_ubwc` <br> Default: `nv12` |
 | `disparityFormat` | false | uint8_t | Disparity map output format. <br> Options: `0` (P012_LA_Y_ONLY) <br> Default: `0` |
 | `confidenceOutputEn` | false | bool | Enable confidence map output. <br> Default: `false` |
 | `processingMode` | false | uint8_t | Processing mode selector. <br> Options: `0` (AUTO), `1` (DL), `2` (SGM) <br> Default: `0` |
@@ -105,7 +105,7 @@
         "width": 1280,
         "height": 416,
         "fps": 30,
-        "format": "NV12",
+        "format": "nv12",
         "confidenceOutputEn": true,
         "searchDirection": 0
       }
@@ -122,7 +122,7 @@
         "width": 1280,
         "height": 416,
         "fps": 30,
-        "format": "NV12_UBWC",
+        "format": "nv12_ubwc",
         "confidenceOutputEn": true,
         "searchDirection": 0
       }
@@ -139,7 +139,7 @@
         "width": 1280,
         "height": 416,
         "fps": 30,
-        "format": "NV12",
+        "format": "nv12",
         "confidenceOutputEn": true,
         "searchDirection": 1
       }
@@ -217,7 +217,7 @@ public:
           "width": 1280,
           "height": 416,
           "fps": 30,
-          "format": "NV12",
+          "format": "nv12",
           "searchDirection": 0
         }
       })"
@@ -313,7 +313,7 @@ public:
           "width": 1280,
           "height": 416,
           "fps": 30,
-          "format": "NV12",
+          "format": "nv12",
           "confidenceOutputEn": true,
           "searchDirection": 0
         }
