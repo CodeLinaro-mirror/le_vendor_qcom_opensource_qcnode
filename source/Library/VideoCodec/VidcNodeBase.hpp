@@ -23,16 +23,16 @@ namespace QC::Node
 typedef struct VidcNodeBase_Config : public QCNodeConfigBase_t
 {
     ~VidcNodeBase_Config() override = default;
-    uint32_t width;     /**< in pixels */
-    uint32_t height;    /**< in pixels */
-    uint32_t frameRate; /**< fps */
-    uint32_t numInputBufferReq;
-    uint32_t numOutputBufferReq;
-    bool bInputDynamicMode;
-    bool bOutputDynamicMode;
-    QCImageFormat_e inFormat;  /**< uncompressed type */
-    QCImageFormat_e outFormat; /**< compressed type */
-    Logger_Level_e logLevel;
+    uint32_t width{ 0U };     /**< in pixels */
+    uint32_t height{ 0U };    /**< in pixels */
+    uint32_t frameRate{ 0U }; /**< fps */
+    uint32_t numInputBufferReq{ 0U };
+    uint32_t numOutputBufferReq{ 0U };
+    bool bInputDynamicMode{ false };
+    bool bOutputDynamicMode{ false };
+    QCImageFormat_e inFormat{};  /**< uncompressed type */
+    QCImageFormat_e outFormat{}; /**< compressed type */
+    Logger_Level_e logLevel{ LOGGER_LEVEL_ERROR };
 } VidcNodeBase_Config_t;
 
 class VidcNodeBaseConfigIfs : public NodeConfigIfs

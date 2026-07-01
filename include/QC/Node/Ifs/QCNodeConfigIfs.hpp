@@ -15,8 +15,8 @@ typedef struct QCNodeConfigBase
     QCNodeConfigBase() = default;
     QCNodeConfigBase( const QCNodeConfigBase & ) = default;
     QCNodeConfigBase& operator=( const QCNodeConfigBase& ) = default;
-    QCNodeID_t nodeId;
-    uint32_t numOfEntries;
+    QCNodeID_t nodeId{};
+    uint32_t numOfEntries{ 0U };
 } QCNodeConfigBase_t;
 
 class QCNodeConfigIfs
