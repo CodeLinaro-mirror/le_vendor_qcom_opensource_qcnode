@@ -244,7 +244,7 @@ QCStatus_e FadasSrv::InitDSP( QCProcessorType_e processor, uint32_t coreId )
     std::string uriDomain;
 
 #if ( QC_TARGET_SOC == 8797 )
-    fastrpc_domain domain;
+    fastrpc_domain domain = {};
     ret = GetDomain( processor, coreId, domain );
     if ( QC_STATUS_OK != ret )
     {
@@ -486,7 +486,7 @@ int32_t FadasSrv::FadasMemMapDSP( const QCBufferDescriptorBase_t &bufDesc )
     int domainId;
 
 #if ( QC_TARGET_SOC == 8797 )
-    fastrpc_domain domain;
+    fastrpc_domain domain = {};
     QCStatus_e retDomain = GetDomain( m_processor, m_coreId, domain );
     if ( QC_STATUS_OK != retDomain )
     {
@@ -891,7 +891,7 @@ void FadasSrv::DeregBuf( void *pBuffer )
                 int extDomainId = 0;
                 int domainId;
 #if ( QC_TARGET_SOC == 8797 )
-                fastrpc_domain domain;
+                fastrpc_domain domain = {};
                 QCStatus_e retDomain = GetDomain( m_processor, m_coreId, domain );
                 if ( QC_STATUS_OK != retDomain )
                 {
