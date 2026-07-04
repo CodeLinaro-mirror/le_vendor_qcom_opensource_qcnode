@@ -39,7 +39,7 @@ extern "C"
     void remote_register_buf_attr_v2( int ext_domain_id, void *buf, int size, int fd, int attr );
 }
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
 QCStatus_e FadasSrv::GetDomain( QCProcessorType_e processor, uint32_t coreId,
                                 fastrpc_domain &domain )
 {
@@ -243,7 +243,7 @@ QCStatus_e FadasSrv::InitDSP( QCProcessorType_e processor, uint32_t coreId )
     int domainId;
     std::string uriDomain;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
     fastrpc_domain domain = {};
     ret = GetDomain( processor, coreId, domain );
     if ( QC_STATUS_OK != ret )
@@ -348,7 +348,7 @@ QCStatus_e FadasSrv::Init( QCProcessorType_e processor, const char *pName, Logge
 
     std::lock_guard<std::mutex> l( s_FadasLock );
     if ( ( QC_PROCESSOR_HTP0 == processor ) || ( QC_PROCESSOR_HTP1 == processor ) ||
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
          ( QC_PROCESSOR_HTP2 == processor ) || ( QC_PROCESSOR_HTP3 == processor ) ||
 #endif
          ( QC_PROCESSOR_CPU == processor ) || ( QC_PROCESSOR_GPU == processor ) )
@@ -365,7 +365,7 @@ QCStatus_e FadasSrv::Init( QCProcessorType_e processor, const char *pName, Logge
     {
         m_coreId = coreId;
         m_handleIndex = static_cast<uint32_t>( m_processor );
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
         if ( ( QC_PROCESSOR_HTP0 == m_processor ) && ( 0 < m_coreId ) )
         {
             m_handleIndex = QC_PROCESSOR_MAX - 1 + m_coreId;
@@ -374,7 +374,7 @@ QCStatus_e FadasSrv::Init( QCProcessorType_e processor, const char *pName, Logge
         if ( false == s_initialized[m_handleIndex] )
         {
             if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                  || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
             )
@@ -430,7 +430,7 @@ QCStatus_e FadasSrv::Deinit()
                 DeregBuf( ptr );
             }
             if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                  || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
             )
@@ -485,7 +485,7 @@ int32_t FadasSrv::FadasMemMapDSP( const QCBufferDescriptorBase_t &bufDesc )
     int extDomainId = 0;
     int domainId;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
     fastrpc_domain domain = {};
     QCStatus_e retDomain = GetDomain( m_processor, m_coreId, domain );
     if ( QC_STATUS_OK != retDomain )
@@ -561,7 +561,7 @@ int32_t FadasSrv::FadasMemMap( const QCBufferDescriptorBase_t &bufDesc )
     int32_t fd = -1;
 
     if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
          || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
     )
@@ -662,7 +662,7 @@ QCStatus_e FadasSrv::FadasRegisterBuf( FadasBufType_e bufType, uint8_t *bufPtr, 
     QCStatus_e ret = QC_STATUS_OK;
 
     if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
          || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
     )
@@ -883,14 +883,14 @@ void FadasSrv::DeregBuf( void *pBuffer )
             (void) memMap.erase( it );
 
             if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                  || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
             )
             {
                 int extDomainId = 0;
                 int domainId;
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 fastrpc_domain domain = {};
                 QCStatus_e retDomain = GetDomain( m_processor, m_coreId, domain );
                 if ( QC_STATUS_OK != retDomain )
