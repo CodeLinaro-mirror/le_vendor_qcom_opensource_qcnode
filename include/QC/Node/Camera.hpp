@@ -6,7 +6,9 @@
 
 #include "QC/Infras/Memory/CameraBufferDescriptor.hpp"
 #include "QC/Node/NodeBase.hpp"
+#include "camera_metadata.h"
 #include "qcarcam.h"
+#include "qcarcam_metadata.h"
 
 namespace QC
 {
@@ -15,8 +17,8 @@ namespace Node
 
 /** @brief The QCNode Camera Version */
 #define QCNODE_CAMERA_VERSION_MAJOR 2U
-#define QCNODE_CAMERA_VERSION_MINOR 3U
-#define QCNODE_CAMERA_VERSION_PATCH 2U
+#define QCNODE_CAMERA_VERSION_MINOR 4U
+#define QCNODE_CAMERA_VERSION_PATCH 0U
 
 #define QCNODE_CAMERA_VERSION                                                                      \
     ( ( QCNODE_CAMERA_VERSION_MAJOR << 16U ) | ( QCNODE_CAMERA_VERSION_MINOR << 8U ) |             \
@@ -88,6 +90,7 @@ public:
      *         [
      *             {
      *                  "streamId": "Camera stream id, type: uint32_t",
+     *                  "contextId": "Optional. Context id this stream belongs to, type: uint32_t",
      *                  "bufferIds": [ "The indices of camera frame buffers in QCNodeInit::buffers,
      *                                 type: uint32_t" ],
      *                  "width": "Camera frame width, type: uint32_t",
@@ -102,8 +105,49 @@ public:
      *         [
      *             {
      *                 "bufferListId": "The index of metadata buffer group, type: uint32_t",
-     *                 "bufferIds": [ "The indices of camera frame buffers in QCNodeInit::buffers,
-     *                                type: uint32_t" ]
+     *                 "bufferIds": [ "The indices of camera metadata buffers in
+     *                                 QCNodeInit::buffers, type: uint32_t" ],
+     *                 "tag": "The metadata tag identified by QCarCamera, type: std::string,
+     *                         options: [ "INJECTION_SENSOR_METADATA", "TUNING_FEATURE_1_MODE",
+     *                                    "TUNING_FEATURE_2_MODE" ]",
+     *                 "outputBufferListId": "Buffer list ID for output metadata buffers,
+     *                                        type: uint32_t",
+     *                 "outputBufferIds": [ "The indices of output metadata buffers in
+     *                                       QCNodeInit::buffers, type: uint32_t" ],
+     *                 "InjectionConfig": "Configuration for ISP Injection, type: data tree,
+     *                                     only used when tag is INJECTION_SENSOR_METADATA"
+     *                 {
+     *                     "inputId": "The camera id which is used to provide captured image,
+     *                                 type: uint32_t",
+     *                     "inputBufferListId": "Buffer list ID for raw frame input buffers,
+     *                                           type: uint32_t",
+     *                     "inputBufferIds": [ "The indices of raw frame input buffers in
+     *                                          QCNodeInit::buffers, type: uint32_t" ],
+     *                     "inputMode": "The input mode in QCarCamInputModes_t, type: uint32_t",
+     *                     "inputTuningParamFeature1Mode": "Input Tuning Parameter Feature 1 Mode,
+     *                                                      type: uint32_t",
+     *                     "inputTuningParamFeature2Mode": "Input Tuning Parameter Feature 2 Mode,
+     *                                                      type: uint32_t",
+     *                     "inputSceneMode": "Input Scene Mode, type: uint32_t",
+     *                     "width": "Width of the raw frame injection input buffer, type: uint32_t",
+     *                     "height": "Height of the raw frame injection input buffer,
+     *                                type: uint32_t",
+     *                     "stride": "Stride of the raw frame injection input buffer,
+     *                                type: uint32_t",
+     *                     "format": "Color format of the raw frame injection input buffer,
+     *                                type: string, options:
+     *                                [ "mipiraw_8", "mipiraw_10", "mipiraw_12", "mipiraw_14",
+     *                                  "mipiraw_16", "plain16_10", "plain16_12", "plain16_14",
+     *                                  "plain16_16" ].
+     *                     "headerBufferListId": "Buffer list ID for sensor header metadata buffers,
+     *                                            type: uint32_t",
+     *                     "headerBufferIds": [ "The indices of sensor header buffers in
+     *                                           QCNodeInit::buffers, type: uint32_t" ],
+     *                     "eepromBufferListId": "Buffer list ID for EEPROM calibration buffers,
+     *                                            type: uint32_t",
+     *                     "eepromBufferIds": [ "The indices of EEPROM calibration buffers in
+     *                                           QCNodeInit::buffers, type: uint32_t" ]
+     *                 }
      *             }
      *         ],
      *         "requestMode": "Flag to set request buffer mode, type: bool",
@@ -134,6 +178,9 @@ public:
 private:
     QCStatus_e VerifyStaticConfig( DataTree &dt, std::string &errors );
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors );
+
+    CameraMetaDataType_e GetMetaDataType( const std::string &tag );
+    QCarCamColorFmt_e GetInjectQcarCamFormat( const std::string &format );
 
 private:
     CameraImpl *m_pCamImpl;

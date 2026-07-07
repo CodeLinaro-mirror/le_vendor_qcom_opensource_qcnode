@@ -125,41 +125,87 @@ Refer [DataReader Utils](../../scripts/utils/data_reader/README.md#L38) for how 
 
 ### 2.2 QCNode Camera Sample
 
+**Basic stream attributes:**
+
 | attribute | required | type      | default | comments |
 |-----------|----------|-----------|---------|----------|
 | number    | false    | int       | 1       | The number of camera streams |
-| client_id | false    | int       | 0       | client id, used for multi client usecase, set to 0 by default for single client usecase  |
-| is_primary| false    | bool      | false   | Flag to indicate if the session is primary or not when configured the clientId |
+| client_id | false    | int       | 0       | Client ID, used for multi-client use case. Set to 0 for single-client mode. |
+| is_primary| false    | bool      | false   | Flag to indicate if the session is primary or not when configured with clientId |
 | recovery  | false    | bool      | false   | Flag to enable the self-recovery for the session |
-| input_id  | true     | int       | -       | The camera input id |
+| input_id  | true     | int       | -       | The camera input ID |
 | src_id    | false    | int       | 0       | Input source identifier |
-| input_mode | false   | int       | 0       | The input mode id |
-| width     | true     | int       | -       | The image width for the stream 0 |
-| height    | true     | int       | -       | The image height for the stream 0 |
-| format    | false    | string    | "nv12"  | The camera frame format for the stream 0, options from [nv12, uyvy, p010, nv12_ubwc, tp10_ubwc, rgb, bgr] |
-| stream_id | false    | int       | 0       | The camera stream id for the stream 0 |
-| pool_size | false    | int       | 4       | The image memory pool size for the stream 0 |
-| submit_request_pattern | false | int       | 0  | The submit request pattern for the stream 0 |
-| request_mode | false | bool      | false   | The camera request mode |
-| frame_drop_patten | false | int  | 0       | The frame drop patten defined by qcarcam |
-| frame_drop_period | false | int  | 0       | The frame drop period defined by qcarcam |
-| isp_use_case | false | int       | 3       | The ISP use case |
-| op_mode   | false    | int       | 2       | The input operation mode, 1: Inline ISP, 2: Injection to ISP. |
-| multi_stream_frame_ready   | false    | bool       | false       | Flag to set multiple streams frame ready event in one callback. |
-| ignore_error | false | bool      | false   | Ignore the error of Camera Init&Start |
-| immediate_release | false | bool | false   | Perform an immediate camera frame release in the camera frame ready callback if true. Be cautious, as this approach does not provide life cycle management for the camera buffer, and data consistency is not guaranteed. |
-| topic     | true     | string    | -       | The output topic name |
-| widthX     | false   | int       | -       | The image width for the stream X |
-| heightX    | false   | int       | -       | The image height for the stream X |
-| formatX    | false   | string    | "nv12"  | The camera frame format for the stream X, options from [nv12, uyvy, p010, nv12_ubwc, tp10_ubwc, rgb, bgr] |
-| stream_idX | false   | int       | ${X}       | The camera stream id for the stream X |
-| pool_sizeX | false   | int       | 4       | The image memory pool size for the stream X |
-| submit_request_patternX | false | int       | 0  | The submit request pattern for the stream X |
-| topicX     | false   | string    | -       | The output topic name for the stream X |
+| input_mode | false   | int       | 0       | The input mode ID |
+| width     | true     | int       | -       | The image width for stream 0 |
+| height    | true     | int       | -       | The image height for stream 0 |
+| format    | false    | string    | "nv12"  | The camera frame format for stream 0, options from [nv12, uyvy, p010, nv12_ubwc, tp10_ubwc, rgb, bgr] |
+| stream_id | false    | int       | 0       | The camera stream ID for stream 0 |
+| context_id | false   | int       | 0       | The qcarcam context ID for stream 0. Must match the `context_id` in the usecase XML. Streams in one capture request must share a context; the Camera node submits one request per context. |
+| pool_size | false    | int       | 4       | The image memory pool size for stream 0 |
+| submit_request_pattern | false | int | 0  | The submit request pattern for stream 0 |
+| request_mode | false | bool      | false   | Enable request buffer mode |
+| frame_drop_pattern | false | int  | 0       | The frame drop pattern defined by QCarCam |
+| frame_drop_period | false | int  | 0       | The frame drop period defined by QCarCam |
+| isp_use_case | false | int       | 0       | The ISP use case |
+| op_mode   | false    | int       | 2       | The input operation mode: 1 = Inline ISP, 2 = Injection to ISP |
+| multi_stream_frame_ready | false | bool | false | Deliver all stream frame-ready events in a single callback |
+| ignore_error | false | bool      | false   | Ignore errors during Camera Init and Start |
+| immediate_release | false | bool | false   | Perform an immediate camera frame release in the frame-ready callback. Note: this disables buffer lifecycle management and does not guarantee data consistency. |
+| topic     | true     | string    | -       | The output topic name for stream 0 |
+| widthX     | false   | int       | -       | The image width for stream X |
+| heightX    | false   | int       | -       | The image height for stream X |
+| formatX    | false   | string    | "nv12"  | The camera frame format for stream X, options from [nv12, uyvy, p010, nv12_ubwc, tp10_ubwc, rgb, bgr] |
+| stream_idX | false   | int       | ${X}    | The camera stream ID for stream X |
+| context_idX | false  | int       | 0       | The qcarcam context ID for stream X. Must match the `context_id` in the usecase XML. |
+| pool_sizeX | false   | int       | 4       | The image memory pool size for stream X |
+| submit_request_patternX | false | int | 0  | The submit request pattern for stream X |
+| topicX     | false   | string    | -       | The output topic name for stream X |
 
-Note: "X" is value from 1 to number-1, thus the attribute with suffix "X" is repeated for different streams.
+Note: "X" is a value from 1 to number-1. Attributes with suffix "X" are repeated for each additional stream.
 
-The command line template example:
+**Metadata attributes** (used when `enable_metadata` is `true`):
+
+| attribute | required | type   | default | comments |
+|-----------|----------|--------|---------|----------|
+| enable_metadata | false | bool | false | Enable camera metadata. Requires `request_mode: true`. |
+| metadata_number | false | int  | 0     | Number of metadata configurations. |
+| tagX      | false    | string | -     | Metadata tag for metadata config X. Options: `TUNING_FEATURE_1_MODE`, `TUNING_FEATURE_2_MODE`, `INJECTION_SENSOR_METADATA`. |
+| buffer_numX | false  | int    | 4     | Number of metadata buffers for metadata config X. |
+| feature1_modeX | false | int  | 0     | ISP tuning feature 1 mode value (only for `TUNING_FEATURE_1_MODE`). |
+| feature2_modeX | false | int  | 0     | ISP tuning feature 2 mode value (only for `TUNING_FEATURE_2_MODE`). |
+| injection_output_meta_buf_num | false | int | 4 | Number of output metadata buffers for an `INJECTION_SENSOR_METADATA` config (receives per-frame AEC/AWB/ISP results). Only used for `INJECTION_SENSOR_METADATA`. |
+
+Note: "X" is a value from 0 to metadata_number-1. Attributes with suffix "X" are repeated for each metadata config.
+
+**ISP injection attributes** (used when a metadata config has `tag: INJECTION_SENSOR_METADATA`):
+
+| attribute | required | type   | default | comments |
+|-----------|----------|--------|---------|----------|
+| injection_file | false | string | "" | Path to the raw frame data. In single-file mode this is one binary file (each frame occupies `injection_stride × injection_height` bytes); in multifile mode (`injection_multifile: true`) this is a text file listing one raw-frame file path per line. |
+| injection_multifile | false | bool | false | Multifile mode: `injection_file` / `injection_header_file` are text file-lists, one path per line, instead of single concatenated binaries. |
+| injection_input_buf_num | false | int | 4 | Number of raw frame input buffers. |
+| injection_frame_rate | false | int | 30 | Injection frame rate in frames per second. |
+| injection_total_frames | false | int | 0 | Total number of frames in the injection file (0 = auto-detect from file size). |
+| injection_repeat_num | false | int | 0 | Number of repetitions (0 = infinite). |
+| injection_input_id | false | int | 0 | Camera input ID for the injection source. |
+| injection_input_mode | false | int | 0 | Input mode for the injection source. |
+| injection_feature1_mode | false | int | 0 | Tuning parameter feature 1 mode for ISP injection. |
+| injection_feature2_mode | false | int | 0 | Tuning parameter feature 2 mode for ISP injection. |
+| injection_scene_mode | false | int | 0 | Scene mode for ISP injection. |
+| injection_format | false | string | "mipiraw_12" | Raw data format of the injected frame. Options: `mipiraw_8`, `mipiraw_10`, `mipiraw_12`, `mipiraw_14`, `mipiraw_16`, `plain16_10`, `plain16_12`, `plain16_14`, `plain16_16`. |
+| injection_width | false | int | 0 | Width of the raw frame input buffer in pixels. |
+| injection_height | false | int | 0 | Height of the raw frame input buffer in lines. |
+| injection_stride | false | int | 0 | Stride of the raw frame input buffer in bytes. The per-frame buffer size is auto-calculated as `injection_stride × injection_height`. |
+| injection_header_file | false | string | "" | Path to the sensor header data (per-frame metadata). Single binary file, or a text file-list in multifile mode. Empty string disables per-frame header loading. |
+| injection_header_buf_size | false | int | 0 | Size in bytes of each sensor header buffer (0 = auto-calculate). |
+| injection_header_buf_num | false | int | 4 | Number of sensor header buffers. |
+| injection_eeprom_file | false | string | "" | Path to the EEPROM calibration binary file. Empty string disables EEPROM feature. |
+| injection_eeprom_buf_size | false | int | 0 | Size in bytes of the EEPROM buffer. Required (> 0) when `injection_eeprom_file` is non-empty. |
+| injection_dump_enable | false | bool | false | Dump each ISP-processed output frame to disk. |
+| injection_dump_path | false | string | "/tmp" | Directory path for dumped output frames (used when `injection_dump_enable: true`). |
+| injection_output_topic | false | string | "" | Topic name on which each ISP-processed output frame is published. When set, `SampleCamera` creates a dedicated `DataPublisher` for this topic so that downstream consumers (e.g. `TinyViz`) can subscribe and visualize the injection results independently of the regular stream topic. Empty string disables the extra publisher. |
+
+The command line template examples:
 
 - Basic request mode:
 ```sh
@@ -184,6 +230,60 @@ The command line template example:
     -k width1 -v 3840 -k height1 -v 2160 \
     -k pool_size1 -v 4 \
     -k topic1 -v /sensor/camera/CAM0_1/raw
+```
+
+- Camera with TUNING_FEATURE_1_MODE metadata:
+```sh
+  -n CAM0 -t Camera -k input_id -v 8 \
+    -k width -v 3840 -k height -v 2160 \
+    -k isp_use_case -v 65 -k request_mode -v true \
+    -k topic -v /sensor/camera/CAM0/raw \
+    -k enable_metadata -v true -k metadata_number -v 1 \
+    -k tag -v TUNING_FEATURE_1_MODE \
+    -k buffer_num -v 4 \
+    -k feature1_mode -v 1 \
+```
+
+- Camera with ISP injection (single-file mode):
+```sh
+  -n CAM0 -t Camera -k input_id -v 8 \
+    -k width -v 3840 -k height -v 2160 \
+    -k isp_use_case -v 65 -k request_mode -v true \
+    -k op_mode -v 2 \
+    -k topic -v /sensor/camera/CAM0/raw \
+    -k enable_metadata -v true -k metadata_number -v 1 \
+    -k tag -v INJECTION_SENSOR_METADATA \
+    -k injection_input_id -v 8 \
+    -k injection_file -v /data/input_frame.raw \
+    -k injection_format -v mipiraw_12 \
+    -k injection_width -v 3840 -k injection_height -v 2160 \
+    -k injection_stride -v 5760 \
+    -k injection_frame_rate -v 30 \
+    -k injection_header_file -v /data/input_header.raw \
+    -k injection_header_buf_size -v 65536 \
+```
+
+- Camera with ISP injection (multifile mode with output frame dump):
+```sh
+  -n CAM0 -t Camera -k input_id -v 26 \
+    -k width -v 3840 -k height -v 2160 \
+    -k isp_use_case -v 137 -k request_mode -v true \
+    -k op_mode -v 2 \
+    -k topic -v /sensor/camera/CAM0/raw \
+    -k enable_metadata -v true -k metadata_number -v 1 \
+    -k tag -v INJECTION_SENSOR_METADATA \
+    -k injection_input_id -v 26 \
+    -k injection_multifile -v true \
+    -k injection_file -v /tmp/inject_frames.txt \
+    -k injection_format -v mipiraw_12 \
+    -k injection_width -v 3840 -k injection_height -v 2160 \
+    -k injection_stride -v 5768 \
+    -k injection_frame_rate -v 30 \
+    -k injection_repeat_num -v 1 \
+    -k injection_header_file -v /tmp/header_filenames.txt \
+    -k injection_header_buf_size -v 11520 \
+    -k injection_dump_enable -v true \
+    -k injection_dump_path -v /data/camera/output_files
 ```
 
 

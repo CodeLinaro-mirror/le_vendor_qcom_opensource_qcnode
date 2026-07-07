@@ -26,6 +26,7 @@
     - [4.9.3 Multi-stream with submit request pattern](#493-multi-stream-with-submit-request-pattern)
     - [4.9.4 Multi-client feature](#494-multi-client-feature)
     - [4.9.5 Camera frame drop pattern and period](#495-camera-frame-drop-pattern-and-period)
+    - [4.9.6 ISP Injection usecase](#496-isp-injection-usecase)
 - [5. References](#5-references)
 - [6. Functional Safety](#6-functional-safety)
   - [6.1 ASIL](#61-asil)
@@ -83,17 +84,49 @@ A camera instance is operated through a sequence of function calls for optimal p
 | Parameter    | Required  | Type         | Description                  |
 |--------------|-----------|--------------|------------------------------|
 | `streamId`   | true      | uint32_t     | Camera stream id.            |
+| `contextId`  | false     | uint32_t     | Context id this stream belongs to. Default: `0`. Must match the `context_id` assigned to the stream in the qcarcam usecase XML. Streams in a single capture request must all share the same context; the Camera node submits one request per context (see note below). |
 | `bufferIds`  | true      | uint32_t[]   | The indices of camera frame buffers in QCNodeInit::buffers.  |
 | `width`      | true      | uint32_t     | Camera frame width.          |
 | `height`     | true      | uint32_t     | Camera frame height.         |
 | `format`     | true      | string       | Camera frame format. Options: `nv12`, `nv12_ubwc`, `uyvy`, `rgb`, `bgr`, `p010`, `tp10_ubwc` |
 | `submitRequestPattern`   | true         | uint32_t    | Buffer submit request pattern.   |
 
+> **Note (multi-context):** When a multi-stream configuration spans multiple qcarcam contexts, set each stream's `contextId` to match its `context_id` in the usecase XML. A single `QCarCamRequest_t` must not mix streams from different contexts (the qcx server rejects mixed-context requests), so the Camera node groups streams by `contextId` and issues one submit request per context. For `submitRequestPattern` (see §4.9.3), the pattern-0 reference stream is tracked per context: each context that has any non-zero-pattern stream must include at least one stream with `submitRequestPattern = 0`. Single-context configurations (the default, all streams `contextId = 0`) behave exactly as before.
+
 ## 2.3 Camera Metadata Configuration
-| Parameter    | Required  | Type         | Description                  |
-|--------------|-----------|--------------|------------------------------|
-| `bufferListId`| true      | uint32_t     | Camera metadata buffer list id. |
-| `bufferIds`  | true      | uint32_t[]   | The indices of camera metadata buffers in QCNodeInit::buffers.  |
+
+**Metadata config fields:**
+
+| Parameter           | Required  | Type         | Description                  |
+|---------------------|-----------|--------------|------------------------------|
+| `bufferListId`      | true      | uint32_t     | Camera metadata buffer list ID. |
+| `bufferIds`         | true      | uint32_t[]   | The indices of camera metadata buffers in QCNodeInit::buffers. |
+| `tag`               | true      | string       | Metadata tag name. Options: `INJECTION_SENSOR_METADATA`, `TUNING_FEATURE_1_MODE`, `TUNING_FEATURE_2_MODE`. Any other non-empty string is treated as a generic QCarCam vendor tag. |
+| `outputBufferListId`| false     | uint32_t     | Buffer list ID for output metadata buffers (QCARCAM_BUFFERLIST_TYPE_OUTPUT_METADATA). Set to 0 when not needed. For INJECTION_SENSOR_METADATA, set to QCARCAM_BUFFERLIST_ID_OUTPUT_METADATA (0x300) to receive AEC/AWB/ISP result metadata per frame. |
+| `outputBufferIds`   | false     | uint32_t[]   | The indices of output metadata buffers in QCNodeInit::buffers. Only used when `outputBufferListId` != 0. |
+| `InjectionConfig`   | false     | object       | ISP injection parameters. Only used when `tag` is `INJECTION_SENSOR_METADATA`. See InjectionConfig table below. |
+
+**InjectionConfig fields** (used when `tag` is `INJECTION_SENSOR_METADATA`):
+
+| Parameter                       | Required  | Type                  | Description                  |
+|---------------------------------|-----------|-----------------------|------------------------------|
+| `inputId`                       | false     | uint32_t              | Camera input ID for the injection source. |
+| `inputBufferListId`             | false     | uint32_t              | Buffer list ID for raw frame input buffers (QCARCAM_BUFFERLIST_TYPE_INPUT). Default: `QCARCAM_BUFFERLIST_ID_INPUT_0`. |
+| `inputBufferIds`                | true      | uint32_t[]            | The indices of raw frame input buffers in QCNodeInit::buffers. Must be non-empty. |
+| `inputMode`                     | false     | uint32_t              | Input mode index in QCarCamInputModes_t. |
+| `inputTuningParamFeature1Mode`  | false     | uint32_t              | Tuning parameter feature 1 mode for ISP. |
+| `inputTuningParamFeature2Mode`  | false     | uint32_t              | Tuning parameter feature 2 mode for ISP. |
+| `inputSceneMode`                | false     | uint32_t              | Scene mode for ISP tuning. |
+| `format`                        | false     | string                | Raw data format string of the raw frame input buffer. Options: `mipiraw_8`, `mipiraw_10`, `mipiraw_12`, `mipiraw_14`, `mipiraw_16`, `plain16_10`, `plain16_12`, `plain16_14`, `plain16_16`. Default: `mipiraw_12`. |
+| `width`                         | false     | uint32_t              | Width of the raw frame input buffer in pixels. |
+| `height`                        | false     | uint32_t              | Height of the raw frame input buffer in lines. |
+| `stride`                        | false     | uint32_t              | Stride of the raw frame input buffer in bytes. |
+| `headerBufferListId`            | false     | uint32_t              | Buffer list ID for sensor header metadata buffers (QCARCAM_BUFFERLIST_TYPE_INPUT_METADATA). Mapped to inputCommonMetadata on each request. Default: `QCARCAM_BUFFERLIST_ID_INPUT_METADATA`. |
+| `headerBufferIds`               | false     | uint32_t[]            | The indices of sensor header buffers in QCNodeInit::buffers. |
+| `eepromBufferListId`            | false     | uint32_t              | Buffer list ID for EEPROM calibration buffers (QCARCAM_BUFFERLIST_TYPE_INPUT_METADATA, separate list). Mapped to inputMetadata[0] on each request. Default: `QCARCAM_BUFFERLIST_ID_INPUT_METADATA + 1`. |
+| `eepromBufferIds`               | false     | uint32_t[]            | The indices of EEPROM calibration buffers in QCNodeInit::buffers. |
+
+> **Note:** Runtime injection parameters such as the raw data file path, frame rate, frame count, repeat count, and output-frame dumping are **not** part of the node-level config. They are driven by the application layer (see the SampleCamera CLI keys `injection_*` in the [Sample README](../tests/sample/README.md#22-qcnode-camera-sample)).
 
 - Example Configurations
 ```json
@@ -112,7 +145,7 @@ A camera instance is operated through a sequence of function calls for optimal p
         "streamConfigs": [
             {
                 "streamId": 1,
-                "bufCnt": 8,
+                "bufferIds": [0, 1, 2, 3],
                 "format": "nv12",
                 "height": 2160,
                 "width": 3840,
@@ -130,17 +163,17 @@ A camera instance is operated through a sequence of function calls for optimal p
 
 ## 3.1 QCNode Camera APIs
 
-- [Camera::Initialize](../include/QC/Node/Camera.hpp#L226)
-- [Camera::Start](../include/QC/Node/Camera.hpp#L244)
-- [Camera::ProcessFrameDescriptor](../include/QC/Node/Camera.hpp#L257)
-- [Camera::Stop](../include/QC/Node/Camera.hpp#L263)
-- [Camera::DeInitialize](../include/QC/Node/Camera.hpp#L269)
-- [Camera::GetConfigurationIfs](../include/QC/Node/Camera.hpp#L232)
-- [Camera::GetMonitoringIfs](../include/QC/Node/Camera.hpp#L238)
+- [Camera::Initialize](../include/QC/Node/Camera.hpp#L294)
+- [Camera::Start](../include/QC/Node/Camera.hpp#L312)
+- [Camera::ProcessFrameDescriptor](../include/QC/Node/Camera.hpp#L325)
+- [Camera::Stop](../include/QC/Node/Camera.hpp#L331)
+- [Camera::DeInitialize](../include/QC/Node/Camera.hpp#L337)
+- [Camera::GetConfigurationIfs](../include/QC/Node/Camera.hpp#L300)
+- [Camera::GetMonitoringIfs](../include/QC/Node/Camera.hpp#L306)
 
 ## 3.2 QCNode Configuration Interfaces
 
-- [CameraConfig::GetOptions](../include/QC/Node/Camera.hpp#L110) Get Configuration Options
+- [CameraConfig::GetOptions](../include/QC/Node/Camera.hpp#L170) Get Configuration Options
   - Use this API to get the configuration options.
     - Below was a example output for Camera request mode:
         ```json
@@ -159,7 +192,7 @@ A camera instance is operated through a sequence of function calls for optimal p
                 "streamConfigs": [
                     {
                         "streamId": 1,
-                        "bufCnt": 8,
+                        "bufferIds": [0, 1, 2, 3],
                         "format": "nv12",
                         "height": 2160,
                         "width": 3840,
@@ -294,7 +327,7 @@ void Init_CameraStreams()
     ImageProps_t imgProp;
     uint32_t streamId = 0;
     uint32_t bufCnt = 0;
-    uint32_t bufferId = 0;
+    std::vector<uint32_t> bufferIds;
     uint32_t numStream = streamConfigs.size();
     g_bufferPools.resize( numStream );
 
@@ -303,7 +336,8 @@ void Init_CameraStreams()
         std::string bufPoolName = name + std::to_string( i );
         streamConfig = streamConfigs[i];
         streamId = streamConfig.Get<uint32_t>( "streamId", UINT32_MAX );
-        bufCnt = streamConfig.Get<uint32_t>( "bufCnt", UINT32_MAX );
+        bufferIds = streamConfig.Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
+        bufCnt = bufferIds.size();
         imgProp.format = streamConfig.GetImageFormat( "format", QC_IMAGE_FORMAT_MAX );
         imgProp.width = streamConfig.Get<uint32_t>( "width", UINT32_MAX );
         imgProp.height = streamConfig.Get<uint32_t>( "height", UINT32_MAX );
@@ -455,6 +489,8 @@ Example configuration:
 ### 4.9.3 Multi-stream with submit request pattern
 The `submitRequestPattern` option in CameraStreamConfig_t is only valid when `requestMode` is set to true and `streamConfigs` has 2 or more elements. The purpose of submitRequestPattern is to reduce the camera's frames per second (FPS) to lower DDR usage. And the `enableMultiStreamFrameReady` option is used to set multiple streams frame ready event in one callback, which could reduce CPU loading.
 
+Within each context, at least one stream must use `submitRequestPattern = 0` as the reference; the other streams' FPS is then derived from that reference (see formula below). When all streams share the default `contextId` of `0` (as in the example below), they form a single context. If streams belong to different qcarcam contexts, set each stream's `contextId` accordingly (see §2.2).
+
 Example configuration:
 ```json
 {
@@ -579,6 +615,77 @@ Below is the frame drop pattern and period has been tested.
 |   15   |   10    |   3    |
 |   7.5  |   7     |   3    |
 |   10   |   6     |   2    |
+
+### 4.9.6 ISP Injection usecase
+
+The ISP Injection usecase (`opMode = QCARCAM_OPMODE_OFFLINE_ISP`) allows raw sensor frames to be fed into the ISP pipeline offline, producing ISP-processed output frames. The Camera node is configured with `enableMetaData: true` and a metadata config with `tag: INJECTION_SENSOR_METADATA`. The `InjectionConfig` sub-object specifies the raw frame input buffer list and optional sensor header / EEPROM calibration buffer lists.
+
+Key points:
+- `requestMode` must be `true` for ISP injection.
+- The injection input buffer list (`inputBufferListId`) carries raw Bayer frame data (QCARCAM_BUFFERLIST_TYPE_INPUT).
+- The sensor header buffer list (`headerBufferListId`) carries per-frame camera_metadata (QCARCAM_BUFFERLIST_TYPE_INPUT_METADATA), mapped to `inputCommonMetadata` on each request.
+- The EEPROM buffer list (`eepromBufferListId`) carries static calibration data (QCARCAM_BUFFERLIST_TYPE_INPUT_METADATA), mapped to `inputMetadata[0]` on each request.
+- The output metadata buffer list (`outputBufferListId = 0x300`) receives AEC/AWB/ISP result metadata written by the qcx server per frame.
+- ISP-processed output frames are delivered through the normal frame-ready callback on the configured stream buffer list.
+- File loading (raw frame data, sensor headers, EEPROM calibration) is the responsibility of the application layer (e.g. `SampleCamera::InjectionThreadMain`), not the Camera node itself.
+
+Example configuration:
+```json
+{
+    "static": {
+        "name": "CAM0",
+        "id": 0,
+        "inputId": 26,
+        "srcId": 0,
+        "clientId": 0,
+        "inputMode": 0,
+        "ispUseCase": 137,
+        "camFrameDropPattern": 0,
+        "camFrameDropPeriod": 0,
+        "opMode": 2,
+        "streamConfigs": [
+            {
+                "streamId": 1,
+                "bufferIds": [0, 1, 2, 3],
+                "format": "nv12",
+                "height": 2160,
+                "width": 3840,
+                "submitRequestPattern": 0
+            }
+        ],
+        "requestMode": true,
+        "primary": false,
+        "recovery": false,
+        "enableMetaData": true,
+        "metaDataConfigs": [
+            {
+                "bufferListId": 512,
+                "bufferIds": [4, 5, 6, 7],
+                "tag": "INJECTION_SENSOR_METADATA",
+                "outputBufferListId": 768,
+                "outputBufferIds": [8, 9, 10, 11],
+                "InjectionConfig": {
+                    "inputId": 8,
+                    "inputBufferListId": 256,
+                    "inputBufferIds": [12, 13, 14, 15],
+                    "inputMode": 0,
+                    "inputTuningParamFeature1Mode": 0,
+                    "inputTuningParamFeature2Mode": 0,
+                    "inputSceneMode": 0,
+                    "format": "mipiraw_12",
+                    "width": 3840,
+                    "height": 2160,
+                    "stride": 5760,
+                    "headerBufferListId": 513,
+                    "headerBufferIds": [16, 17, 18, 19],
+                    "eepromBufferListId": 514,
+                    "eepromBufferIds": [20]
+                }
+            }
+        ]
+    }
+}
+```
 
 
 # 5. References

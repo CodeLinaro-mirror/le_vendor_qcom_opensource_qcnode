@@ -14,6 +14,7 @@ typedef enum
 {
     MOCK_CONTROL_API_NONE,
     MOCK_CONTROL_API_RETURN,
+    MOCK_CONTROL_API_RETURN_AT_CALL_N,
     MOCK_CONTROL_API_OUT_PARAM0,
     MOCK_CONTROL_API_OUT_PARAM1,
     MOCK_CONTROL_API_OUT_PARAM2,
@@ -46,6 +47,9 @@ typedef enum
     MOCK_API_QCARCAM_SUBMIT_REQUEST,
     MOCK_API_QCARCAM_GET_FRAME,
     MOCK_API_QCARCAM_RELEASE_FRAME,
+    MOCK_API_QCARCAM_SET_PARAM_STANDALONE_INJECTION_CONFIG,
+    MOCK_API_QCARCAM_SET_PARAM_ISP_SETTINGS,
+    MOCK_API_QCARCAM_SET_PARAM_EX_BATCH_MODE,
     MOCK_API_MAX
 } MockAPI_ID_e;
 
@@ -53,10 +57,23 @@ typedef struct
 {
     MockAPI_Action_e action;
     void *param;
+    // Number of times this API has been entered since the last action arm.
+    // Reset whenever MockApi_Control re-arms the slot (including back to
+    // MOCK_CONTROL_API_NONE). Only meaningful for MOCK_CONTROL_API_RETURN_AT_CALL_N.
+    uint32_t callCount;
 } MockControlParam_t;
+
+// `param` payload for MOCK_CONTROL_API_RETURN_AT_CALL_N. Test owns the
+// storage and must keep it alive through the targeted call.
+typedef struct
+{
+    uint32_t targetCallIdx;   // 0 = first call, 1 = second call, ...
+    QCarCamRet_e ret;         // value injected when callCount == targetCallIdx
+} MockReturnAtCall_t;
 
 typedef void ( *MockApi_ControlFnc_t )( MockAPI_ID_e apiId, MockAPI_Action_e action, void *param );
 typedef void ( *MockApi_SetErrorPassiveFnc_t )( bool active );
+typedef void ( *MockApi_SetFullMockFnc_t )( bool active );
 typedef void ( *MockApi_TriggerEventFnc_t )( uint32_t eventId,
                                              const QCarCamEventPayload_t *pPayload,
                                              bool useNullPrivateData );
@@ -141,6 +158,34 @@ static inline MockApi_TriggerEventFnc_t MockCamera_GetTriggerEventFnc( std::stri
     else
     {
         printf( "Successfully loaded symbol MockApi_TriggerEvent\n" );
+    }
+
+    return fnc;
+}
+
+static inline MockApi_SetFullMockFnc_t MockCamera_GetSetFullMockFnc( std::string libraryPath )
+{
+    MockApi_SetFullMockFnc_t fnc = nullptr;
+    void *hDll = dlopen( libraryPath.c_str(), RTLD_NOW | RTLD_GLOBAL );
+    if ( nullptr == hDll )
+    {
+        printf( "Failed to load %s: %s\n", libraryPath.c_str(), dlerror() );
+    }
+    else
+    {
+        printf( "Successfully loaded %s\n", libraryPath.c_str() );
+    }
+
+    fnc = (MockApi_SetFullMockFnc_t) dlsym( hDll, "MockApi_SetFullMock" );
+    const char *error = dlerror();
+    if ( error != nullptr )
+    {
+        printf( "Failed to load symbol MockApi_SetFullMock: %s\n", error );
+        fnc = nullptr;
+    }
+    else
+    {
+        printf( "Successfully loaded symbol MockApi_SetFullMock\n" );
     }
 
     return fnc;
