@@ -3539,6 +3539,48 @@ TEST_F( QnnTest, MockQnnAddModel )
     ASSERT_EQ( ret, QC_STATUS_FAIL );
 }
 
+/*
+ * Force the QnnImpl allocation in the Qnn constructor to fail (new(std::nothrow)
+ * returns nullptr) and verify the node is left in a bad state: GetState() reports
+ * QC_OBJECT_STATE_ERROR and every other API returns QC_STATUS_NOMEM instead of
+ * dereferencing a null m_pQnnImpl. MockC_MallocCtrlSize targets exactly the
+ * sizeof(QnnImpl) allocation, so unrelated allocations are unaffected.
+ */
+TEST( QNN, ImplAllocFailBadState )
+{
+    QCStatus_e ret = QC_STATUS_OK;
+    std::string errors;
+
+    /* Arm the C mock so the operator-new backing malloc of size sizeof(QnnImpl)
+     * returns nullptr. new(std::nothrow) then yields nullptr without throwing. */
+    MockC_MallocCtrlSize( sizeof( QnnImpl ) );
+
+    Qnn qnn;
+
+    /* The one-shot size trigger consumed itself; make sure it is cleared so the
+     * rest of this test (and later tests) allocate normally. */
+    MockC_MallocCtrlSize( 0 );
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, qnn.GetState() );
+
+    QCNodeInit_t config;
+    ret = qnn.Initialize( config );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = qnn.Start();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = qnn.Stop();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = qnn.DeInitialize();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    NodeFrameDescriptor frameDesc( 1 );
+    ret = qnn.ProcessFrameDescriptor( frameDesc );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+}
+
 #ifndef GTEST_QCNODE
 #if __CTC__
 extern "C" void ctc_append_all( void );
