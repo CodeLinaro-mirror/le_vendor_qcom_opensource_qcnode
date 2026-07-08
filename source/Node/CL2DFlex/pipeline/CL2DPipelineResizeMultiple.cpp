@@ -11,7 +11,7 @@ namespace Node
 
 CL2DPipelineResizeMultiple::CL2DPipelineResizeMultiple() {}
 
-CL2DPipelineResizeMultiple::~CL2DPipelineResizeMultiple() {}
+CL2DPipelineResizeMultiple::~CL2DPipelineResizeMultiple() = default;
 
 QCStatus_e CL2DPipelineResizeMultiple::Init(
         uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig, OpenclSrv *pOpenclSrvObj,

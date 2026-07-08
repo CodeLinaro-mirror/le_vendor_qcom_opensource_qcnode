@@ -48,7 +48,7 @@ namespace QC
 #define QC_TRACE_COUNTER( name, ... )                                                              \
     do                                                                                             \
     {                                                                                              \
-        m_trace.Trace( name, QCNODE_TRACE_TYPE_COUNTER, __VA_ARGS__ );                             \
+        m_trace.Trace( (name), QCNODE_TRACE_TYPE_COUNTER, __VA_ARGS__ );                             \
     } while ( false )
 
 #else
@@ -178,7 +178,9 @@ typedef struct QCNodeTraceArg
           i8V( i8V )
     {}
 
-    ~QCNodeTraceArg() {}
+    QCNodeTraceArg( const QCNodeTraceArg & ) = default;
+
+    ~QCNodeTraceArg() = default;
 
     QCNodeTraceArgType_e type;   // Type of the argument
     std::string name;            // Name of the argument
@@ -286,6 +288,12 @@ public:
      */
     virtual void Trace( std::string name, QCNodeTraceType_e type,
                         std::vector<QCNodeTraceArg_t> args ) = 0;
+
+protected:
+    QCNodeTraceIfs() = default;
+    QCNodeTraceIfs( const QCNodeTraceIfs & ) = default;
+    QCNodeTraceIfs& operator=( const QCNodeTraceIfs& ) = default;
+    ~QCNodeTraceIfs() = default;
 };
 
 }   // namespace QC

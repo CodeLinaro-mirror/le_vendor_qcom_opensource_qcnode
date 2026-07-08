@@ -47,6 +47,10 @@ public:
     virtual QCStatus_e Place( void *pData, uint32_t &size ) = 0;
 
 protected:
+    QCNodeMonitoringIfs() = default;
+    QCNodeMonitoringIfs( const QCNodeMonitoringIfs & ) = default;
+    QCNodeMonitoringIfs& operator=( const QCNodeMonitoringIfs& ) = default;
+    ~QCNodeMonitoringIfs() = default;
     // In implementation a data member will be placed here from a type
     // which inherits "QCNodeMonitoringBase_t" as base
 };

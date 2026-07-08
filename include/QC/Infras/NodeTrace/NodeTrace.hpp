@@ -28,6 +28,8 @@ class NodeTrace : public QCNodeTraceIfs
 {
 public:
     NodeTrace();
+    NodeTrace( const NodeTrace & ) = default;
+    NodeTrace& operator=( const NodeTrace& ) = default;
     ~NodeTrace();
 
     void Init( std::string config );
@@ -38,7 +40,7 @@ private:
     uint64_t Timestamp();
 
 private:
-    static void NodeTrace_CloseFile( void );
+    static void NodeTrace_CloseFile( void ) noexcept;
 
 private:
     std::string m_name;

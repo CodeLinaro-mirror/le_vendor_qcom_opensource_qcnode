@@ -32,10 +32,15 @@ fi
 
 LAUNCH=""
 
-if [ "$(uname -s)" = "QNX" ] && [ "$(uname -n | cut -d' ' -f1)" = "nord" ]; then
-    echo "Using secpol qcnode_t to launch app"
-    chown -R 66:66 ../../../pkg-aarch64-qnx
-    LAUNCH="on -T qcnode_t -u 66:66,68,73,801,802,807,809,810,816,817,822,832,855,856,861,862,907,1021"
+if [ "$(uname -s)" = "QNX" ]; then
+    nodename="$(uname -n | cut -d' ' -f1)"
+    case "$nodename" in
+        nord|nord-*)
+            echo "Using secpol qcnode_t to launch app"
+            chown -R 66:66 ../../../pkg-aarch64-qnx
+            LAUNCH="on -T qcnode_t -u 66:66,68,73,801,802,807,809,810,816,817,822,830,832,855,856,861,862,907,1021"
+            ;;
+    esac
 fi
 
 $LAUNCH $@

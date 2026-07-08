@@ -94,6 +94,10 @@ typedef struct BufferDescriptor : public QCBufferDescriptorBase_t
 public:
     BufferDescriptor() : QCBufferDescriptorBase_t(), validSize( 0 ), offset( 0 ), id( 0 ) {}
 
+    ~BufferDescriptor() override = default;
+
+    BufferDescriptor( const BufferDescriptor &other ) = default;
+
     /**
      * @brief Sets up the buffer descriptor from another buffer descriptor object.
      * @param[in] other The buffer descriptor object from which buffer members are copied.

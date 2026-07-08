@@ -11,7 +11,7 @@ namespace Node
 
 CL2DPipelineConvert::CL2DPipelineConvert() {}
 
-CL2DPipelineConvert::~CL2DPipelineConvert() {}
+CL2DPipelineConvert::~CL2DPipelineConvert() = default;
 
 QCStatus_e
 CL2DPipelineConvert::Init( uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig,

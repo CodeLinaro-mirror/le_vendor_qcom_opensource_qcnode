@@ -273,7 +273,6 @@ QCStatus_e FadasPlrPreProc::PointPillarRunDSP( const QCBufferDescriptorBase_t &i
                                                const QCBufferDescriptorBase_t &outputFeature )
 {
     QCStatus_e ret = QC_STATUS_OK;
-    FadasError_e error;
     int fdPts = -1;
     int fdOutPlrs = -1;
     int fdOutFeature = -1;
@@ -288,8 +287,6 @@ QCStatus_e FadasPlrPreProc::PointPillarRunDSP( const QCBufferDescriptorBase_t &i
     const TensorDescriptor_t *pInputTensor = dynamic_cast<const TensorDescriptor_t *>( &inputPts );
     const TensorDescriptor_t *pOutputPlrTensor =
             dynamic_cast<const TensorDescriptor_t *>( &outputPlrs );
-    const TensorDescriptor_t *pOutputFeatTensor =
-            dynamic_cast<const TensorDescriptor_t *>( &outputFeature );
 
     fdPts = RegBuf( inputPts, FADAS_BUF_TYPE_IN );
     if ( fdPts < 0 )
@@ -364,7 +361,8 @@ QCStatus_e FadasPlrPreProc::PointPillarRunDSP( const QCBufferDescriptorBase_t &i
 
     if ( QC_STATUS_OK == ret )
     {
-        AEEResult result = FadasIface_PointPillarRun(
+        AEEResult result = AEE_SUCCESS ;
+	result = FadasIface_PointPillarRun(
                 m_handle64, m_plrHandler.handle64, numInputPts, fdPts, inputOffset,
                 (uint32_t) ( numInputPts * m_numInFeatureDim * (uint32_t) sizeof( float ) ),
                 fdOutPlrs, (uint32_t) outputPlrOffset, outputPlrSize, fdOutFeature,

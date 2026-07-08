@@ -378,7 +378,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_Fail_MaxInputs )
             FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, srcFds, 65, nullptr, 0,
                                          nullptr, 0, 0, 0, nullptr, nullptr, 0, nullptr, 0, 0 );
 
-    ASSERT_EQ( AEE_EFAILED, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceCoreTest, Remap_RunMT_Fail_LengthMismatch )
@@ -392,7 +392,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_Fail_LengthMismatch )
             FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, &srcFd, 1, &offset, 0,
                                          nullptr, 1, 0, 0, nullptr, nullptr, 0, nullptr, 0, 0 );
 
-    ASSERT_EQ( AEE_EFAILED, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 }
 
 TEST_F( FadasIfaceCoreTest, Remap_RunMT_Fail_NullDst )
@@ -414,7 +414,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_Fail_NullDst )
                                        &srcProps, 1, dstFd, 100, nullptr, nullptr, 0, nullptr, 0,
                                        0 );
 
-    ASSERT_EQ( AEE_EFAILED, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, srcFd, 100, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -511,7 +511,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_WorkerPtrsLenZero )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, &workerPtr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
                                        nullptr, 0, dstFd, 640 * 480 * 3, &dstProps, nullptr, 0,
                                        nullptr, 0, 0 );
-    ASSERT_EQ( AEE_SUCCESS, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 640 * 480 * 3, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -537,7 +537,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_MapPtrsLenZero )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, &mapPtr, 0, nullptr, 0, nullptr, 0,
                                        nullptr, 0, dstFd, 640 * 480 * 3, &dstProps, nullptr, 0,
                                        nullptr, 0, 0 );
-    ASSERT_EQ( AEE_SUCCESS, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 640 * 480 * 3, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -563,7 +563,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_NullSrcFds )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
                                        nullptr, 0, dstFd, 640 * 480 * 3, &dstProps, nullptr, 0,
                                        nullptr, 0, 0 );
-    ASSERT_EQ( AEE_SUCCESS, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 640 * 480 * 3, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -590,7 +590,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_NullOffsets )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, &srcFd, 0, nullptr, 0,
                                        nullptr, 0, dstFd, 640 * 480 * 3, &dstProps, nullptr, 0,
                                        nullptr, 0, 0 );
-    ASSERT_EQ( AEE_SUCCESS, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 640 * 480 * 3, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -616,7 +616,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_SrcPropsLenZero )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
                                        &srcProps, 0, dstFd, 640 * 480 * 3, &dstProps, nullptr, 0,
                                        nullptr, 0, 0 );
-    ASSERT_EQ( AEE_SUCCESS, ret );
+    ASSERT_EQ(AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 640 * 480 * 3, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -642,7 +642,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_NormlzLenZero )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
                                        nullptr, 0, dstFd, 640 * 480 * 3, &dstProps, nullptr, 0,
                                        &normlz, 0, 0 );
-    ASSERT_EQ( AEE_SUCCESS, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 640 * 480 * 3, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -664,7 +664,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_Fail_LengthMismatch_PropsDiffer )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, &srcFd, 1, &offset, 1,
                                        srcProps, 2, dstFd, 1024, nullptr, nullptr, 0, nullptr, 0,
                                        0 );
-    ASSERT_EQ( AEE_EFAILED, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 1024, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -693,7 +693,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_Fail_NullSrcPtr )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, &srcFd, 1, &offset, 1,
                                        &srcProps, 1, dstFd, 640 * 480 * 3, nullptr, &dstROI, 1,
                                        nullptr, 0, 0 );
-    ASSERT_EQ( AEE_EFAILED, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 640 * 480 * 3, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -1739,7 +1739,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_DstROIsNonNull_LenZero )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0,
                                        nullptr, 0, dstFd, 640 * 480 * 3, &dstProps, &dstROI, 0,
                                        nullptr, 0, 0 );
-    ASSERT_EQ( AEE_SUCCESS, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 640 * 480 * 3, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );
@@ -1762,7 +1762,7 @@ TEST_F( FadasIfaceCoreTest, Remap_RunMT_Fail_OffsetLenMismatch )
     ret = FadasIface_FadasRemap_RunMTSafe( handle, nullptr, 0, nullptr, 0, &srcFd, 1, offsets, 2,
                                        &srcProps, 1, dstFd, 1024, nullptr, nullptr, 0, nullptr, 0,
                                        0 );
-    ASSERT_EQ( AEE_EFAILED, ret );
+    ASSERT_EQ( AEE_EBADPARM, ret );
 
     ret = FadasIface_munmapSafe( handle, dstFd, 1024, 0 );
     ASSERT_EQ( AEE_SUCCESS, ret );

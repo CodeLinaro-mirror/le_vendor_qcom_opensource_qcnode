@@ -17,18 +17,19 @@ class CL2DPipelineResize : public CL2DPipelineBase
 public:
     CL2DPipelineResize();
 
-    ~CL2DPipelineResize();
+    ~CL2DPipelineResize() override;
 
     CL2DPipelineResize( const CL2DPipelineResize & ) = delete;
     CL2DPipelineResize &operator=( const CL2DPipelineResize & ) = delete;
 
-    QCStatus_e Init( uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig,
-                     OpenclSrv *pOpenclSrvObj,
-                     std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers );
+    QCStatus_e
+    Init( uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig,
+          OpenclSrv *pOpenclSrvObj,
+          std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers ) override;
 
-    QCStatus_e Deinit();
+    QCStatus_e Deinit() override;
 
-    QCStatus_e Execute( ImageDescriptor_t &input, ImageDescriptor_t &output );
+    QCStatus_e Execute( ImageDescriptor_t &input, ImageDescriptor_t &output ) override;
 
 private:
     QCStatus_e ResizeFromNV12ToRGB( cl_mem bufferSrc, uint32_t srcOffset, cl_mem bufferDst,

@@ -52,14 +52,14 @@ QCStatus_e DMABUFFUtils::MemoryMap( const QCBufferDescriptorBase_t &orig,
             }
             else
             {
-                mapped.dmaHandle = newFd;
+                mapped.dmaHandle = static_cast<uint64_t>( newFd );
             }
         }
     }
 
     if ( QC_STATUS_OK == status )
     {
-        void *pAddr = mmap( NULL, orig.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+        void *pAddr = mmap( NULL, orig.size, static_cast<int>( static_cast<uint32_t>( PROT_READ ) | static_cast<uint32_t>( PROT_WRITE ) ), MAP_SHARED,
                             static_cast<int>( mapped.dmaHandle ), 0 );
         if ( ( nullptr == pAddr ) || ( MAP_FAILED == pAddr ) )
         {

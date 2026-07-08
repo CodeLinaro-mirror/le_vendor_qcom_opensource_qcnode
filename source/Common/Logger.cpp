@@ -8,24 +8,24 @@
 namespace QC
 {
 
-Logger_Log_t Logger::s_logFnc = Logger::DefaultLog;
-Logger_Create_t Logger::s_createFnc = Logger::DefaultCreate;
-Logger_Destroy_t Logger::s_destroyFnc = Logger::DefaultDestory;
+Logger_Log_t Logger::s_logFnc = &Logger::DefaultLog;
+Logger_Create_t Logger::s_createFnc = &Logger::DefaultCreate;
+Logger_Destroy_t Logger::s_destroyFnc = &Logger::DefaultDestory;
 
 std::mutex Logger::s_lock;
 Logger Logger::s_defaultLogger;
 
-Logger::Logger() : m_hHandle( nullptr ) {}
+Logger::Logger() noexcept : m_hHandle( nullptr ) {}
 
-Logger::~Logger() {}
+Logger::~Logger() = default;
 
 QCStatus_e Logger::Setup( Logger_Log_t logFnc, Logger_Create_t createFnc,
                           Logger_Destroy_t destoryFnc )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    if ( ( DefaultLog == s_logFnc ) && ( DefaultCreate == s_createFnc ) &&
-         ( DefaultDestory == s_destroyFnc ) )
+    if ( ( &Logger::DefaultLog == s_logFnc ) && ( &Logger::DefaultCreate == s_createFnc ) &&
+         ( &Logger::DefaultDestory == s_destroyFnc ) )
     {
         // only alow to setup once when the default function pointers are used
         s_logFnc = logFnc;

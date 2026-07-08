@@ -249,9 +249,9 @@ ImageDescriptor &ImageDescriptor::operator=( const ImageDescriptor &other )
         this->width = other.width;
         this->height = other.height;
         uint32_t numPlanes = std::min( other.numPlanes, (uint32_t) QC_NUM_IMAGE_PLANES );
-        std::copy( other.stride, other.stride + numPlanes, this->stride );
-        std::copy( other.actualHeight, other.actualHeight + numPlanes, this->actualHeight );
-        std::copy( other.planeBufSize, other.planeBufSize + numPlanes, this->planeBufSize );
+        (void) std::copy( &other.stride[0], other.stride + numPlanes, &this->stride[0] );
+        (void) std::copy( &other.actualHeight[0], other.actualHeight + numPlanes, &this->actualHeight[0] );
+        (void) std::copy( &other.planeBufSize[0], other.planeBufSize + numPlanes, &this->planeBufSize[0] );
         this->numPlanes = numPlanes;
     }
     return *this;

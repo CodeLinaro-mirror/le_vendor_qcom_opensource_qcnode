@@ -227,6 +227,7 @@ The command line template example:
 |---------------|----------|-----------|---------|----------|
 | processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
 | core_id        | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
+| cpu_threads_affinity | false | int list | [] | CPU core IDs to pin worker threads to (CPU processor only). If absent or empty, platform defaults are used: [12,13,14,15] on Linux, [0,1,2,3] otherwise |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | output_width  | false    | int       | 1152    | The output image width |
 | output_height | false    | int       | 800     | The output image height |
@@ -267,6 +268,7 @@ The command line template example:
 
 ```sh
   -n REMAP0 -t Remap -k batch_size -v 1 \
+    -k cpu_threads_affinity -v "12,13,14,15" \
     -k input_width0 -v 2048 -k input_height0 -v 1216 -k input_format0 -v uyvy \
     -k output_width -v 1152 -k output_height -v 800 -k output_format -v rgb \
     -k input_topic -v /sensor/camera/CAM0/uyvy \
@@ -691,7 +693,7 @@ The FrameSync sample synchronises frames from multiple input topics and publishe
 
 | attribute              | required | type      | default | comments |
 |------------------------|----------|-----------|---------|----------|
-| number                 | false    | int       | 2       | The number of input topics (minimum 2) |
+| number                 | false    | int       | 1       | The number of input topics (minimum 1) |
 | mode                   | false    | string    | window  | The frame sync mode, options from [window, buffer_timestamp] |
 | window                 | false    | int       | 100     | The sync window / polling interval in ms |
 | timestamp_threshold_ms | false    | int       | 10      | Maximum acceptable timestamp spread in ms; used by `buffer_timestamp` mode |

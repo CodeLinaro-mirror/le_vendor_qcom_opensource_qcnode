@@ -18,7 +18,8 @@ QCStatus_e FadasRemap::SetRemapParams( uint32_t numOfInputs, uint32_t outputWidt
                                        uint32_t outputHeight, QCImageFormat_e outputFormat,
                                        FadasNormlzParams_t normlzR, FadasNormlzParams_t normlzG,
                                        FadasNormlzParams_t normlzB, bool bEnableUndistortion,
-                                       bool bEnableNormalize )
+                                       bool bEnableNormalize,
+                                       const std::vector<int32_t> &cpuThreadsAffinity )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
@@ -52,6 +53,7 @@ QCStatus_e FadasRemap::SetRemapParams( uint32_t numOfInputs, uint32_t outputWidt
         m_normlz[2] = normlzB;
         m_bEnableUndistortion = bEnableUndistortion;
         m_bEnableNormalize = bEnableNormalize;
+        m_cpuThreadsAffinity = cpuThreadsAffinity;
     }
 
     return ret;
@@ -400,11 +402,16 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
         }
         else
         {
-            #if defined(__linux__)
-            int32_t pThreadsAffinity[] = { 12, 13, 14, 15 };
-            #else
-            int32_t pThreadsAffinity[] = { 0, 1, 2, 3 };
-            #endif
+            std::vector<int32_t> threadsAffinity = m_cpuThreadsAffinity;
+            if ( threadsAffinity.empty() )
+            {
+                /* Use platform default values if not configured via JSON */
+                #if defined(__linux__)
+                threadsAffinity = { 12, 13, 14, 15 };
+                #else
+                threadsAffinity = { 0, 1, 2, 3 };
+                #endif
+            }
             FadasRemapPipeline_e pipeline = RemapGetPipelineCPU(
                     m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
             if ( FADAS_REMAP_PIPELINE_MAX == pipeline )
@@ -414,7 +421,10 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
             }
             else
             {
-                void *workerPtr = FadasRemap_CreateWorkers( 4, pThreadsAffinity, pipeline );
+                void *workerPtr = FadasRemap_CreateWorkers(
+                        static_cast<int32_t>( threadsAffinity.size() ),
+                        threadsAffinity.data(),
+                        pipeline );
                 if ( workerPtr == nullptr )
                 {
                     QC_ERROR( "Failed to create a remap worker for CPU!" );

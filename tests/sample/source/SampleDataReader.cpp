@@ -373,7 +373,7 @@ QCStatus_e SampleDataReader::LoadTensor( std::shared_ptr<SharedBuffer_t> tensor,
             fseek( file, 0, SEEK_END );
             length = (size_t) ftell( file );
             batchSize = length / oneSize;
-            if ( pTensor->size < length )
+            if ( ( pTensor->size < length ) && ( 0 == batchSize ) )
             {
                 QC_ERROR( "Invalid Tensor file %s", path.c_str() );
                 ret = QC_STATUS_FAIL;
@@ -386,7 +386,7 @@ QCStatus_e SampleDataReader::LoadTensor( std::shared_ptr<SharedBuffer_t> tensor,
             auto r = fread( pTensor->pBuf, 1, length, file );
             if ( length != r )
             {
-                QC_ERROR( "failed to read PointCloud file %s", path.c_str() );
+                QC_ERROR( "failed to read raw file %s", path.c_str() );
                 ret = QC_STATUS_FAIL;
             }
             else

@@ -110,6 +110,14 @@ void SetConfigRemap( Remap_Config_t *pRemapConfig, DataTree *pdt )
     pdt->Set<bool>( "static.bEnableNormalize", pRemapConfig->bEnableNormalize );
     pdt->Set<uint32_t>( "static.coreId", pRemapConfig->coreId );
 
+    /* Set cpuThreadsAffinity in JSON only when explicitly configured (non-empty).
+     * If empty, the key is omitted → RemapConfig will default to {} → FadasRemap
+     * will fall back to platform defaults {12,13,14,15} on Linux or {0,1,2,3} otherwise. */
+    if ( !pRemapConfig->cpuThreadsAffinity.empty() )
+    {
+        pdt->Set<int32_t>( "static.cpuThreadsAffinity", pRemapConfig->cpuThreadsAffinity );
+    }
+
     if ( true == pRemapConfig->bEnableNormalize )
     {
         pdt->Set<float>( "static.RSub", pRemapConfig->normlzR.sub );
@@ -2805,6 +2813,191 @@ TEST( FadasRemapRunDSP_Direct, InputRegBufFail )
     r.DeregBuf( inp.pBuf );
     free( inp.pBuf ); free( out.pBuf );
     r.Deinit();
+}
+
+// ============================================================================
+// CPU THREAD AFFINITY TESTS — SCENARIO-BASED
+// Coverage: RemapConfig.cpp - VerifyStaticConfig (negative value validation)
+//           FadasRemap.cpp  - CreateRemapWorker (affinity usage + SOC fallback)
+// ============================================================================
+
+/* Helper: build a minimal CPU-processor config DataTree for affinity tests */
+static void BuildMinimalCpuConfig( DataTree &dt )
+{
+    dt.Set<std::string>( "static.name", "Remap" );
+    dt.Set<uint32_t>( "static.id", 0 );
+    dt.SetProcessorType( "static.processorType", QC_PROCESSOR_CPU );
+    dt.Set<uint32_t>( "static.outputWidth", 64 );
+    dt.Set<uint32_t>( "static.outputHeight", 64 );
+    dt.SetImageFormat( "static.outputFormat", QC_IMAGE_FORMAT_RGB888 );
+    dt.Set<bool>( "static.bEnableUndistortion", false );
+    dt.Set<bool>( "static.bEnableNormalize", false );
+    dt.Set<uint32_t>( "static.coreId", 0 );
+
+    std::vector<DataTree> inputDts;
+    DataTree inputDt;
+    inputDt.Set<uint32_t>( "inputWidth", 64 );
+    inputDt.Set<uint32_t>( "inputHeight", 64 );
+    inputDt.SetImageFormat( "inputFormat", QC_IMAGE_FORMAT_UYVY );
+    inputDt.Set<uint32_t>( "roiX", 0 );
+    inputDt.Set<uint32_t>( "roiY", 0 );
+    inputDt.Set<uint32_t>( "roiWidth", 64 );
+    inputDt.Set<uint32_t>( "roiHeight", 64 );
+    inputDt.Set<uint32_t>( "mapWidth", 64 );
+    inputDt.Set<uint32_t>( "mapHeight", 64 );
+    inputDts.push_back( inputDt );
+    dt.Set( "static.inputs", inputDts );
+}
+
+/**
+ * @brief Scenario 1: Negative core ID → QC_STATUS_BAD_ARGUMENTS
+ * @coverage RemapConfig.cpp - VerifyStaticConfig: negative core ID validation
+ * @expected QC_STATUS_BAD_ARGUMENTS — negative values are invalid CPU core IDs
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario1_NegativeCoreId_ReturnsBadArguments )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+
+    /* Negative core ID is invalid → VerifyStaticConfig must return BAD_ARGUMENTS */
+    std::vector<int32_t> affinity = { -1, 0, 1, 2 };
+    dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
+
+    QCNodeInit_t config = { dt.Dump() };
+    printf( "Scenario1 config: %s\n", config.config.c_str() );
+
+    QCStatus_e ret = remap.Initialize( config );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+}
+
+/**
+ * @brief Scenario 2: Large (unavailable) core IDs → library accepts, OS ignores
+ * @coverage FadasRemap.cpp - CreateRemapWorker: FadasRemap_CreateWorkers does not validate
+ * @expected NOT QC_STATUS_BAD_ARGUMENTS — values are syntactically valid (non-negative)
+ *           FadasRemap_CreateWorkers accepts any non-negative value; OS handles affinity silently
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario2_UnavailableCore_LibraryAccepts )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+
+    /* Large but non-negative → passes VerifyStaticConfig, library accepts */
+    std::vector<int32_t> affinity = { 9999, 10000, 10001, 10002 };
+    dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
+
+    QCNodeInit_t config = { dt.Dump() };
+    printf( "Scenario2 config: %s\n", config.config.c_str() );
+
+    QCStatus_e ret = remap.Initialize( config );
+    printf( "Scenario2 Initialize ret = %d\n", ret );
+    /* FadasRemap_CreateWorkers does NOT validate core IDs → no BAD_ARGUMENTS */
+    EXPECT_NE( QC_STATUS_BAD_ARGUMENTS, ret );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        remap.DeInitialize();
+    }
+}
+
+/**
+ * @brief Scenario 3: No cpuThreadsAffinity provided → falls back to hardcoded platform defaults
+ * @coverage FadasRemap.cpp - CreateRemapWorker: empty affinity → platform defaults used
+ * @expected NOT QC_STATUS_BAD_ARGUMENTS — Initialize succeeds using platform default core IDs
+ *           JSON does NOT contain "cpuThreadsAffinity" key
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario3_NotProvided_FallsBackToDefault )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+    /* cpuThreadsAffinity intentionally NOT set → key absent from JSON */
+
+    std::string jsonStr = dt.Dump();
+    /* Verify: JSON does NOT contain cpuThreadsAffinity key */
+    EXPECT_EQ( std::string::npos, jsonStr.find( "cpuThreadsAffinity" ) );
+
+    QCNodeInit_t config = { jsonStr };
+    printf( "Scenario3 config (no affinity): %s\n", config.config.c_str() );
+
+    QCStatus_e ret = remap.Initialize( config );
+    printf( "Scenario3 Initialize ret = %d\n", ret );
+    /* Platform defaults are always valid → Initialize must succeed */
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        remap.DeInitialize();
+    }
+}
+
+/**
+ * @brief Scenario 4a: SOC-based fallback — no affinity provided → platform defaults always valid
+ * @coverage FadasRemap.cpp - CreateRemapWorker: #if defined(__linux__) fallback
+ *
+ * When cpuThreadsAffinity is absent, FadasRemap::CreateRemapWorker uses:
+ *   #if defined(__linux__)  → {12, 13, 14, 15}   (Linux/QNX target)
+ *   #else                   → {0, 1, 2, 3}        (other platforms)
+ *
+ * The SOC-based defaults are always valid on the target platform.
+ * @expected QC_STATUS_OK — Initialize succeeds using the correct SOC-specific default core IDs
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4a_SocBasedFallback_NoAffinityProvided )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+    /* cpuThreadsAffinity NOT set → SOC-based fallback applies */
+
+    QCNodeInit_t config = { dt.Dump() };
+    QCStatus_e ret = remap.Initialize( config );
+    printf( "Scenario4a Initialize ret = %d\n", ret );
+    /* SOC-based defaults are always valid on the target platform → must succeed */
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        remap.DeInitialize();
+    }
+}
+
+/**
+ * @brief Scenario 4b: Platform-specific behavior when passing cores [4,5,6,7]
+ * @coverage FadasRemap.cpp - CreateRemapWorker: platform-specific core availability
+ *
+ * Cores [4,5,6,7] behavior differs by platform:
+ *   QNX  : cores 4-7 are available → Initialize succeeds (QC_STATUS_OK)
+ *   Linux: hardcoded default is {12,13,14,15}; cores 4-7 may NOT exist on the
+ *          Linux target → FadasRemap_CreateWorkers may return nullptr → QC_STATUS_FAIL
+ *
+ * @expected QNX:   QC_STATUS_OK
+ *           Linux: QC_STATUS_FAIL (cores 4-7 not available on Linux target)
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+
+    /* Cores [4,5,6,7]: valid on QNX, may not exist on Linux (default is {12,13,14,15}) */
+    std::vector<int32_t> affinity = { 4, 5, 6, 7 };
+    dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
+
+    QCNodeInit_t config = { dt.Dump() };
+    printf( "Scenario4b config (affinity=[4,5,6,7]): %s\n", config.config.c_str() );
+
+    QCStatus_e ret = remap.Initialize( config );
+    printf( "Scenario4b Initialize ret = %d\n", ret );
+    #if defined(__linux__)
+    EXPECT_EQ( QC_STATUS_FAIL, ret );
+    #else
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    #endif
+    if ( QC_STATUS_OK == ret )
+    {
+        remap.DeInitialize();
+    }
 }
 
 
