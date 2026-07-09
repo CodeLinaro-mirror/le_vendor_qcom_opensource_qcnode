@@ -14,7 +14,7 @@ namespace Node
 /** @brief The QCNode Voxelization Version */
 #define QCNODE_VOXELIZATION_VERSION_MAJOR 2U
 #define QCNODE_VOXELIZATION_VERSION_MINOR 1U
-#define QCNODE_VOXELIZATION_VERSION_PATCH 1U
+#define QCNODE_VOXELIZATION_VERSION_PATCH 2U
 
 #define QCNODE_VOXELIZATION_VERSION                                                                \
     ( ( QCNODE_VOXELIZATION_VERSION_MAJOR << 16U ) | ( QCNODE_VOXELIZATION_VERSION_MINOR << 8U ) | \
@@ -175,7 +175,7 @@ public:
         : m_pVoxelImpl( other.m_pVoxelImpl ),
           m_logger( other.m_logger )
     {}
-    VoxelizationMonitor& operator=( const VoxelizationMonitor& ) = default;
+    VoxelizationMonitor &operator=( const VoxelizationMonitor & ) = default;
     ~VoxelizationMonitor() = default;
 
     /**
