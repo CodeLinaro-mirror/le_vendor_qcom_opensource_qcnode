@@ -3,6 +3,7 @@
 
 
 #include "QC/Infras/Log/Logger.hpp"
+#include <new>
 #include <syslog.h>
 
 namespace QC
@@ -26,7 +27,7 @@ void Logger::DefaultLog( Logger_Handle_t hHandle, Logger_Level_e level, const ch
 {
     std::string strFmt;
     int priority = s_qcLoggerLevelToJournalPriotity[level];
-    Logger_HandleContext_t *pContext = (Logger_HandleContext_t *) hHandle;
+    Logger_HandleContext_t *pContext = static_cast<Logger_HandleContext_t *>( hHandle );
     strFmt = pContext->name + " : " + std::string( pFormat );
     vsyslog( priority, strFmt.c_str(), args );
 }
@@ -42,12 +43,12 @@ QCStatus_e Logger::DefaultCreate( const char *pName, Logger_Level_e level,
     }
     else
     {
-        Logger_HandleContext_t *pContext = new Logger_HandleContext_t;
+        Logger_HandleContext_t *pContext = new ( std::nothrow ) Logger_HandleContext_t;
         if ( nullptr != pContext )
         {
             pContext->name = pName;
             (void) level;
-            *pHandle = (Logger_Handle_t) pContext;
+            *pHandle = static_cast<Logger_Handle_t>( pContext );
         }
         else
         {
@@ -60,7 +61,7 @@ QCStatus_e Logger::DefaultCreate( const char *pName, Logger_Level_e level,
 
 void Logger::DefaultDestory( Logger_Handle_t hHandle )
 {
-    Logger_HandleContext_t *pContext = (Logger_HandleContext_t *) hHandle;
+    Logger_HandleContext_t *pContext = static_cast<Logger_HandleContext_t *>( hHandle );
     if ( nullptr != pContext )
     {
         delete pContext;

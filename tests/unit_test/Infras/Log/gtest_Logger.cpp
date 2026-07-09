@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #define LOGGER_UNIT_TEST
+#include "MockCLib.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 
 using namespace QC;
@@ -26,7 +27,7 @@ static void UserLog( Logger_Handle_t hHandle, Logger_Level_e level, const char *
                      va_list args )
 {
     int len = 0;
-    Logger_HandleContextUser_t *pContext = (Logger_HandleContextUser_t *) hHandle;
+    Logger_HandleContextUser_t *pContext = static_cast<Logger_HandleContextUser_t *>( hHandle );
     len = snprintf( s_LoggerMsg, sizeof( s_LoggerMsg ), "%s ", pContext->name.c_str() );
     (void) vsnprintf( &s_LoggerMsg[len], sizeof( s_LoggerMsg ) - len, pFormat, args );
 }
@@ -42,12 +43,12 @@ static QCStatus_e UserLoggerHandleCreate( const char *pName, Logger_Level_e leve
     }
     else
     {
-        Logger_HandleContextUser_t *pContext = new Logger_HandleContextUser_t;
+        Logger_HandleContextUser_t *pContext = new ( std::nothrow ) Logger_HandleContextUser_t;
         if ( nullptr != pContext )
         {
             pContext->name = pName;
             (void) level;
-            *pHandle = (Logger_Handle_t) pContext;
+            *pHandle = static_cast<Logger_Handle_t>( pContext );
         }
         else
         {
@@ -60,7 +61,7 @@ static QCStatus_e UserLoggerHandleCreate( const char *pName, Logger_Level_e leve
 
 static void UserLoggerHandleDestroy( Logger_Handle_t hHandle )
 {
-    Logger_HandleContextUser_t *pContext = (Logger_HandleContextUser_t *) hHandle;
+    Logger_HandleContextUser_t *pContext = static_cast<Logger_HandleContextUser_t *>( hHandle );
     if ( nullptr != pContext )
     {
         delete pContext;
@@ -371,6 +372,30 @@ TEST( Logger, L2_LoggerDefault )
 #endif
     }
 }
+
+/*
+ * Force the `new (std::nothrow) Logger_HandleContext_t` allocation in
+ * Logger::DefaultCreate to fail and verify it returns QC_STATUS_NOMEM (the live
+ * null-check) instead of throwing / returning a bad handle. MockC_MallocCtrl(1)
+ * makes the next malloc (the context allocation) return null.
+ *
+ * Not applicable on QNX: the forced allocation failure surfaces as a thrown
+ * std::bad_alloc under the QNX C++ runtime instead of returning nullptr, so
+ * the fault-injection path does not work there.
+ */
+#ifndef __QNXNTO__
+TEST( Logger, DefaultCreateAllocFailNoMem )
+{
+    Logger_Handle_t handle = nullptr;
+
+    MockC_MallocCtrl( 1 );
+    QCStatus_e ret = Logger::DefaultCreate( "TEST", LOGGER_LEVEL_ERROR, &handle );
+    MockC_MallocCtrl( 0 );
+
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+    ASSERT_EQ( nullptr, handle );
+}
+#endif
 
 #ifndef GTEST_QCNODE
 #if __CTC__
