@@ -15,7 +15,7 @@ namespace Node
 /** @brief The QCNode REMAP Version */
 #define QCNODE_REMAP_VERSION_MAJOR 2U
 #define QCNODE_REMAP_VERSION_MINOR 2U
-#define QCNODE_REMAP_VERSION_PATCH 0U
+#define QCNODE_REMAP_VERSION_PATCH 1U
 
 #define QCNODE_REMAP_VERSION                                                                       \
     ( ( QCNODE_REMAP_VERSION_MAJOR << 16U ) | ( QCNODE_REMAP_VERSION_MINOR << 8U ) |               \

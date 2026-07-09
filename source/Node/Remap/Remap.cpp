@@ -3,6 +3,7 @@
 
 #include "QC/Node/Remap.hpp"
 #include "RemapImpl.hpp"
+#include <new>
 #include <unistd.h>
 
 namespace QC
@@ -13,44 +14,63 @@ namespace Node
 REGISTER_NODE( QC_NODE_TYPE_FADAS_REMAP, Remap )
 
 Remap::Remap()
-    : m_pRemapImpl( new RemapImpl( m_nodeId, m_logger ) ),
+    : m_pRemapImpl( new( std::nothrow ) RemapImpl( m_nodeId, m_logger ) ),
       m_configIfs( m_logger, m_pRemapImpl ),
-      m_monitorIfs( m_logger, m_pRemapImpl ) {};
+      m_monitorIfs( m_logger, m_pRemapImpl )
+{
+    if ( nullptr == m_pRemapImpl )
+    {
+        QC_ERROR( "Failed to allocate RemapImpl (out of memory)" );
+    }
+}
 
 Remap::~Remap()
 {
-    delete m_pRemapImpl;
+    if ( nullptr != m_pRemapImpl )
+    {
+        delete m_pRemapImpl;
+        m_pRemapImpl = nullptr;
+    }
 }
 
 QCStatus_e Remap::Initialize( QCNodeInit_t &config )
 {
     QCStatus_e status = QC_STATUS_OK;
     std::string errors;
-    const QCNodeConfigBase_t &cfg = m_configIfs.Get();
     bool bNodeBaseInitDone = false;
 
-    status = m_configIfs.VerifyAndSet( config.config, errors );
-
-    if ( QC_STATUS_OK == status )
+    if ( nullptr == m_pRemapImpl )
     {
-        status = NodeBase::Init( cfg.nodeId );
+        QC_ERROR( "RemapImpl not allocated (out of memory)" );
+        status = QC_STATUS_NOMEM;
     }
     else
     {
-        QC_ERROR( "config error: %s", errors.c_str() );
-    }
+        const QCNodeConfigBase_t &cfg = m_configIfs.Get();
 
-    if ( QC_STATUS_OK == status )
-    {
-        bNodeBaseInitDone = true;
-        status = m_pRemapImpl->Initialize( config.buffers );
-    }
+        status = m_configIfs.VerifyAndSet( config.config, errors );
 
-    if ( QC_STATUS_OK != status )
-    { /* do error clean up */
-        if ( bNodeBaseInitDone )
+        if ( QC_STATUS_OK == status )
         {
-            (void) NodeBase::DeInitialize();
+            status = NodeBase::Init( cfg.nodeId );
+        }
+        else
+        {
+            QC_ERROR( "config error: %s", errors.c_str() );
+        }
+
+        if ( QC_STATUS_OK == status )
+        {
+            bNodeBaseInitDone = true;
+            status = m_pRemapImpl->Initialize( config.buffers );
+        }
+
+        if ( QC_STATUS_OK != status )
+        { /* do error clean up */
+            if ( bNodeBaseInitDone )
+            {
+                (void) NodeBase::DeInitialize();
+            }
         }
     }
 
@@ -62,16 +82,23 @@ QCStatus_e Remap::DeInitialize()
     QCStatus_e status = QC_STATUS_OK;
     QCStatus_e status2;
 
-    status2 = m_pRemapImpl->DeInitialize();
-    if ( QC_STATUS_OK == status2 )
+    if ( nullptr == m_pRemapImpl )
     {
-        status = status2;
+        status = QC_STATUS_NOMEM;
     }
-
-    status2 = NodeBase::DeInitialize();
-    if ( QC_STATUS_OK == status2 )
+    else
     {
-        status = status2;
+        status2 = m_pRemapImpl->DeInitialize();
+        if ( QC_STATUS_OK == status2 )
+        {
+            status = status2;
+        }
+
+        status2 = NodeBase::DeInitialize();
+        if ( QC_STATUS_OK == status2 )
+        {
+            status = status2;
+        }
     }
 
     return status;
@@ -79,30 +106,50 @@ QCStatus_e Remap::DeInitialize()
 
 QCStatus_e Remap::Start()
 {
-    QCStatus_e status = QC_STATUS_OK;
+    QCStatus_e status = QC_STATUS_NOMEM;
 
-    status = m_pRemapImpl->Start();
+    if ( nullptr != m_pRemapImpl )
+    {
+        status = m_pRemapImpl->Start();
+    }
 
     return status;
 }
 
 QCStatus_e Remap::Stop()
 {
-    QCStatus_e status = QC_STATUS_OK;
+    QCStatus_e status = QC_STATUS_NOMEM;
 
-    status = m_pRemapImpl->Stop();
+    if ( nullptr != m_pRemapImpl )
+    {
+        status = m_pRemapImpl->Stop();
+    }
 
     return status;
 }
 
 QCStatus_e Remap::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDesc )
 {
-    return m_pRemapImpl->ProcessFrameDescriptor( frameDesc );
+    QCStatus_e status = QC_STATUS_NOMEM;
+
+    if ( nullptr != m_pRemapImpl )
+    {
+        status = m_pRemapImpl->ProcessFrameDescriptor( frameDesc );
+    }
+
+    return status;
 }
 
 QCObjectState_e Remap::GetState()
 {
-    return m_pRemapImpl->GetState();
+    QCObjectState_e state = QC_OBJECT_STATE_ERROR;
+
+    if ( nullptr != m_pRemapImpl )
+    {
+        state = m_pRemapImpl->GetState();
+    }
+
+    return state;
 }
 
 }   // namespace Node
