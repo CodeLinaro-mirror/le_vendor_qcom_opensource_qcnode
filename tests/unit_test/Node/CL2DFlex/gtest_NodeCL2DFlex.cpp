@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string>
 
+#include "MockCLib.hpp"
 #include "QC/Node/CL2DFlex.hpp"
 #include "QC/sample/BufferManager.hpp"
 #include "md5_utils.hpp"
@@ -2306,6 +2307,90 @@ TEST( NodeCL2D, MultipleROI )
                  QC_IMAGE_FORMAT_RGB888, 1920, 1024, 1152, 800, "./data/test/CL2DFlex/0.nv12" );
     MultipleROI( CL2DFLEX_WORK_MODE_RESIZE_NEAREST_MULTIPLE, QC_IMAGE_FORMAT_NV12,
                  QC_IMAGE_FORMAT_RGB888, 1920, 1024, 1152, 800, "./data/test/CL2DFlex/0.nv12" );
+}
+
+/*
+ * Force the CL2DFlexImpl allocation in the CL2DFlex constructor to fail
+ * (new(std::nothrow) returns nullptr) and verify the node is left in a bad
+ * state: GetState() reports QC_OBJECT_STATE_ERROR and every other API returns
+ * QC_STATUS_NOMEM instead of dereferencing a null m_pCL2DFlexImpl.
+ */
+TEST( NodeCL2D, ImplAllocFailBadState )
+{
+    QCStatus_e ret = QC_STATUS_OK;
+
+    MockC_MallocCtrlSize( sizeof( CL2DFlexImpl ) );
+    CL2DFlex cl2d;
+    MockC_MallocCtrlSize( 0 );
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, cl2d.GetState() );
+
+    QCNodeInit_t config;
+    ret = cl2d.Initialize( config );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = cl2d.Start();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = cl2d.Stop();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = cl2d.DeInitialize();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    NodeFrameDescriptor frameDesc( 1 );
+    ret = cl2d.ProcessFrameDescriptor( frameDesc );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+}
+
+/*
+ * Force the CL2DPipelineConvert allocation inside CL2DFlexImpl::Init to fail
+ * (new(std::nothrow) returns nullptr when a valid work mode is matched) and
+ * verify that Initialize returns QC_STATUS_NOMEM — covering the null-pipeline
+ * branch at CL2DFlexImpl.cpp:166.
+ *
+ * The test uses a minimal single-input CONVERT config (no frame buffers
+ * needed — Initialize returns NOMEM before reaching the buffer-setup path).
+ * Runs on QNX/Linux target (real OpenCL required); not meaningful on x86/qmock
+ * where Initialize fails earlier from missing OpenCL.
+ */
+TEST( NodeCL2D, PipelineAllocFail_NoMem )
+{
+    QCStatus_e ret = QC_STATUS_OK;
+
+    /* Build a single-input CONVERT config — the simplest valid path that
+     * exercises CL2DFlexImpl::Init's pipeline-factory loop at line 119. */
+    CL2DFlex_Config_t cfg;
+    cfg.numOfInputs = 1;
+    cfg.workModes[0] = CL2DFLEX_WORK_MODE_CONVERT;
+    cfg.inputWidths[0] = 128;
+    cfg.inputHeights[0] = 128;
+    cfg.inputFormats[0] = QC_IMAGE_FORMAT_NV12;
+    cfg.ROIs[0].x = 0;
+    cfg.ROIs[0].y = 0;
+    cfg.ROIs[0].width = 128;
+    cfg.ROIs[0].height = 128;
+    cfg.outputWidth = 128;
+    cfg.outputHeight = 128;
+    cfg.outputFormat = QC_IMAGE_FORMAT_RGB888;
+
+    DataTree dt;
+    dt.Set<std::string>( "static.name", "CL2D" );
+    dt.Set<uint32_t>( "static.id", 0 );
+    SetConfigCL2D( &cfg, &dt );
+    QCNodeInit_t config = { dt.Dump() };
+
+    /* Fail the first malloc of sizeof(CL2DPipelineConvert) bytes so that
+     * the new(std::nothrow) CL2DPipelineConvert() at CL2DFlexImpl.cpp:119
+     * returns nullptr → status set to QC_STATUS_NOMEM at line 166. */
+    MockC_MallocCtrlSizeAndCount( sizeof( CL2DPipelineConvert ), 1 );
+    CL2DFlex cl2d;
+    ret = cl2d.Initialize( config );
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    (void) cl2d.DeInitialize();
 }
 
 #ifndef GTEST_QCNODE
