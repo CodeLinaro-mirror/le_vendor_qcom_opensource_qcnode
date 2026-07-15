@@ -371,7 +371,7 @@ The command line template example for Lidar pipeline:
 | buffer_size        | false    | int       | 2\*width\*height     | The image buffer size |
 | input_topic        | true     | string    | -           | the input topic name |
 | output_topic       | true     | string    | -           | the output topic name |
-| format             | false    | string    | "nv12"      | The image format, options from [nv12, nv12_ubwc] |
+| format             | false    | string    | "nv12"      | The image format, options from [nv12, nv12_ubwc, p010] |
 | output_format      | false    | string    | h265        | The output image format, options from [h264, h265] |
 | profile | false    | string    | HEVC_MAIN for h265 or H264_MAIN for h264 | The video encoder profile, options from [H264_BASELINE, H264_HIGH, H264_MAIN, HEVC_MAIN, HEVC_MAIN10] |
 | gop        | false    | int       | 20     | No of P-Pictures between 2 I-Frames |

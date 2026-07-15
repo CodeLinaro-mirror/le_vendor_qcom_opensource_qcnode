@@ -402,7 +402,8 @@ QCStatus_e SampleVideoEncoder::ParseConfig( SampleConfig_t &config )
 
     m_inFormat = Get( config, "format", QC_IMAGE_FORMAT_NV12 );
     if ( QC_IMAGE_FORMAT_MAX == m_inFormat ||
-         ( m_inFormat != QC_IMAGE_FORMAT_NV12 && m_inFormat != QC_IMAGE_FORMAT_NV12_UBWC ) )
+         ( m_inFormat != QC_IMAGE_FORMAT_NV12 && m_inFormat != QC_IMAGE_FORMAT_NV12_UBWC &&
+           m_inFormat != QC_IMAGE_FORMAT_P010 ) )
     {
         QC_ERROR( "invalid format for input stream" );
         ret = QC_STATUS_BAD_ARGUMENTS;
