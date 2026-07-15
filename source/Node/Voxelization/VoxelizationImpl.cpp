@@ -41,6 +41,14 @@ VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
             case QC_PROCESSOR_HTP1:
                 processor = "htp1";
                 break;
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+            case QC_PROCESSOR_HTP2:
+                processor = "htp2";
+                break;
+            case QC_PROCESSOR_HTP3:
+                processor = "htp3";
+                break;
+#endif
             case QC_PROCESSOR_CPU:
                 processor = "cpu";
                 break;

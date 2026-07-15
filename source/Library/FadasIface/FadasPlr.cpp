@@ -148,7 +148,11 @@ QCStatus_e FadasPlrPreProc::CreatePreProc()
         QC_ERROR( "Parameter not set!" );
         ret = QC_STATUS_BAD_STATE;
     }
-    else if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+    else if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+              || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+    )
     {
         m_handle64 = GetRemoteHandle64();
         ret = CreatePreProcDSP();
@@ -361,10 +365,10 @@ QCStatus_e FadasPlrPreProc::PointPillarRunDSP( const QCBufferDescriptorBase_t &i
 
     if ( QC_STATUS_OK == ret )
     {
-        AEEResult result = AEE_SUCCESS ;
-	result = FadasIface_PointPillarRun(
+        AEEResult result = AEE_SUCCESS;
+        result = FadasIface_PointPillarRun(
                 m_handle64, m_plrHandler.handle64, numInputPts, fdPts, inputOffset,
-                (uint32_t) ( numInputPts * m_numInFeatureDim * (uint32_t) sizeof( float ) ),
+                ( uint32_t )( numInputPts * m_numInFeatureDim * (uint32_t) sizeof( float ) ),
                 fdOutPlrs, (uint32_t) outputPlrOffset, outputPlrSize, fdOutFeature,
                 outputFeatOffset, outputFeatSize, &numOutputPlrs );
         if ( AEE_SUCCESS != result )
@@ -383,7 +387,11 @@ QCStatus_e FadasPlrPreProc::PointPillarRun( const QCBufferDescriptorBase_t &inpu
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+    if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+         || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+    )
     {
         ret = PointPillarRunDSP( inputPts, outputPlrs, outputFeature );
     }
@@ -399,7 +407,11 @@ QCStatus_e FadasPlrPreProc::DestroyPreProc()
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+    if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+         || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+    )
     {
         ret = DestroyPreProcDSP();
     }
@@ -414,4 +426,3 @@ QCStatus_e FadasPlrPreProc::DestroyPreProc()
 }   // namespace FadasIface
 }   // namespace libs
 }   // namespace QC
-
