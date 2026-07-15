@@ -5,6 +5,8 @@
 #include "QC/sample/SampleFrameSync.hpp"
 #include "TimestampSync.hpp"
 
+#include <algorithm>
+
 namespace QC
 {
 namespace sample
@@ -31,12 +33,15 @@ QCStatus_e SampleFrameSync::WaitReady()
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    for ( uint32_t i = 0; ( i < m_number ) && ( QC_STATUS_OK == ret ); i++ )
+    /* m_waitReadyIndices is populated in ParseConfig: the customer-specified
+     * subset, or all inputs when not configured. */
+    for ( size_t k = 0; ( k < m_waitReadyIndices.size() ) && ( QC_STATUS_OK == ret ); k++ )
     {
-        ret = m_subs[i].WaitUntilFrame( 1000 );
+        uint32_t idx = m_waitReadyIndices[k];
+        ret = m_subs[idx].WaitUntilFrame( 1000 );
         if ( QC_STATUS_OK != ret )
         {
-            QC_ERROR( "input %u not ready after 1000 ms", i );
+            QC_ERROR( "input %u not ready after 1000 ms", idx );
         }
     }
 
@@ -69,6 +74,30 @@ QCStatus_e SampleFrameSync::ParseConfig( SampleConfig_t &config )
 
     std::vector<uint32_t> perms;
     m_perms = Get( config, "perms", perms );
+
+    /* Inputs to NOT wait on in WaitReady(). "skip_wait_ready" lists the input
+     * indices to skip (e.g. "0,3" => don't block on input 0 and 3). When not
+     * specified, wait on all inputs. m_waitReadyIndices ends up as
+     * {all inputs} - {skipped}. */
+    std::vector<uint32_t> skip;
+    skip = Get( config, "skip_wait_ready", skip );
+    for ( auto idx : skip )
+    {
+        if ( idx >= m_number )
+        {
+            QC_ERROR( "skip_wait_ready entry %" PRIu32 " out of range (number=%u)\n", idx,
+                      m_number );
+            ret = QC_STATUS_BAD_ARGUMENTS;
+        }
+    }
+    m_waitReadyIndices.clear();
+    for ( uint32_t i = 0; i < m_number; i++ )
+    {
+        if ( std::find( skip.begin(), skip.end(), i ) == skip.end() )
+        {
+            m_waitReadyIndices.push_back( i );
+        }
+    }
 
     m_outputTopicName = Get( config, "output_topic", "" );
     if ( "" == m_outputTopicName )

@@ -88,6 +88,10 @@ private:
 
     std::vector<uint32_t> m_perms; /* the permutation */
 
+    /* HS mode only: subset of input-topic indices that WaitReady() must block on
+     * before the HS cycle starts. Empty (not configured) => wait on all inputs. */
+    std::vector<uint32_t> m_waitReadyIndices;
+
     std::vector<DataSubscriber<DataFrames_t>> m_subs;
     DataPublisher<DataFrames_t> m_pub;
 };   // class SampleFrameSync

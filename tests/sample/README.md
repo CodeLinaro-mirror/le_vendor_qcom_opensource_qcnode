@@ -699,10 +699,13 @@ The FrameSync sample synchronises frames from multiple input topics and publishe
 | timestamp_threshold_ms | false    | int       | 10      | Maximum acceptable timestamp spread in ms; used by `buffer_timestamp` mode |
 | queue_depth            | false    | int       | 1       | Per-subscriber frame ring depth; used by `buffer_timestamp` mode |
 | perms                  | false    | int list  | -       | A list of integers to permute the output frame order |
+| skip_wait_ready        | false    | int list  | -       | Input-topic indices to **not** wait on in `WaitReady()` before the cycle starts (e.g. `0,3` => don't block on input 0 and 3). If omitted, `WaitReady()` waits on **all** inputs. Each index must be in `[0, number-1]`. |
 | input_topicX           | true     | string    | -       | the input topic name for input X |
 | output_topic           | true     | string    | -       | the output topic name |
 
 Note: "X" is value from 0 to number-1.
+
+Note (`WaitReady` / HS): before the HeteroScheduler starts its scheduling cycle, FrameSync calls `WaitReady()` to block until upstream inputs are live. By default it waits for **every** input. When some inputs should not gate the start (e.g. best-effort inputs, or inputs whose readiness the scheduler handles), list those indices in `skip_wait_ready` so FrameSync does not stall on them. Example: `-k skip_wait_ready -v 0,3` waits on all inputs except 0 and 3.
 
 The command line template example (window mode):
 
