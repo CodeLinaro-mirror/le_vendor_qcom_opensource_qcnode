@@ -294,6 +294,7 @@ QCStatus_e QnnImpl::GetQnnSystemFunctionPointers( std::string systemLibraryPath 
                     foundValidSystemInterface = true;
                     m_qnnFunctionPointers.qnnSystemInterface =
                             systemInterfaceProviders[pIdx]->QNN_SYSTEM_INTERFACE_VER_NAME;
+                    m_systemApiVersion = systemInterfaceProviders[pIdx]->systemApiVersion;
                     break;
                 }
             }
@@ -1560,6 +1561,10 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
             QC_ERROR( "Could not get backend version due to error = %" PRIu64, retVal );
             status = QC_STATUS_FAIL;
         }
+        else
+        {
+            m_backendVersion = version;
+        }
         QC_INFO( "QNN node version: %u.%u.%u", QCNODE_QNN_VERSION_MAJOR, QCNODE_QNN_VERSION_MINOR,
                  QCNODE_QNN_VERSION_PATCH );
         QC_INFO( "QNN build version: %s", QNN_SDK_BUILD_ID );
@@ -2305,6 +2310,10 @@ QCStatus_e QnnImpl::DeInitialize()
     {
         status = Destroy();
     }
+
+    m_systemApiVersion = Qnn_Version_t{};
+    m_backendVersion = Qnn_ApiVersion_t{};
+
     QC_TRACE_END( "DeInit", {} );
 
     return status;

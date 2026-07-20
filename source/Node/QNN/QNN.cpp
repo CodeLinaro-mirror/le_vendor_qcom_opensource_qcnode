@@ -100,6 +100,8 @@ QCStatus_e Qnn::DeInitialize()
             status = status2;
         }
 
+        m_configIfs.Reset();
+
         status2 = NodeBase::DeInitialize();
         if ( QC_STATUS_OK != status2 )
         {

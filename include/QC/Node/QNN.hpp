@@ -14,7 +14,7 @@ namespace Node
 
 /** @brief The QCNode QNN Version */
 #define QCNODE_QNN_VERSION_MAJOR 2U
-#define QCNODE_QNN_VERSION_MINOR 2U
+#define QCNODE_QNN_VERSION_MINOR 3U
 #define QCNODE_QNN_VERSION_PATCH 0U
 
 #define QCNODE_QNN_VERSION                                                                         \
@@ -157,17 +157,32 @@ public:
      */
     virtual const QCNodeConfigBase_t &Get();
 
+    void Reset();
+
 private:
     QCStatus_e VerifyStaticConfig( DataTree &dt, std::string &errors );
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors );
     QCStatus_e ApplyDynamicConfig( DataTree &dt, std::string &errors );
 
+    /**
+     * @brief Parse a JSON literal (used for the schema raw strings) into a DataTree.
+     * @param[in] json  The raw JSON string.
+     * @param[out] dt   On success, the parsed DataTree.
+     * @return QC_STATUS_OK on success; the underlying DataTree::Load status on failure.
+     * @note On failure, dt is left in its default-constructed (empty) state.
+     */
+    static QCStatus_e LoadJson( const std::string &json, DataTree &dt );
+
     DataTree ConvertTensorInfoToJson( const Qnn_Tensor_t &info );
     std::vector<DataTree> ConvertTensorInfoListToJson( const std::vector<Qnn_Tensor_t> &infoList );
+    std::vector<DataTree>
+    ConvertTensorListToBufferDescriptors( const std::vector<Qnn_Tensor_t> &tensors );
 
     QnnImpl *m_pQnnImpl = nullptr;
+    bool m_bSchemaLoaded = false;
     bool m_bOptionsBuilt = false;
     std::string m_options;
+    DataTree m_optionsTree;
 };
 
 // TODO: how to handle QnnMonitor

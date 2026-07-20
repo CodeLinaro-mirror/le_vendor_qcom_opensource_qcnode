@@ -206,6 +206,22 @@ public:
     QnnImplConfig_t &GetConfig() { return m_config; }
     QnnImplMonitorConfig_t &GetMonitorConfig() { return m_monitorConfig; }
 
+    /**
+     * @brief Get the runtime-discovered QNN system interface API version.
+     * @return The systemApiVersion struct from the matched systemInterfaceProviders entry.
+     *         Populated during Initialize(); zero-initialised before that.
+     */
+    const Qnn_Version_t &GetSystemApiVersion() const { return m_systemApiVersion; }
+
+    /**
+     * @brief Get the loaded QNN backend's runtime-reported API version.
+     * @return The Qnn_ApiVersion_t returned by the backend's
+     *         backendGetApiVersion() call during Initialize(). Has both
+     *         coreApiVersion and backendApiVersion sub-fields. Zero-
+     *         initialised before Initialize() succeeds.
+     */
+    const Qnn_ApiVersion_t &GetBackendVersion() const { return m_backendVersion; }
+
     QCStatus_e Initialize( QCNodeEventCallBack_t callback,
                            std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers );
     QCStatus_e Start();
@@ -311,13 +327,11 @@ private:
         uint16_t popIdx;
         uint16_t pushIdx;
 
-    public:
         void Init();
         void Push( NotifyParam_t *pNotifyParam );
         NotifyParam_t *Pop();
     } NotifyParamQueue_t;
 
-private:
     static void QnnNotifyFn( void *pNotifyParam, Qnn_NotifyStatus_t notifyStatus );
     void QnnNotifyFn( NotifyParam_t &notifyParam, Qnn_NotifyStatus_t notifyStatus );
 
@@ -413,6 +427,14 @@ private:
     Qnn_LogHandle_t m_logHandle = nullptr;
 
     QnnImplFunctionPointers_t m_qnnFunctionPointers;
+
+    // Runtime-discovered QNN versions cached during Initialize() — captured
+    // from the matched systemInterfaceProviders entry and from the backend's
+    // own backendGetApiVersion() call, so the rest of the system
+    // (e.g. QnnConfig::GetOptions) can report them without re-walking the
+    // providers list or re-calling the backend.
+    Qnn_Version_t m_systemApiVersion{};
+    Qnn_ApiVersion_t m_backendVersion{};
 
     const QnnBackend_Config_t **m_backendConfig = nullptr;
     QnnSystemContext_Handle_t m_systemContext = nullptr;
