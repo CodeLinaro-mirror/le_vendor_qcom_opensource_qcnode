@@ -9,7 +9,7 @@ endif()
 set ( HETERO_SCHEDULER_WRAPPER_SRC HeteroSchedulerWrapper.cpp )
 
 add_library( HeteroSchedulerWrapper STATIC ${HETERO_SCHEDULER_WRAPPER_SRC} )
-target_link_libraries( HeteroSchedulerWrapper PUBLIC sched-client )
+target_link_libraries( HeteroSchedulerWrapper PUBLIC qso-client )
 
 if ( ENABLE_TRACE )
     target_link_libraries( HeteroSchedulerWrapper PUBLIC QCNodeTrace )
@@ -21,4 +21,3 @@ set_property( TARGET HeteroSchedulerWrapper PROPERTY LINKER_LANGUAGE CXX )
 set_property( TARGET HeteroSchedulerWrapper PROPERTY POSITION_INDEPENDENT_CODE ON )
 
 target_compile_options( HeteroSchedulerWrapper PRIVATE -Wall -Wno-error=uninitialized )
-
