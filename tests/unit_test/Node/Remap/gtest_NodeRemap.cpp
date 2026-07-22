@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 
+#include "MockCLib.hpp"
 #include "QC/Node/Remap.hpp"
 #include "QC/sample/BufferManager.hpp"
 #include "RemapImpl.hpp"
@@ -3162,6 +3163,40 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
     }
 }
 
+
+/*
+ * Force the RemapImpl allocation in the Remap constructor to fail
+ * (new(std::nothrow) returns nullptr) and verify the node is left in a bad
+ * state: GetState() reports QC_OBJECT_STATE_ERROR and every other API returns
+ * QC_STATUS_NOMEM instead of dereferencing a null m_pRemapImpl.
+ */
+TEST( NodeRemap, ImplAllocFailBadState )
+{
+    QCStatus_e ret = QC_STATUS_OK;
+
+    MockC_MallocCtrlSize( sizeof( RemapImpl ) );
+    Remap remap;
+    MockC_MallocCtrlSize( 0 );
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, remap.GetState() );
+
+    QCNodeInit_t config;
+    ret = remap.Initialize( config );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = remap.Start();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = remap.Stop();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = remap.DeInitialize();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    NodeFrameDescriptor frameDesc( 1 );
+    ret = remap.ProcessFrameDescriptor( frameDesc );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+}
 
 #ifndef GTEST_QCNODE
 #if __CTC__
