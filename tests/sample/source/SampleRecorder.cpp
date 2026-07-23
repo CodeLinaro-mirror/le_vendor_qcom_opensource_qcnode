@@ -13,6 +13,20 @@ namespace sample
 SampleRecorder::SampleRecorder() {}
 SampleRecorder::~SampleRecorder() {}
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )> SampleRecorder::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SampleRecorder::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SampleRecorder::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
+
 QCStatus_e SampleRecorder::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -80,80 +94,56 @@ QCStatus_e SampleRecorder::Start()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = false;
-    m_thread = std::thread( &SampleRecorder::ThreadMain, this );
+    m_num = 0;
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
+    {
+#endif
+        m_thread = std::thread( &SampleRecorder::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+    }
+#endif
 
     return ret;
 }
 
-void SampleRecorder::ThreadMain()
+void SampleRecorder::Execute()
 {
     QCStatus_e ret;
-    uint32_t num = 0;
-    while ( false == m_stop )
+    uint32_t timeout = 1000;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
     {
-        DataFrames_t frames;
-        DataFrame_t frame;
-        ret = m_sub.Receive( frames );
-        if ( QC_STATUS_OK == ret )
+        timeout = 0;
+    }
+#endif
+    DataFrames_t frames;
+    DataFrame_t frame;
+    ret = m_sub.Receive( frames, timeout );
+    if ( QC_STATUS_OK == ret )
+    {
+        frame = frames.frames[0];
+        QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frame.frameId,
+                  frame.timestamp );
+        if ( m_num < m_maxImages )
         {
-            frame = frames.frames[0];
-            QC_DEBUG( "receive frameId %" PRIu64 ", timestamp %" PRIu64 "\n", frame.frameId,
-                      frame.timestamp );
-            if ( num < m_maxImages )
-            {
-                PROFILER_BEGIN();
-                QCBufferDescriptorBase_t &bufDesc = frame.GetBuffer();
-                ImageDescriptor_t *pImage = dynamic_cast<ImageDescriptor_t *>( &bufDesc );
-                if ( nullptr != pImage )
-                { /* for Image, dump the first one only */
-                    if ( pImage->format < QC_IMAGE_FORMAT_MAX )
+            PROFILER_BEGIN();
+            QCBufferDescriptorBase_t &bufDesc = frame.GetBuffer();
+            ImageDescriptor_t *pImage = dynamic_cast<ImageDescriptor_t *>( &bufDesc );
+            if ( nullptr != pImage )
+            { /* for Image, dump the first one only */
+                if ( pImage->format < QC_IMAGE_FORMAT_MAX )
+                {
+                    uint32_t sizeOne = pImage->GetDataSize() / pImage->batchSize;
+                    for ( uint32_t i = 0; i < pImage->batchSize; i++ )
                     {
-                        uint32_t sizeOne = pImage->GetDataSize() / pImage->batchSize;
-                        for ( uint32_t i = 0; i < pImage->batchSize; i++ )
-                        {
-                            std::string path = "/tmp/" + m_name + "_" + std::to_string( num ) +
-                                               "_" + std::to_string( i ) + ".raw";
-                            uint8_t *ptr = (uint8_t *) pImage->GetDataPtr() + sizeOne * i;
-                            FILE *fp = fopen( path.c_str(), "wb" );
-                            if ( nullptr != fp )
-                            {
-                                fwrite( ptr, sizeOne, 1, fp );
-                                fclose( fp );
-                            }
-                            else
-                            {
-                                QC_ERROR( "failed to create file: %s", path.c_str() );
-                            }
-                        }
-                        fprintf( m_meta,
-                                 "%u: frameId %" PRIu64 " timestamp %" PRIu64
-                                 ": batch=%u resolution=%ux%u stride=%u actual_height=%u "
-                                 "format=%d\n",
-                                 num, frame.frameId, frame.timestamp, pImage->batchSize,
-                                 pImage->width, pImage->height, pImage->stride[0],
-                                 pImage->actualHeight[0], pImage->format );
-                    }
-                    else
-                    { /* compressed image */
-                        fwrite( pImage->GetDataPtr(), pImage->GetDataSize(), 1, m_file );
-                        fprintf( m_meta,
-                                 "%u: frameId %" PRIu64 " timestamp %" PRIu64
-                                 ": resolution=%ux%u size=%" PRIu64 " format=%d\n",
-                                 num, frame.frameId, frame.timestamp, pImage->width, pImage->height,
-                                 pImage->size, pImage->format );
-                    }
-                }
-                else
-                { /* for Tensor, dump all */
-                    for ( size_t i = 0; i < frames.frames.size(); i++ )
-                    {
-                        QCBufferDescriptorBase_t &bufDesc = frames.GetBuffer( i );
-                        std::string path = "/tmp/" + m_name + "_" + std::to_string( num ) + "_" +
-                                           std::to_string( i ) + ".raw";
+                        std::string path = "/tmp/" + m_name + "_" + std::to_string( m_num ) +
+                                           "_" + std::to_string( i ) + ".raw";
+                        uint8_t *ptr = (uint8_t *) pImage->GetDataPtr() + sizeOne * i;
                         FILE *fp = fopen( path.c_str(), "wb" );
                         if ( nullptr != fp )
                         {
-                            fwrite( bufDesc.GetDataPtr(), bufDesc.GetDataSize(), 1, fp );
+                            fwrite( ptr, sizeOne, 1, fp );
                             fclose( fp );
                         }
                         else
@@ -161,23 +151,72 @@ void SampleRecorder::ThreadMain()
                             QC_ERROR( "failed to create file: %s", path.c_str() );
                         }
                     }
+                    fprintf( m_meta,
+                             "%u: frameId %" PRIu64 " timestamp %" PRIu64
+                             ": batch=%u resolution=%ux%u stride=%u actual_height=%u "
+                             "format=%d\n",
+                             m_num, frame.frameId, frame.timestamp, pImage->batchSize,
+                             pImage->width, pImage->height, pImage->stride[0],
+                             pImage->actualHeight[0], pImage->format );
                 }
-                num++;
-                PROFILER_END();
-            }
-            else if ( nullptr != m_meta )
-            {
-                fclose( m_meta );
-                fclose( m_file );
-                m_meta = nullptr;
-                m_file = nullptr;
-                QC_INFO( "recording done!" );
-                printf( "recording done!\n" );
+                else
+                { /* compressed image */
+                    fwrite( pImage->GetDataPtr(), pImage->GetDataSize(), 1, m_file );
+                    fprintf( m_meta,
+                             "%u: frameId %" PRIu64 " timestamp %" PRIu64
+                             ": resolution=%ux%u size=%" PRIu64 " format=%d\n",
+                             m_num, frame.frameId, frame.timestamp, pImage->width, pImage->height,
+                             pImage->size, pImage->format );
+                }
             }
             else
-            {
+            { /* for Tensor, dump all */
+                for ( size_t i = 0; i < frames.frames.size(); i++ )
+                {
+                    QCBufferDescriptorBase_t &bufDesc = frames.GetBuffer( i );
+                    std::string path = "/tmp/" + m_name + "_" + std::to_string( m_num ) + "_" +
+                                       std::to_string( i ) + ".raw";
+                    FILE *fp = fopen( path.c_str(), "wb" );
+                    if ( nullptr != fp )
+                    {
+                        fwrite( bufDesc.GetDataPtr(), bufDesc.GetDataSize(), 1, fp );
+                        fclose( fp );
+                    }
+                    else
+                    {
+                        QC_ERROR( "failed to create file: %s", path.c_str() );
+                    }
+                }
             }
+            m_num++;
+            PROFILER_END();
         }
+        else if ( nullptr != m_meta )
+        {
+            fclose( m_meta );
+            fclose( m_file );
+            m_meta = nullptr;
+            m_file = nullptr;
+            QC_INFO( "recording done!" );
+            printf( "recording done!\n" );
+        }
+        else
+        {
+        }
+    }
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "Recorder receive failed : %d", ret );
+    }
+#endif
+}
+
+void SampleRecorder::ThreadMain()
+{
+    while ( false == m_stop )
+    {
+        Execute();
     }
 }
 
@@ -186,10 +225,17 @@ QCStatus_e SampleRecorder::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     if ( nullptr != m_meta )
     {

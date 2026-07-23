@@ -8,6 +8,19 @@ namespace QC
 namespace sample
 {
 
+#ifdef QC_ENABLE_HS
+std::function<void( const std::uint32_t *, std::size_t )> SampleVideoDecoder::GetRunnableCallback()
+{
+    m_bOrchestratorEnabled = true;
+    return std::bind( &SampleVideoDecoder::RunnableCallback, this, std::placeholders::_1,
+                      std::placeholders::_2 );
+}
+
+void SampleVideoDecoder::RunnableCallback( const std::uint32_t *rids, std::size_t count )
+{
+    Execute();
+}
+#endif
 
 void SampleVideoDecoder::OnDoneCb( const QCNodeEventInfo_t &eventInfo )
 {
@@ -155,69 +168,95 @@ QCStatus_e SampleVideoDecoder::Start()
     if ( QC_STATUS_OK == ret )
     {
         m_stop = false;
-        m_thread = std::thread( &SampleVideoDecoder::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        if ( !m_bOrchestratorEnabled )
+        {
+#endif
+            m_thread = std::thread( &SampleVideoDecoder::ThreadMain, this );
+#ifdef QC_ENABLE_HS
+        }
+#endif
+        /* the decoder completion drain thread is always required, even in
+         * orchestrator mode, because decode completions are asynchronous */
         m_threadProc = std::thread( &SampleVideoDecoder::ThreadProcMain, this );
     }
 
     return ret;
 }
 
-void SampleVideoDecoder::ThreadMain()
+void SampleVideoDecoder::Execute()
 {
     QCStatus_e ret;
 
     NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1 );   // for input only
 
-    while ( false == m_stop )
+    DataFrames_t frames;
+    uint32_t timeout = 1000;
+#ifdef QC_ENABLE_HS
+    if ( m_bOrchestratorEnabled )
     {
-        DataFrames_t frames;
-        ret = m_sub.Receive( frames );
-        if ( QC_STATUS_OK == ret )
+        timeout = 0;
+    }
+#endif
+    ret = m_sub.Receive( frames, timeout );
+    if ( QC_STATUS_OK == ret )
+    {
+        for ( auto &frame : frames.frames )
         {
-            for ( auto &frame : frames.frames )
+            QC_DEBUG( "Received frameId %" PRIu64 ", type %d, size %lu, timestamp %" PRIu64,
+                      frame.frameId, frame.GetBufferType(), frame.GetDataSize(), frame.timestamp );
+
+            VideoFrameDescriptor frameBuffer;
+
+            frameBuffer = frame.GetBuffer();
+            frameBuffer.timestampNs = frame.timestamp;
+            frameBuffer.appMarkData = frame.frameId;
+
+            ret = frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID, frameBuffer );
+            if ( QC_STATUS_OK != ret )
             {
-                QC_DEBUG( "Received frameId %" PRIu64 ", type %d, size %lu, timestamp %" PRIu64,
-                          frame.frameId, frame.GetBufferType(), frame.GetDataSize(),
-                          frame.timestamp );
+                break;
+            }
 
-                VideoFrameDescriptor frameBuffer;
+            {
+                std::unique_lock<std::mutex> l( m_lock );
+                m_camFrameMap[frameBuffer.dmaHandle] = frame;
+                // unlock @m_lock
+            }
 
-                frameBuffer = frame.GetBuffer();
-                frameBuffer.timestampNs = frame.timestamp;
-                frameBuffer.appMarkData = frame.frameId;
+            PROFILER_BEGIN();
+            TRACE_BEGIN( frame.frameId );
 
-                ret = frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID, frameBuffer );
-                if ( QC_STATUS_OK != ret )
-                {
-                    break;
-                }
-
-                {
-                    std::unique_lock<std::mutex> l( m_lock );
-                    m_camFrameMap[frameBuffer.dmaHandle] = frame;
-                    // unlock @m_lock
-                }
-
-                PROFILER_BEGIN();
-                TRACE_BEGIN( frame.frameId );
-
-                ret = m_decoder.ProcessFrameDescriptor( frameDesc );
-                if ( QC_STATUS_OK == ret )
-                {
-                    FrameInfo info = { frame.frameId, frame.timestamp };
-                    std::unique_lock<std::mutex> l( m_lock );
-                    m_frameInfoQueue.push( info );
-                    // unlock @m_lock
-                }
-                else
-                {
-                    QC_ERROR( "failed to process input frameId %" PRIu64, frame.frameId );
-                    std::unique_lock<std::mutex> l( m_lock );
-                    m_camFrameMap.erase( frameBuffer.dmaHandle );
-                    // unlock @m_lock
-                }
+            ret = m_decoder.ProcessFrameDescriptor( frameDesc );
+            if ( QC_STATUS_OK == ret )
+            {
+                FrameInfo info = { frame.frameId, frame.timestamp };
+                std::unique_lock<std::mutex> l( m_lock );
+                m_frameInfoQueue.push( info );
+                // unlock @m_lock
+            }
+            else
+            {
+                QC_ERROR( "failed to process input frameId %" PRIu64, frame.frameId );
+                std::unique_lock<std::mutex> l( m_lock );
+                m_camFrameMap.erase( frameBuffer.dmaHandle );
+                // unlock @m_lock
             }
         }
+    }
+#ifdef QC_ENABLE_HS
+    else if ( m_bOrchestratorEnabled )
+    {
+        QC_ERROR( "VideoDecoder receive failed : %d", ret );
+    }
+#endif
+}
+
+void SampleVideoDecoder::ThreadMain()
+{
+    while ( false == m_stop )
+    {
+        Execute();
     }
 }
 
@@ -257,10 +296,17 @@ QCStatus_e SampleVideoDecoder::Stop()
     QCStatus_e ret = QC_STATUS_OK;
 
     m_stop = true;
-    if ( m_thread.joinable() )
+#ifdef QC_ENABLE_HS
+    if ( !m_bOrchestratorEnabled )
     {
-        m_thread.join();
+#endif
+        if ( m_thread.joinable() )
+        {
+            m_thread.join();
+        }
+#ifdef QC_ENABLE_HS
     }
+#endif
 
     if ( m_threadProc.joinable() )
     {
