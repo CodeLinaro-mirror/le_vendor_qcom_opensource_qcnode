@@ -44,6 +44,7 @@ target_link_libraries( gtest_NodeVoxelization
     FadasIface
     QCNodeBase
     QCNodeTestUtils
+    QCNodeTestMockCLib
     BufferManager
     OpenCLMock
 )
