@@ -870,7 +870,8 @@ AEEResult FadasIface_ExtractBBoxCreate( remote_handle64 _h, uint32_t maxNumInPts
     struct scatter_buffer sbTx[16] = { { 0 } };
     AEEResult ret = AEE_SUCCESS;
     if ( ( pGrid == nullptr ) || ( phPostProc == nullptr ) ||
-         ( labelSelect == nullptr && labelSelectLen > 0 ) )
+         ( ( labelSelect == nullptr ) && ( labelSelectLen > 0 ) ) ||
+         ( ( labelSelect != nullptr ) && ( labelSelectLen <= 0 ) ) )
     {
         ret = AEE_EBADPARM;
     }
@@ -916,11 +917,12 @@ AEEResult FadasIface_ExtractBBoxCreate( remote_handle64 _h, uint32_t maxNumInPts
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &maxCentreZ );
         sbTx[sbNum].len = sizeof( maxCentreZ );
         sbNum++;
-
-        sbTx[sbNum].buf = reinterpret_cast<const char *>( labelSelect );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *labelSelect ) * labelSelectLen );
-        sbNum++;
-
+        if ( labelSelect != nullptr && labelSelectLen > 0 )
+        {
+            sbTx[sbNum].buf = reinterpret_cast<const char *>( labelSelect );
+            sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *labelSelect ) * labelSelectLen );
+            sbNum++;
+        }
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &labelSelectLen );
         sbTx[sbNum].len = sizeof( labelSelectLen );
         sbNum++;
