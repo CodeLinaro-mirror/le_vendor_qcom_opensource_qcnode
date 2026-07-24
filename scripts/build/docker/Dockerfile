@@ -1,7 +1,7 @@
 # aarch64 QNX & HGY based toolchain
 
 ARG DOCKER_REGISTRY
-FROM ${DOCKER_REGISTRY}ubuntu:20.04
+FROM ${DOCKER_REGISTRY}ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -13,9 +13,9 @@ COPY requirements.txt /tmp
 # Force bash for everything
 ENV SHELL /bin/bash
 
-# Update APT source
+# Update APT source (Ubuntu 24.04 uses deb822 format; remove it and use classic sources.list)
 RUN ln -fs /bin/bash /bin/sh \
-    && mv /etc/apt/sources.list /etc/apt/sources_bak.list \
+    && rm -f /etc/apt/sources.list.d/ubuntu.sources \
     && mv /etc/apt/sources_aliyun.list /etc/apt/sources.list \
     && apt-get update
 
@@ -28,15 +28,22 @@ RUN apt install -y rsync wget curl vim \
     apt-transport-https ca-certificates gnupg software-properties-common \
     openssh-client git git-lfs diffstat openssl libssl-dev
 
-# Install SDL2 dependency
-RUN apt install -y libwayland-dev libwayland-bin libegl-dev libxkbcommon-dev
+# Install SDL2 dependency (Wayland + X11 backends and required extension headers)
+RUN apt install -y libwayland-dev libwayland-bin libegl-dev libxkbcommon-dev \
+    libx11-dev libxext-dev libxrandr-dev libxinerama-dev libxcursor-dev \
+    libxi-dev libxss-dev libxfixes-dev
+
+# Install dev packages for visualization
+RUN apt-get update && apt-get install -y -q --no-install-recommends \
+    libsdl2-gfx-dev libsdl2-ttf-dev \
+    libmfx-dev libva-dev libdrm-dev libigdgmm-dev \
+    libva-drm2 libva-glx2 libva-wayland2 libva-x11-2
 
 # Install QNN Linux dependency
-RUN apt install -y libncurses5 libgl1 libasound2-dev \
+RUN apt install -y libncurses6 libgl1 libasound2-dev \
     libnss3 libgbm-dev desktop-file-utils \
-    && add-apt-repository 'deb http://cz.archive.ubuntu.com/ubuntu focal main universe' \
-    && apt-get update && apt install -y \
-    flatbuffers-compiler libflatbuffers-dev rename
+    flatbuffers-compiler libflatbuffers-dev rename \
+    libsystemd-dev
 
 # Install HGY Ubuntu toolchain
 RUN apt install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
@@ -57,7 +64,7 @@ RUN wget https://github.com/linux-test-project/lcov/releases/download/v1.16/lcov
 # Install python packages
 RUN apt-get update && add-apt-repository ppa:deadsnakes/ppa \
     &&apt-get install -y python3 python3-dev python3-pip \
-    python3-distutils python3-setuptools python3-venv
+    python3-setuptools python3-venv
 
 # clean up
 RUN rm -rf /var/cache/apk/* && rm -rf /var/lib/apt/lists/* \

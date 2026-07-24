@@ -52,7 +52,7 @@ else()
     set(TARGET_LIBRARIES QCNodeCommon apdf aosal)
 endif()
 
-if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     list(APPEND MEMORY_HEADERS
         ${HEADERS_DIR}/QC/Infras/Memory/DMABUFFAllocator.hpp
         ${HEADERS_DIR}/QC/Infras/Memory/DMABUFFUtils.hpp
@@ -66,7 +66,7 @@ endif()
 
 # Handle platform-specific source files - only include if not in simulation mode
 if(NOT ENABLE_SIMNODE)
-    if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+    if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
         list(APPEND MEMORY_SOURCES
             DMABUFFAllocator.cpp
             DMABUFFUtils.cpp
