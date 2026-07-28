@@ -69,7 +69,7 @@ public:
      * @brief NodeFrameDescriptorPool Destructor
      * @return None
      */
-    ~NodeFrameDescriptorPool() {}
+    ~NodeFrameDescriptorPool() = default;
 
     /**
      * @brief Retrieves a QCFrameDescriptorNodeIfs object from the pool.

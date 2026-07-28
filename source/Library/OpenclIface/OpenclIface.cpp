@@ -46,41 +46,31 @@ QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae
             }
             else
             {
-                cl_device_id *pDeviceIDs =
-                        (cl_device_id *) malloc( sizeof( cl_device_id ) * numDevices );
-                if ( pDeviceIDs == NULL )
-                {
-                    QC_ERROR( "Failed to allocate memory for device IDs" );
-                    ret = QC_STATUS_FAIL;
-                }
-                else
-                {
-                    retCL = clGetDeviceIDs( m_platformID, CL_DEVICE_TYPE_GPU, numDevices,
-                                            pDeviceIDs, NULL );
-                    if ( CL_SUCCESS == retCL )
-                    {
-                        for ( uint32_t i = 0; i < numDevices; i++ )
-                        {
-                            QC_INFO( "device ID[%d] = %d\n", i, pDeviceIDs[i] );
-                        }
+                std::vector<cl_device_id> deviceIDs( numDevices );
 
-                        if ( deviceId < numDevices )
-                        {
-                            m_deviceID = pDeviceIDs[deviceId];
-                        }
-                        else
-                        {
-                            QC_ERROR( "Invalid device ID = %d", deviceId );
-                            ret = QC_STATUS_BAD_ARGUMENTS;
-                        }
+                retCL = clGetDeviceIDs( m_platformID, CL_DEVICE_TYPE_GPU, numDevices,
+                                        deviceIDs.data(), NULL );
+                if ( CL_SUCCESS == retCL )
+                {
+                    for ( uint32_t i = 0; i < numDevices; i++ )
+                    {
+                        QC_INFO( "device ID[%d] = %d\n", i, deviceIDs[i] );
+                    }
+
+                    if ( deviceId < numDevices )
+                    {
+                        m_deviceID = deviceIDs[deviceId];
                     }
                     else
                     {
-                        QC_ERROR( "Unable to get device IDs, retCL = %d", retCL );
-                        ret = QC_STATUS_FAIL;
+                        QC_ERROR( "Invalid device ID = %d", deviceId );
+                        ret = QC_STATUS_BAD_ARGUMENTS;
                     }
-
-                    free( pDeviceIDs );
+                }
+                else
+                {
+                    QC_ERROR( "Unable to get device IDs, retCL = %d", retCL );
+                    ret = QC_STATUS_FAIL;
                 }
             }
         }
@@ -106,7 +96,7 @@ QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae
                 QC_ERROR( "Invalid performance priority argument setting" );
                 ret = QC_STATUS_BAD_ARGUMENTS;
             }
-            m_context = clCreateContext( properties, 1, &m_deviceID, nullptr, nullptr, &retCL );
+            m_context = clCreateContext( &properties[0], 1, &m_deviceID, nullptr, nullptr, &retCL );
             if ( CL_SUCCESS != retCL )
             {
                 QC_ERROR( "Unable to create context, retCL = %d", retCL );
@@ -148,7 +138,7 @@ QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae
 
             size_t workSizes[3];
             (void) clGetDeviceInfo( m_deviceID, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof( size_t ) * 3,
-                                    workSizes, NULL );
+                                    &workSizes[0], NULL );
             QC_INFO( "CL max work item sizes is {%d, %d, %d}", workSizes[0], workSizes[1],
                      workSizes[2] );
         }
@@ -162,7 +152,7 @@ QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae
                                                                 CL_SAMPLER_FILTER_MODE,
                                                                 CL_FILTER_NEAREST,
                                                                 0 };
-            m_sampler = clCreateSamplerWithProperties( m_context, samplerProperties, &retCL );
+            m_sampler = clCreateSamplerWithProperties( m_context, &samplerProperties[0], &retCL );
             if ( CL_SUCCESS != retCL )
             {
                 QC_ERROR( "Unable to create sampler, retCL = %d", retCL );

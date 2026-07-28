@@ -528,7 +528,12 @@ QCStatus_e VideoEncoder::InitDrvProperty()
 
     if ( QC_STATUS_OK == ret )
     {
-        m_vidcEncoderData.enableSyncFrameSeq.enable = m_pConfig->bSyncFrameSeqHdr;
+        boolean syncFrameSeqHdr = FALSE;
+        if ( m_pConfig->bSyncFrameSeqHdr )
+        {
+            syncFrameSeqHdr = TRUE;
+        }
+        m_vidcEncoderData.enableSyncFrameSeq.enable = syncFrameSeqHdr;
         QC_INFO( "Setting VIDC_I_ENC_SYNC_FRAME_SEQ_HDR %d",
                  m_vidcEncoderData.enableSyncFrameSeq.enable );
         ret = m_drvClient.SetDrvProperty( VIDC_I_ENC_SYNC_FRAME_SEQ_HDR, sizeof( vidc_enable_type ),
@@ -807,7 +812,7 @@ void VideoEncoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
     if ( m_callback )
     {
         NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID + 1 );
-        frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID, inFrameDesc );
+        (void) frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID, inFrameDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_configIfs.Get().nodeId, QC_STATUS_OK, GetState() );
         m_callback( evtInfo );
@@ -819,28 +824,28 @@ void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
     if ( m_callback )
     {
         NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID + 1 );
-        frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, outFrameDesc );
+        (void) frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, outFrameDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_configIfs.Get().nodeId, QC_STATUS_OK, GetState() );
         m_callback( evtInfo );
     }
 }
 
-void VideoEncoder::EventCallback( VideoEncoder_EventType_e eventId, const void *pEvent )
+void VideoEncoder::EventCallback( VideoEncoder_EventType_e eventId, void *pEvent )
 {
     VidcNodeBase::EventCallback( eventId, pEvent );
 
     if ( m_callback )
     {
         NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_EVENT_BUFF_ID + 1 );
-        QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );
 
         QCBufferDescriptorBase_t errDesc;
         errDesc.name = std::to_string( eventId );
-        errDesc.pBuf = const_cast<void *>( pEvent );
+        errDesc.pBuf = pEvent;
         errDesc.size = sizeof( vidc_drv_msg_info_type );
         frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, errDesc );
 
+        QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );
         m_callback( evtInfo );
     }
 }
@@ -906,14 +911,17 @@ QCStatus_e VideoEncoderConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
         status = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    if ( QC_STATUS_OK != status ) QC_ERROR( "errors: %s", errors.c_str() );
+    if ( QC_STATUS_OK != status )
+    {
+        QC_ERROR( "errors: %s", errors.c_str() );
+    }
 
     QC_INFO( "enc-init: w:%u, h:%u, fps:%u, bitRate:%u, gop:%u, inbuf: dynamicMode:%d, num:%u; "
              "outbuf: "
              "dynamicMode:%d, num:%u",
              m_config.width, m_config.height, m_config.frameRate, m_config.bitRate, m_config.gop,
-             m_config.bInputDynamicMode, m_config.numInputBufferReq, m_config.bOutputDynamicMode,
-             m_config.numOutputBufferReq );
+             m_config.bInputDynamicMode ? 1 : 0, m_config.numInputBufferReq,
+             m_config.bOutputDynamicMode ? 1 : 0, m_config.numOutputBufferReq );
 
     return status;
 }
@@ -961,7 +969,7 @@ void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc, void 
     }
 }
 
-void VideoEncoder::EventCallback( VideoCodec_EventType_e eventId, const void *pEvent,
+void VideoEncoder::EventCallback( VideoCodec_EventType_e eventId, void *pEvent,
                                   void *pPrivData )
 {
     VideoEncoder *pNve = static_cast<VideoEncoder *>( pPrivData );

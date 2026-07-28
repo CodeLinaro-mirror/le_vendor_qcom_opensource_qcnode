@@ -9,6 +9,10 @@ cdsp1skeldir="$homedir/lib/dsp;/vendor/dsp/cdsp1;/dspfw/image/dsp/cdsp1;/usr/sha
 cdsp2skeldir="$homedir/lib/dsp;/vendor/dsp/cdsp2;/dspfw/image/dsp/cdsp2;/usr/share/fastrpc;/dsplib/image/dsp/cdsp2;/mnt/etc/images;/mnt/etc/images/cdsp2;/mnt/etc/images/dsp;/firmware/image/dsp/cdsp2/;/dsplib/image/cdsp2/"
 cdsp3skeldir="$homedir/lib/dsp;/vendor/dsp/cdsp3;/dspfw/image/dsp/cdsp3;/usr/share/fastrpc;/dsplib/image/dsp/cdsp3;/mnt/etc/images;/mnt/etc/images/cdsp3;/mnt/etc/images/dsp;/firmware/image/dsp/cdsp3/;/dsplib/image/cdsp3/"
 
+hpass0skeldir="$homedir/lib/dsp;/vendor/dsp/hpass;/vendor/dsp/hpass0;/vendor/dsp/hpass0_computelite;/dsplib/image/hpass0;/usr/share/fastrpc;/mnt/etc/images;/mnt/etc/images/hpass0"
+hpass1skeldir="$homedir/lib/dsp;/vendor/dsp/hpass1;/vendor/dsp/hpass1_computelite;/dsplib/image/hpass1;/usr/share/fastrpc;/mnt/etc/images;/mnt/etc/images/hpass1"
+hpass2skeldir="$homedir/lib/dsp;/vendor/dsp/hpass2;/vendor/dsp/hpass2_computelite;/dsplib/image/hpass2;/usr/share/fastrpc;/mnt/etc/images;/mnt/etc/images/hpass2"
+
 export LD_LIBRARY_PATH=$homedir/lib/:$LD_LIBRARY_PATH:/usr/lib64:/lib:/mnt/lib64:$homedir/lib/runtime
 export PATH=$PATH:$homedir/bin
 export CDSP_LIBRARY_PATH=$cdsp0skeldir
@@ -16,6 +20,10 @@ export CDSP0_LIBRARY_PATH=$cdsp0skeldir
 export CDSP1_LIBRARY_PATH=$cdsp1skeldir
 export CDSP2_LIBRARY_PATH=$cdsp2skeldir
 export CDSP3_LIBRARY_PATH=$cdsp3skeldir
+
+export HPASS0_LIBRARY_PATH=$hpass0skeldir
+export HPASS1_LIBRARY_PATH=$hpass1skeldir
+export HPASS2_LIBRARY_PATH=$hpass2skeldir
 
 # unset DISPLAY to avoid SDL from using X11
 unset DISPLAY
@@ -32,10 +40,15 @@ fi
 
 LAUNCH=""
 
-if [ "$(uname -s)" = "QNX" ] && [ "$(uname -n | cut -d' ' -f1)" = "nord" ]; then
-    echo "Using secpol qcnode_t to launch app"
-    chown -R 66:66 ../../../pkg-aarch64-qnx
-    LAUNCH="on -T qcnode_t -u 66:66,68,73,801,802,807,809,810,816,817,822,832,855,856,861,862,907,1021"
+if [ "$(uname -s)" = "QNX" ]; then
+    nodename="$(uname -n | cut -d' ' -f1)"
+    case "$nodename" in
+        nord|nord-*)
+            echo "Using secpol qcnode_t to launch app"
+            chown -R 66:66 ../../../pkg-aarch64-qnx
+            LAUNCH="on -T qcnode_t -u 66:66,68,73,801,802,807,809,810,816,817,822,830,832,855,856,861,862,907,1021"
+            ;;
+    esac
 fi
 
 $LAUNCH $@

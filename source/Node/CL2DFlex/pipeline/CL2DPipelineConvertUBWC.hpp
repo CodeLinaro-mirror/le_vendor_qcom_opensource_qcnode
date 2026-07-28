@@ -17,18 +17,19 @@ class CL2DPipelineConvertUBWC : public CL2DPipelineBase
 public:
     CL2DPipelineConvertUBWC();
 
-    ~CL2DPipelineConvertUBWC();
+    ~CL2DPipelineConvertUBWC() override;
 
     CL2DPipelineConvertUBWC( const CL2DPipelineConvertUBWC & ) = delete;
     CL2DPipelineConvertUBWC &operator=( const CL2DPipelineConvertUBWC & ) = delete;
 
-    QCStatus_e Init( uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig,
-                     OpenclSrv *pOpenclSrvObj,
-                     std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers );
+    QCStatus_e
+    Init( uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig,
+          OpenclSrv *pOpenclSrvObj,
+          std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers ) override;
 
-    QCStatus_e Deinit();
+    QCStatus_e Deinit() override;
 
-    QCStatus_e Execute( ImageDescriptor_t &input, ImageDescriptor_t &output );
+    QCStatus_e Execute( ImageDescriptor_t &input, ImageDescriptor_t &output ) override;
 
 private:
     QCStatus_e ConvertUBWCFromNV12UBWCToNV12( ImageDescriptor_t &input, ImageDescriptor_t &output );

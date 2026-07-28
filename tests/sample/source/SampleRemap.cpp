@@ -58,6 +58,16 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
     }
     m_dataTree.Set<uint32_t>( "static.coreId", coreId );
 
+    /* Optional: cpu_threads_affinity — comma-separated core IDs, e.g. "12,13,14,15"
+     * If absent → key not written → FadasRemap uses platform defaults */
+    std::vector<uint32_t> affinity =
+    Get( config, "cpu_threads_affinity", std::vector<uint32_t>{} );
+
+    if ( !affinity.empty() )
+    {
+        m_dataTree.Set<uint32_t>( "static.cpuThreadsAffinity", affinity );
+    }
+
     m_coreIds = { coreId };
     m_rsmPriority = Get( config, "rsm_priority", 0 );
 

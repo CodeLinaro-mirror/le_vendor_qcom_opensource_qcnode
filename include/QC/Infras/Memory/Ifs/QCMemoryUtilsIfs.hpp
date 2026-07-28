@@ -71,6 +71,12 @@ public:
      * @return The status of the buffer descriptor setting operation.
      */
     virtual QCStatus_e SetImageDescFromImageProp( ImageProps_t &prop, ImageDescriptor_t &desc ) = 0;
+
+protected:
+    QCMemoryUtilsIfs() = default;
+    QCMemoryUtilsIfs( const QCMemoryUtilsIfs & ) = default;
+    QCMemoryUtilsIfs& operator=( const QCMemoryUtilsIfs& ) = default;
+    ~QCMemoryUtilsIfs() = default;
 };
 
 }   // namespace Memory

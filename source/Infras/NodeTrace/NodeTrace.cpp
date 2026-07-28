@@ -96,11 +96,11 @@ static size_t GetArgValueRawPtrAndSize( QCNodeTraceArg_t &arg, const void *&pRaw
     return size;
 }
 
-void NodeTrace::NodeTrace_CloseFile( void )
+void NodeTrace::NodeTrace_CloseFile( void ) noexcept
 {
     if ( nullptr != s_pTraceFile )
     {
-        fclose( s_pTraceFile );
+        (void) fclose( s_pTraceFile );
     }
 }
 
@@ -112,7 +112,7 @@ NodeTrace::NodeTrace()
     m_record.reserve( NODETRACE_MAX_RECORD_SIZE );
 }
 
-NodeTrace::~NodeTrace() {}
+NodeTrace::~NodeTrace() = default;
 
 void NodeTrace::Init( std::string config )
 {
@@ -125,12 +125,13 @@ void NodeTrace::Init( std::string config )
             s_pTraceFile = fopen( envValue, "wb" );
             if ( nullptr != s_pTraceFile )
             {
-                atexit( NodeTrace_CloseFile );
-                fprintf( stdout, "QC NodeTrace File: <%s>.\n", envValue );
+                (void) atexit( NodeTrace_CloseFile );
+                (void) fprintf( stdout, "QC NodeTrace File: <%s>.\n", envValue );
             }
             else
             {
-                fprintf( stderr, "Failed to create qcnode node trace bin file <%s>.\n", envValue );
+                (void) fprintf( stderr, "Failed to create qcnode node trace bin file <%s>.\n",
+                                envValue );
             }
         }
     }
@@ -163,7 +164,7 @@ void NodeTrace::Init( std::string config )
         }
         else
         {
-            fprintf( stderr, "invalid trace config <%s>.\n", config.c_str() );
+            (void) fprintf( stderr, "invalid trace config <%s>.\n", config.c_str() );
         }
     }
     else
@@ -177,8 +178,9 @@ uint64_t NodeTrace::Timestamp()
     uint64_t timestamp;
     auto now = std::chrono::high_resolution_clock::now();
 
-    timestamp =
-            static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>( now.time_since_epoch() ).count());
+    timestamp = static_cast<uint64_t>(
+            std::chrono::duration_cast<std::chrono::microseconds>( now.time_since_epoch() )
+                    .count() );
 
     return timestamp;
 }
@@ -200,21 +202,21 @@ void NodeTrace::Trace( std::string name, QCNodeTraceType_e type,
 
         eventHeader.timestamp = timestamp;
         eventHeader.coreIdsMask = m_coreIdsMask;
-        eventHeader.numArgs = static_cast<uint32_t>(args.size());
-        eventHeader.lenName = static_cast<uint32_t>(m_name.size());
-        eventHeader.lenProcessor = static_cast<uint32_t>(m_processor.size());
-        eventHeader.lenEventName = static_cast<uint32_t>(name.size());
+        eventHeader.numArgs = static_cast<uint32_t>( args.size() );
+        eventHeader.lenName = static_cast<uint32_t>( m_name.size() );
+        eventHeader.lenProcessor = static_cast<uint32_t>( m_processor.size() );
+        eventHeader.lenEventName = static_cast<uint32_t>( name.size() );
         eventHeader.traceType = type;
-        memcpy( m_record.data(), &eventHeader, sizeof( eventHeader ) );
+        (void) memcpy( m_record.data(), &eventHeader, sizeof( eventHeader ) );
         offset += sizeof( eventHeader );
 
-        memcpy( &( m_record.data()[offset] ), m_name.c_str(), m_name.size() );
+        (void) memcpy( &( m_record.data()[offset] ), m_name.c_str(), m_name.size() );
         offset += m_name.size();
 
-        memcpy( &( m_record.data()[offset] ), m_processor.c_str(), m_processor.size() );
+        (void) memcpy( &( m_record.data()[offset] ), m_processor.c_str(), m_processor.size() );
         offset += m_processor.size();
 
-        memcpy( &( m_record.data()[offset] ), name.c_str(), name.size() );
+        (void) memcpy( &( m_record.data()[offset] ), name.c_str(), name.size() );
         offset += name.size();
 
         for ( QCNodeTraceArg_t &arg : args )
@@ -226,19 +228,19 @@ void NodeTrace::Trace( std::string name, QCNodeTraceType_e type,
             m_record.resize( size );
 
             evtArg.argType = arg.type;
-            evtArg.lenName = static_cast<uint32_t>(arg.name.size());
-            evtArg.lenValue = static_cast<uint32_t>(lenValue);
-            memcpy( &( m_record.data()[offset] ), &evtArg, sizeof( evtArg ) );
+            evtArg.lenName = static_cast<uint32_t>( arg.name.size() );
+            evtArg.lenValue = static_cast<uint32_t>( lenValue );
+            (void) memcpy( &( m_record.data()[offset] ), &evtArg, sizeof( evtArg ) );
             offset += sizeof( evtArg );
 
-            memcpy( &( m_record.data()[offset] ), arg.name.c_str(), arg.name.size() );
+            (void) memcpy( &( m_record.data()[offset] ), arg.name.c_str(), arg.name.size() );
             offset += arg.name.size();
 
-            memcpy( &( m_record.data()[offset] ), pRaw, lenValue );
+            (void) memcpy( &( m_record.data()[offset] ), pRaw, lenValue );
             offset += lenValue;
         }
 
-        fwrite( m_record.data(), offset, 1, s_pTraceFile );
+        (void) fwrite( m_record.data(), offset, 1, s_pTraceFile );
     }
 }
 

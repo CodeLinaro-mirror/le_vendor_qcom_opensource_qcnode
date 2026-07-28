@@ -95,6 +95,11 @@ typedef struct TensorDescriptor : public BufferDescriptor
 {
 public:
     TensorDescriptor() : BufferDescriptor() {}
+
+    ~TensorDescriptor() override = default;
+
+    TensorDescriptor( const TensorDescriptor &other ) = default;
+
     /**
      * @brief Sets up the tensor descriptor from another buffer descriptor object.
      * @param[in] other The buffer descriptor object from which buffer members are copied.

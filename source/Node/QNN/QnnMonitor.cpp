@@ -57,7 +57,7 @@ QCStatus_e QnnMonitor::Place( void *pData, uint32_t &size )
         status = m_pQnnImpl->GetPerf( perf );
         if ( QC_STATUS_OK == status )
         {
-            memcpy( pData, &perf, sizeof( Qnn_Perf_t ) );
+            (void) memcpy( pData, &perf, sizeof( Qnn_Perf_t ) );
         }
     }
 
