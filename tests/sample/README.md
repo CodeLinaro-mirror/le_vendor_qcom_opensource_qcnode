@@ -361,6 +361,7 @@ The command line template example:
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
+| queue_depth   | false    | int       | 2       | subscriber ring-buffer depth; increase when the downstream is slower than the source to avoid frame drops |
 
 Note: "X" is value from 0 to batch_size-1, thus the attribute with suffix "X" is repeated for different input batch.
 
@@ -396,6 +397,7 @@ The command line template example:
 | weight_sharing_enabled | fasle    | bool      | false   | If true, enable the weight sharing. |
 | extended_udma  | fasle    | bool      | false   | If true, enable the extended udma feature. |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
+| queue_depth   | false    | int       | 2       | subscriber ring-buffer depth; increase when the downstream is slower than the source to avoid frame drops |
 
 The command line template example:
 
@@ -421,6 +423,7 @@ The command line template example:
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
+| queue_depth   | false    | int       | 2       | subscriber ring-buffer depth; increase when the downstream is slower than the source to avoid frame drops |
 
 The command line template example:
 
@@ -540,6 +543,7 @@ The command line template example:
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
+| queue_depth   | false    | int       | 2       | subscriber ring-buffer depth; increase when the downstream is slower than the source to avoid frame drops |
 
 The command line template example:
 
@@ -577,6 +581,7 @@ The command line template example:
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
+| queue_depth   | false    | int       | 2       | subscriber ring-buffer depth; increase when the downstream is slower than the source to avoid frame drops |
 
 The command line template example:
 
@@ -634,6 +639,7 @@ The command line template example:
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
+| queue_depth   | false    | int       | 2       | subscriber ring-buffer depth; increase when the downstream is slower than the source to avoid frame drops |
 
 The command line template example:
 
@@ -751,6 +757,7 @@ The command line template example:
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
+| queue_depth   | false    | int       | 2       | subscriber ring-buffer depth; increase when the downstream is slower than the source to avoid frame drops |
 
 The command line template example:
 
@@ -848,6 +855,7 @@ The command line template example (buffer_timestamp mode):
 | input_topic   | true     | string    | -       | the input topic name |
 | output_topic  | true     | string    | -       | the output topic name |
 | latest        | false    | bool      | true    | if true, the subscriber always receives the latest frame; if false, frames are received in FIFO order |
+| queue_depth   | false    | int       | 2       | subscriber ring-buffer depth; increase when the downstream is slower than the source to avoid frame drops |
 
 The command line template example:
 

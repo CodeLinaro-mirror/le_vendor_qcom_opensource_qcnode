@@ -105,6 +105,7 @@ QCStatus_e SampleQnn::ParseConfig( SampleConfig_t &config )
     m_modelInOutInfoTopicName = Get( config, "model_io_info_topic", "" );
 
     m_bLatest = Get( config, "latest", true );
+    m_queueDepth = Get( config, "queue_depth", (uint32_t) 2 );
 
     std::vector<DataTree> udoPkgs;
     std::string opPackagePathsStr = Get( config, "udo", "" );
@@ -294,7 +295,7 @@ QCStatus_e SampleQnn::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = m_sub.Init( name, m_inputTopicName, 2, m_bLatest );
+        ret = m_sub.Init( name, m_inputTopicName, m_queueDepth, m_bLatest );
     }
 
     if ( QC_STATUS_OK == ret )
