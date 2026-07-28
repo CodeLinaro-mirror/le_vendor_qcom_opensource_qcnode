@@ -1668,6 +1668,7 @@ void Coverage3()
     EXPECT_EQ( QC_STATUS_OK, ret );
     inputYFormat.image_channel_order = CL_QCOM_COMPRESSED_NV12_Y;
     inputYFormat.image_channel_data_type = CL_UNORM_INT8;
+    inputYDesc.mem_object = bufferCLImage;
     ret = OpenclSrvObj.RegPlane( imageDesc.pBuf, &bufferCLPlane, &inputYFormat, &inputYDesc );
     EXPECT_EQ( QC_STATUS_OK, ret );
     ret = OpenclSrvObj.DeregAllBuffers();   // deregister all buffers
