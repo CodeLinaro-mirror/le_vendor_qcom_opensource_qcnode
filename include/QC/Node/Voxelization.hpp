@@ -13,8 +13,8 @@ namespace Node
 
 /** @brief The QCNode Voxelization Version */
 #define QCNODE_VOXELIZATION_VERSION_MAJOR 2U
-#define QCNODE_VOXELIZATION_VERSION_MINOR 1U
-#define QCNODE_VOXELIZATION_VERSION_PATCH 2U
+#define QCNODE_VOXELIZATION_VERSION_MINOR 2U
+#define QCNODE_VOXELIZATION_VERSION_PATCH 0U
 
 #define QCNODE_VOXELIZATION_VERSION                                                                \
     ( ( QCNODE_VOXELIZATION_VERSION_MAJOR << 16U ) | ( QCNODE_VOXELIZATION_VERSION_MINOR << 8U ) | \
@@ -128,7 +128,7 @@ public:
      * @brief Get the configuration options as a string.
      * @return A reference to the configuration options string.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the base configuration structure.
@@ -192,7 +192,7 @@ public:
      * @brief Get the QCNode monitoring options as a string.
      * @return A reference to the QCNode monitoring options string.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the base QCNode monitoring structure.

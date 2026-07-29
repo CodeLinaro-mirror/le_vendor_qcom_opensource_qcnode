@@ -70,11 +70,11 @@ public:
 
     /**
      * @brief Get Configuration Options
-     * @return A reference string to the JSON configuration options.
+     * @return QC_STATUS_OK on success (options populated); an error code on failure.
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    const std::string &GetOptions() override = 0;
+    QCStatus_e GetOptions( std::string &options ) override = 0;
 
     /**
      * @brief Get the Configuration Structure.

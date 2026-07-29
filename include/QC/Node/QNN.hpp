@@ -14,8 +14,8 @@ namespace Node
 
 /** @brief The QCNode QNN Version */
 #define QCNODE_QNN_VERSION_MAJOR 2U
-#define QCNODE_QNN_VERSION_MINOR 0U
-#define QCNODE_QNN_VERSION_PATCH 11U
+#define QCNODE_QNN_VERSION_MINOR 1U
+#define QCNODE_QNN_VERSION_PATCH 0U
 
 #define QCNODE_QNN_VERSION                                                                         \
     ( ( QCNODE_QNN_VERSION_MAJOR << 16U ) | ( QCNODE_QNN_VERSION_MINOR << 8U ) |                   \
@@ -149,7 +149,7 @@ public:
      * @note
      * Use this API to query detailed input and output information from the loaded QNN model.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the Configuration Structure.
@@ -189,7 +189,7 @@ public:
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors );
 
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     virtual const QCNodeMonitoringBase_t &Get();
 

@@ -18,7 +18,7 @@ QCStatus_e SimulationNodeMonitoring::VerifyAndSet( const std::string config, std
     return QC_STATUS_OK;
 }
 
-const std::string &SimulationNodeMonitoring::GetOptions()
+QCStatus_e SimulationNodeMonitoring::GetOptions( std::string &options )
 {
     if ( m_options.empty() )
     {
@@ -35,7 +35,8 @@ const std::string &SimulationNodeMonitoring::GetOptions()
 
         m_options = dt.Dump();
     }
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 const QCNodeMonitoringBase_t &SimulationNodeMonitoring::Get()

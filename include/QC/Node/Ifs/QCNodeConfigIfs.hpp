@@ -14,7 +14,7 @@ typedef struct QCNodeConfigBase
     virtual ~QCNodeConfigBase() = default;
     QCNodeConfigBase() = default;
     QCNodeConfigBase( const QCNodeConfigBase & ) = default;
-    QCNodeConfigBase& operator=( const QCNodeConfigBase& ) = default;
+    QCNodeConfigBase &operator=( const QCNodeConfigBase & ) = default;
     QCNodeID_t nodeId{};
     uint32_t numOfEntries{ 0U };
 } QCNodeConfigBase_t;
@@ -31,9 +31,10 @@ public:
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors ) = 0;
 
     // Get details of parameters and ranges needed for essential functionality in run time
-    // The returned is std:string to be able to work with different textual encoding (json, yaml,
+    // options is std:string to be able to work with different textual encoding (json, yaml,
     // custom) Information for pipeline builder (examples and rules )
-    virtual const std::string &GetOptions() = 0;
+    // Returns QC_STATUS_OK with options populated; an error code on failure (options set to "{}").
+    virtual QCStatus_e GetOptions( std::string &options ) = 0;
 
     // Get configuration structure reference
     virtual const QCNodeConfigBase_t &Get() = 0;
@@ -41,7 +42,7 @@ public:
 protected:
     QCNodeConfigIfs() = default;
     QCNodeConfigIfs( const QCNodeConfigIfs & ) = default;
-    QCNodeConfigIfs& operator=( const QCNodeConfigIfs& ) = default;
+    QCNodeConfigIfs &operator=( const QCNodeConfigIfs & ) = default;
     ~QCNodeConfigIfs() = default;
     // In implementation a data member will be placed here from a type
     // which inherits "QCNodeConfigBase_t" as base

@@ -49,7 +49,7 @@ extern "C" cl_int clReleaseMemObject( cl_mem memobj )
     static cl_int ( *real_clReleaseMemObject )( cl_mem ) = nullptr;
     if ( nullptr == real_clReleaseMemObject )
     {
-        real_clReleaseMemObject = (cl_int ( * )( cl_mem )) dlsym( RTLD_NEXT, "clReleaseMemObject" );
+        real_clReleaseMemObject = (cl_int( * )( cl_mem )) dlsym( RTLD_NEXT, "clReleaseMemObject" );
     }
 
     const int mode = g_mock_release_mode.load();
@@ -92,7 +92,7 @@ extern "C" cl_int clReleaseKernel( cl_kernel kernel )
     static cl_int ( *real_clReleaseKernel )( cl_kernel ) = nullptr;
     if ( nullptr == real_clReleaseKernel )
     {
-        real_clReleaseKernel = (cl_int ( * )( cl_kernel )) dlsym( RTLD_NEXT, "clReleaseKernel" );
+        real_clReleaseKernel = (cl_int( * )( cl_kernel )) dlsym( RTLD_NEXT, "clReleaseKernel" );
     }
 
     const int mode = g_mock_release_kernel_mode.load();
@@ -133,7 +133,7 @@ extern "C" cl_int clReleaseProgram( cl_program program )
     static cl_int ( *real_clReleaseProgram )( cl_program ) = nullptr;
     if ( nullptr == real_clReleaseProgram )
     {
-        real_clReleaseProgram = (cl_int ( * )( cl_program )) dlsym( RTLD_NEXT, "clReleaseProgram" );
+        real_clReleaseProgram = (cl_int( * )( cl_program )) dlsym( RTLD_NEXT, "clReleaseProgram" );
     }
 
     const int mode = g_mock_release_program_mode.load();
@@ -174,7 +174,7 @@ extern "C" cl_int clReleaseCommandQueue( cl_command_queue command_queue )
     if ( nullptr == real_clReleaseCommandQueue )
     {
         real_clReleaseCommandQueue =
-                (cl_int ( * )( cl_command_queue )) dlsym( RTLD_NEXT, "clReleaseCommandQueue" );
+                (cl_int( * )( cl_command_queue )) dlsym( RTLD_NEXT, "clReleaseCommandQueue" );
     }
 
     const int mode = g_mock_release_cmdqueue_mode.load();
@@ -214,7 +214,7 @@ extern "C" cl_int clReleaseContext( cl_context context )
     static cl_int ( *real_clReleaseContext )( cl_context ) = nullptr;
     if ( nullptr == real_clReleaseContext )
     {
-        real_clReleaseContext = (cl_int ( * )( cl_context )) dlsym( RTLD_NEXT, "clReleaseContext" );
+        real_clReleaseContext = (cl_int( * )( cl_context )) dlsym( RTLD_NEXT, "clReleaseContext" );
     }
 
     const int mode = g_mock_release_context_mode.load();
@@ -254,7 +254,7 @@ extern "C" cl_int clReleaseSampler( cl_sampler sampler )
     static cl_int ( *real_clReleaseSampler )( cl_sampler ) = nullptr;
     if ( nullptr == real_clReleaseSampler )
     {
-        real_clReleaseSampler = (cl_int ( * )( cl_sampler )) dlsym( RTLD_NEXT, "clReleaseSampler" );
+        real_clReleaseSampler = (cl_int( * )( cl_sampler )) dlsym( RTLD_NEXT, "clReleaseSampler" );
     }
 
     const int mode = g_mock_release_sampler_mode.load();
@@ -1063,7 +1063,8 @@ void Coverage1()
     ret = pCL2DFlex1->Initialize( config1 );
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
     QCNodeConfigIfs &configIfs = pCL2DFlex1->GetConfigurationIfs();
-    const std::string &options = configIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( options ) );
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex1 )->~CL2DFlex();
 
     // empty name

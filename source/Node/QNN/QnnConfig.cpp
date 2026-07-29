@@ -428,7 +428,7 @@ QCStatus_e QnnConfig::VerifyAndSet( const std::string config, std::string &error
     return status;
 }
 
-const std::string &QnnConfig::GetOptions()
+QCStatus_e QnnConfig::GetOptions( std::string &options )
 {
 
     QCStatus_e status = QC_STATUS_OK;
@@ -461,7 +461,8 @@ const std::string &QnnConfig::GetOptions()
             m_options = "{}";
         }
     }
-    return m_options;
+    options = m_options;
+    return status;
 }
 
 const QCNodeConfigBase_t &QnnConfig::Get()

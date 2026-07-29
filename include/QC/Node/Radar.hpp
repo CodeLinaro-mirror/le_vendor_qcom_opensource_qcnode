@@ -119,7 +119,7 @@ public:
      * @brief Get Configuration Options
      * @return A reference string to the JSON configuration options.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the Configuration Structure.
@@ -148,7 +148,7 @@ class RadarMonitoringIfs : public QCNodeMonitoringIfs
 public:
     RadarMonitoringIfs() = default;
     RadarMonitoringIfs( const RadarMonitoringIfs & ) = default;
-    RadarMonitoringIfs& operator=( const RadarMonitoringIfs& ) = default;
+    RadarMonitoringIfs &operator=( const RadarMonitoringIfs & ) = default;
     ~RadarMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
@@ -156,7 +156,7 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    virtual const std::string &GetOptions() { return m_options; }
+    virtual QCStatus_e GetOptions( std::string &options ) { return QC_STATUS_UNSUPPORTED; }
 
     virtual const QCNodeMonitoringBase_t &Get() { return m_config; };
 

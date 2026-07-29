@@ -489,8 +489,8 @@ TEST( VoxelizationMonitor, GetOptions_ReturnsEmptyJSON )
     QC::Node::Voxelization voxel;
 
     // GetOptions from Monitor interface should return "{}"
-    const std::string &options = voxel.GetMonitoringIfs().GetOptions();
-    EXPECT_EQ( "{}", options );
+    std::string options;
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, voxel.GetMonitoringIfs().GetOptions( options ) );
 }
 
 TEST( VoxelizationMonitor, VerifyAndSet_ReturnsUnsupported )
@@ -511,7 +511,8 @@ TEST( VoxelizationConfig, GetOptions_ReturnsEmptyString )
     QC::Node::Voxelization voxel;
 
     // GetOptions from Config interface should return empty string
-    const std::string &options = voxel.GetConfigurationIfs().GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, voxel.GetConfigurationIfs().GetOptions( options ) );
     EXPECT_EQ( "", options );
 }
 

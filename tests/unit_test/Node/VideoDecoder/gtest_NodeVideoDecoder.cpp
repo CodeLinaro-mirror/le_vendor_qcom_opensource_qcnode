@@ -416,7 +416,8 @@ void VdTestDynamic( uint32_t bufferNum, QCImageFormat_e outFormat, const char *v
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
 
     QCNodeConfigIfs &cfgIfs = pNodeVide->GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     ret = optionsDt.Load( options, errors );

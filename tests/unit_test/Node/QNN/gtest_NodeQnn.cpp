@@ -411,7 +411,8 @@ protected:
     void AllocateBuffers()
     {
         QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-        const std::string &options = cfgIfs.GetOptions();
+        std::string options;
+        ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
         // printf( "options: %s\n", options.c_str() );
         DataTree optionsDt;
 
@@ -768,7 +769,8 @@ TEST( QNN, LoadModel )
 TEST_F( QnnTest, StateMachine )
 {
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
     ASSERT_EQ( "{}", options );
 
     ret = qnn.Start();
@@ -864,7 +866,8 @@ TEST( QNN, LoadOpPackage )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     printf( "options: %s\n", options.c_str() );
     DataTree optionsDt;
@@ -1028,7 +1031,8 @@ TEST( QNN, CreateModelFromSo )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1121,7 +1125,8 @@ TEST( QNN, DynamicBatchSize )
 
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
     std::vector<DataTree> outputDts;
@@ -1230,7 +1235,8 @@ TEST( QNN, BufferFree )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1357,7 +1363,8 @@ TEST( QNN, OneBufferMutipleTensors )
     ret = qnn.Start();
     ASSERT_EQ( QC_STATUS_OK, ret );
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1534,7 +1541,8 @@ TEST( QNN, TwoModelWithSameBuffer )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn0.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1640,7 +1648,8 @@ TEST( QNN, AsyncExecute )
     ret = qnn.Start();
     ASSERT_EQ( QC_STATUS_OK, ret );
 
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1774,7 +1783,8 @@ TEST( QNN, InputOutputCheck )
 
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1924,7 +1934,8 @@ TEST( QNN, ExecuteWithRegDeRegEachTime )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -2024,7 +2035,8 @@ TEST( QNN, ExecuteWithAllocBufferEachTime )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -2136,7 +2148,8 @@ TEST( QNN, InitDeInitializeStress )
         ASSERT_EQ( QC_STATUS_OK, ret );
 
         QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-        const std::string &options = cfgIfs.GetOptions();
+        std::string options;
+        ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
         DataTree optionsDt;
         std::vector<DataTree> inputDts;
@@ -2405,8 +2418,10 @@ TEST_F( QnnTest, QnnConfig )
 
     {
         Init( "SANITY", "binary", "data/centernet/program.bin", "htp0" );
-        std::string options = cfgIfs.GetOptions();
-        std::string options2 = cfgIfs.GetOptions();
+        std::string options;
+        ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
+        std::string options2;
+        ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options2 ) );
         ASSERT_EQ( options, options2 );
         Deinit();
     }
@@ -2420,8 +2435,8 @@ TEST_F( QnnTest, QnnMonitor )
     ASSERT_EQ( QC_STATUS_UNSUPPORTED, ret );
 
     {
-        std::string options = monitorIfs.GetOptions();
-        ASSERT_EQ( options, "{}" );
+        std::string options;
+        ASSERT_EQ( QC_STATUS_UNSUPPORTED, monitorIfs.GetOptions( options ) );
     }
 
     {

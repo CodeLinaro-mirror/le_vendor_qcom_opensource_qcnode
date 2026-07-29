@@ -988,7 +988,8 @@ TEST( NodeRemapConfig, GetOptionsReturnsVersion )
 {
     QC::Logger logger;
     QC::Node::RemapConfig config( logger, nullptr );
-    const std::string &options = config.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, config.GetOptions( options ) );
     EXPECT_FALSE( options.empty() );
     EXPECT_NE( std::string::npos, options.find( "\"version\"" ) );
 }
