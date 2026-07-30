@@ -17,7 +17,7 @@ namespace Node
 
 /** @brief The QCNode Camera Version */
 #define QCNODE_CAMERA_VERSION_MAJOR 2U
-#define QCNODE_CAMERA_VERSION_MINOR 4U
+#define QCNODE_CAMERA_VERSION_MINOR 5U
 #define QCNODE_CAMERA_VERSION_PATCH 0U
 
 #define QCNODE_CAMERA_VERSION                                                                      \
@@ -167,7 +167,7 @@ public:
      * @brief Get the configuration options as a string.
      * @return A reference to the configuration options string.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the base configuration structure.
@@ -231,7 +231,7 @@ public:
      * @brief Get the QCNode monitor options as a string.
      * @return A reference to the QCNode monitor options string.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the base QCNode monitor structure.

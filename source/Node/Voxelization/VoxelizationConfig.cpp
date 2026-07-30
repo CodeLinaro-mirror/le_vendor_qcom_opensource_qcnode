@@ -309,9 +309,10 @@ QCStatus_e VoxelizationConfig::VerifyAndSet( const std::string config, std::stri
     return ret;
 }
 
-const std::string &VoxelizationConfig::GetOptions()
+QCStatus_e VoxelizationConfig::GetOptions( std::string &options )
 {
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 const QCNodeConfigBase_t &VoxelizationConfig::Get()

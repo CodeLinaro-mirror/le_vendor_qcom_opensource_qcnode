@@ -10,11 +10,11 @@
 #include <sys/uio.h>
 #include <unordered_map>
 
-#include "VidcDrvClient.hpp"
 #include "QC/Common/Types.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/VideoFrameDescriptor.hpp"
 #include "QC/Node/NodeBase.hpp"
+#include "VidcDrvClient.hpp"
 #include "VidcNodeBase.hpp"
 
 namespace QC::Node
@@ -22,8 +22,8 @@ namespace QC::Node
 
 /** @brief The QCNode VideoEncoder Version */
 #define QCNODE_VIDEOENCODER_VERSION_MAJOR 2U
-#define QCNODE_VIDEOENCODER_VERSION_MINOR 0U
-#define QCNODE_VIDEOENCODER_VERSION_PATCH 1U
+#define QCNODE_VIDEOENCODER_VERSION_MINOR 1U
+#define QCNODE_VIDEOENCODER_VERSION_PATCH 0U
 
 #define QCNODE_VIDEOENCODER_VERSION                                                                \
     ( ( QCNODE_VIDEOENCODER_VERSION_MAJOR << 16U ) | ( QCNODE_VIDEOENCODER_VERSION_MINOR << 8U ) | \
@@ -93,9 +93,9 @@ typedef struct
  */
 typedef struct VideoEncoder_Config : public VidcNodeBase_Config_t
 {
-    uint32_t bitRate;   /**< bps */
-    uint32_t gop;       /**< number of p frames in a period */
-    bool bSyncFrameSeqHdr = false;                 /**< enable sync frame sequence header */
+    uint32_t bitRate;              /**< bps */
+    uint32_t gop;                  /**< number of p frames in a period */
+    bool bSyncFrameSeqHdr = false; /**< enable sync frame sequence header */
     VideoEncoder_RateControlMode_e rateControlMode;
     VideoEncoder_Profile_e profile;
 } VideoEncoder_Config_t;
@@ -106,14 +106,13 @@ public:
     /**
      * @brief VideoEncoderConfigIfs Constructor
      * @param[in] logger A reference to the logger to be shared and used by VideoEncoderConfigIfs.
-     * @param[in] vide A reference to the RideHal Video Encoder component to be used by VideoEncoderConfigIfs.
+     * @param[in] vide A reference to the RideHal Video Encoder component to be used by
+     * VideoEncoderConfigIfs.
      * @param[in] vide A reference to the QC Video Encoder component to be used by
      * VideoEncoderConfigIfs.
      * @return None
      */
-    VideoEncoderConfigIfs( Logger &logger )
-        : VidcNodeBaseConfigIfs( logger )
-    {}
+    VideoEncoderConfigIfs( Logger &logger ) : VidcNodeBaseConfigIfs( logger ) {}
 
     /**
      * @brief VideoEncoderConfigIfs Destructor
@@ -166,19 +165,13 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    const virtual std::string& GetOptions( )
-    {
-        return m_options;
-    }
+    QCStatus_e GetOptions( std::string &options ) override { return QC_STATUS_UNSUPPORTED; }
 
     /**
      * @brief Get the Configuration Structure.
      * @return A reference to the Configuration Structure.
      */
-    const virtual QCNodeConfigBase_t& Get( )
-    {
-        return m_config;
-    }
+    const virtual QCNodeConfigBase_t &Get() { return m_config; }
 
 private:
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors );
@@ -196,8 +189,9 @@ class VideoEncoderMonitoringIfs : public QCNodeMonitoringIfs
 {
 public:
     VideoEncoderMonitoringIfs( Logger &logger ) : m_logger( logger ) {}
-    VideoEncoderMonitoringIfs( const VideoEncoderMonitoringIfs &other ) : m_logger( other.m_logger ) {}
-    VideoEncoderMonitoringIfs& operator=( const VideoEncoderMonitoringIfs& ) = default;
+    VideoEncoderMonitoringIfs( const VideoEncoderMonitoringIfs &other ) : m_logger( other.m_logger )
+    {}
+    VideoEncoderMonitoringIfs &operator=( const VideoEncoderMonitoringIfs & ) = default;
     virtual ~VideoEncoderMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
@@ -205,23 +199,14 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    const virtual std::string& GetOptions( )
-    {
-        return m_options;
-    }
+    QCStatus_e GetOptions( std::string &options ) override { return QC_STATUS_UNSUPPORTED; }
 
-    const virtual QCNodeMonitoringBase_t& Get( )
-    {
-        return m_config;
-    }
+    const virtual QCNodeMonitoringBase_t &Get() { return m_config; }
 
-    virtual inline uint32_t GetMaximalSize( ) { return UINT32_MAX; }
-    virtual inline uint32_t GetCurrentSize( ) { return UINT32_MAX; }
+    virtual inline uint32_t GetMaximalSize() { return UINT32_MAX; }
+    virtual inline uint32_t GetCurrentSize() { return UINT32_MAX; }
 
-    virtual QCStatus_e Place( void *ptr, uint32_t &size )
-    {
-        return QC_STATUS_UNSUPPORTED;
-    }
+    virtual QCStatus_e Place( void *ptr, uint32_t &size ) { return QC_STATUS_UNSUPPORTED; }
 
 private:
     Logger &m_logger;
@@ -260,13 +245,15 @@ public:
      * @brief Initialize Node Video Encoder
      * @param[in] config The Node Video Encoder configuration
      * @return QC_STATUS_OK on success, others on failure
-     * @note QCNodeInit::config - Refer to the comments of the API VideoEncoderConfigIfs::VerifyAndSet.
+     * @note QCNodeInit::config - Refer to the comments of the API
+     * VideoEncoderConfigIfs::VerifyAndSet.
      * @note QCNodeInit::callback - The user application callback to notify the status of
      * the API ProcessFrameDescriptor. This is mandatory for video. The ProcessFrameDescriptor
      * is asynchronous.
      * @brief Initializes Node VideoEncoder.
      * @param[in] config The Node VideoEncoder configuration.
-     * @note QCNodeInit::config - Refer to the comments of the API VideoEncoderConfigIfs::VerifyAndSet.
+     * @note QCNodeInit::config - Refer to the comments of the API
+     * VideoEncoderConfigIfs::VerifyAndSet.
      * @note QCNodeInit::buffers - Two variants:
      *   if @inputDynamicMode is false, input buffers are provided by the user application.
      *   if @inputDynamicMode is true, input buffers are allocated by the framework itself.
@@ -331,15 +318,16 @@ protected:
      */
     QCStatus_e SubmitOutputFrame( VideoFrameDescriptor &outFrameDesc );
 
-    QCStatus_e ValidateConfig( );
+    QCStatus_e ValidateConfig();
     QCStatus_e SetVidcProfileLevel( VideoEncoder_Profile_e profile );
-    QCStatus_e InitDrvProperty( );
-    QCStatus_e GetInputInformation( );
-//    QCStatus_e Configure( const VideoEncoder_OnTheFlyCmd_t *pCmd );
+    QCStatus_e InitDrvProperty();
+    QCStatus_e GetInputInformation();
+    //    QCStatus_e Configure( const VideoEncoder_OnTheFlyCmd_t *pCmd );
 
     void PrintEncoderConfig();
 
-    QCStatus_e CheckBuffer( const VideoFrameDescriptor &vidFrmDesc, VideoCodec_BufType_e bufferType );
+    QCStatus_e CheckBuffer( const VideoFrameDescriptor &vidFrmDesc,
+                            VideoCodec_BufType_e bufferType );
     void InFrameCallback( VideoFrameDescriptor &inFrameDesc );
     void OutFrameCallback( VideoFrameDescriptor &outFrameDesc );
     void EventCallback( VideoEncoder_EventType_e eventId, void *pEvent );
@@ -355,10 +343,9 @@ private:
 
     static void InFrameCallback( VideoFrameDescriptor &inFrameDesc, void *pPrivData );
     static void OutFrameCallback( VideoFrameDescriptor &outFrameDesc, void *pPrivData );
-    static void EventCallback( VideoCodec_EventType_e eventId, void *pEvent,
-                               void *pPrivData );
+    static void EventCallback( VideoCodec_EventType_e eventId, void *pEvent, void *pPrivData );
 };
 
-} // namespace QC::Node
+}   // namespace QC::Node
 
 #endif   // QC_NODE_VIDEO_ENCODER_HPP

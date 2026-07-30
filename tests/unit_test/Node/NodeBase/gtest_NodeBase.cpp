@@ -83,9 +83,13 @@ TEST( NodeBase, Sanity_NodeFrameDescriptor )
 class NodeConfigTest : public NodeConfigBase
 {
 public:
-    NodeConfigTest( Logger &logger ) : NodeConfigBase( logger ) {};
+    NodeConfigTest( Logger &logger ) : NodeConfigBase( logger ){};
     ~NodeConfigTest() {}
-    const std::string &GetOptions() { return m_options; }
+    QCStatus_e GetOptions( std::string &options ) override
+    {
+        options = m_options;
+        return QC_STATUS_OK;
+    }
     const QCNodeConfigBase_t &Get() { return m_configBase; };
 
 private:
@@ -175,7 +179,11 @@ public:
     {
         return QC_STATUS_OK;
     }
-    const std::string &GetOptions() { return m_options; }
+    QCStatus_e GetOptions( std::string &options ) override
+    {
+        options = m_options;
+        return QC_STATUS_OK;
+    }
     const QCNodeMonitoringBase_t &Get() { return m_config; }
     uint32_t GetMaximalSize() { return 0; }
     uint32_t GetCurrentSize() { return 0; }
@@ -191,8 +199,8 @@ private:
 class NodeBaseTest : public NodeBase
 {
 public:
-    NodeBaseTest() : m_config( m_logger ), m_monitor( m_logger ) {};
-    ~NodeBaseTest() {};
+    NodeBaseTest() : m_config( m_logger ), m_monitor( m_logger ){};
+    ~NodeBaseTest(){};
 
     QCStatus_e Initialize( QCNodeInit_t &config ) { return QC_STATUS_OK; }
 

@@ -14,10 +14,9 @@ QCStatus_e CameraMonitor::VerifyAndSet( const std::string config, std::string &e
     return QC_STATUS_UNSUPPORTED;
 }
 
-const std::string &CameraMonitor::GetOptions()
+QCStatus_e CameraMonitor::GetOptions( std::string &options )
 {
-    m_options = "{}";
-    return m_options;
+    return QC_STATUS_UNSUPPORTED;
 }
 
 const QCNodeMonitoringBase_t &CameraMonitor::Get()

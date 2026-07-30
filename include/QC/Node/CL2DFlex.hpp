@@ -14,8 +14,8 @@ namespace Node
 
 /** @brief The QCNode CL2DFLEX Version */
 #define QCNODE_CL2DFLEX_VERSION_MAJOR 2U
-#define QCNODE_CL2DFLEX_VERSION_MINOR 1U
-#define QCNODE_CL2DFLEX_VERSION_PATCH 2U
+#define QCNODE_CL2DFLEX_VERSION_MINOR 2U
+#define QCNODE_CL2DFLEX_VERSION_PATCH 0U
 
 #define QCNODE_CL2DFLEX_VERSION                                                                    \
     ( ( QCNODE_CL2DFLEX_VERSION_MAJOR << 16U ) | ( QCNODE_CL2DFLEX_VERSION_MINOR << 8U ) |         \
@@ -195,7 +195,7 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the Configuration Structure.
@@ -240,7 +240,7 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    virtual const std::string &GetOptions() { return m_options; }
+    virtual QCStatus_e GetOptions( std::string &options ) { return QC_STATUS_UNSUPPORTED; }
 
     virtual const QCNodeMonitoringBase_t &Get() { return m_monitorConfig; }
 

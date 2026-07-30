@@ -829,8 +829,8 @@ void SANITY_Test_CameraMonitor( DataTree &dt )
     ASSERT_EQ( QC_STATUS_UNSUPPORTED, ret );
 
     // GetOptions returns "{}"
-    const std::string &opts = monitorIfs.GetOptions();
-    ASSERT_EQ( "{}", opts );
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, monitorIfs.GetOptions( opts ) );
 
     // Get returns the monitor config
     const QCNodeMonitoringBase_t &monCfg = monitorIfs.Get();
@@ -850,7 +850,8 @@ void SANITY_Test_CameraMonitor( DataTree &dt )
 
     // Exercise CameraConfig::GetOptions and CameraConfig::Get
     QCNodeConfigIfs &configIfs = g_pCamera->GetConfigurationIfs();
-    const std::string &cfgOpts = configIfs.GetOptions();
+    std::string cfgOpts;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( cfgOpts ) );
     (void) cfgOpts;
 
     const QCNodeConfigBase_t &baseCfg = configIfs.Get();
@@ -2476,8 +2477,8 @@ TEST( Camera, SANITY_Test_CameraMonitor_NoInit_Mock )
     QCStatus_e ret = monitorIfs.VerifyAndSet( "{}", errors );
     ASSERT_EQ( QC_STATUS_UNSUPPORTED, ret );
 
-    const std::string &opts = monitorIfs.GetOptions();
-    ASSERT_EQ( "{}", opts );
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, monitorIfs.GetOptions( opts ) );
 
     const QCNodeMonitoringBase_t &monCfg = monitorIfs.Get();
     (void) monCfg;
@@ -2490,7 +2491,8 @@ TEST( Camera, SANITY_Test_CameraConfig_GetOptions_NoInit_Mock )
     QC::Node::Camera camera;
     QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
 
-    const std::string &opts = configIfs.GetOptions();
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) );
     ASSERT_EQ( "", opts );
 }
 

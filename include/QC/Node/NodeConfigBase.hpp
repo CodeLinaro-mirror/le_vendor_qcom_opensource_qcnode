@@ -40,7 +40,7 @@ public:
 
 
     NodeConfigBase( const NodeConfigBase &other ) = delete;
-    NodeConfigBase& operator=( const NodeConfigBase &other ) = delete;
+    NodeConfigBase &operator=( const NodeConfigBase &other ) = delete;
 
 
     /**
@@ -59,9 +59,11 @@ public:
 
     /**
      * @brief Get Configuration Options
-     * @return A reference string to the JSON configuration options.
+     * @param[out] options The JSON configuration options string.
+     * @return QC_STATUS_OK on success (options populated); an error code on failure
+     * (options set to "{}").
      */
-    virtual const std::string &GetOptions() = 0;
+    virtual QCStatus_e GetOptions( std::string &options ) = 0;
 
     /**
      * @brief Get the Configuration Structure.

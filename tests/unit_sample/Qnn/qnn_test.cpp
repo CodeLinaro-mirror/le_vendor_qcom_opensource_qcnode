@@ -155,10 +155,14 @@ public:
     {
         QCStatus_e ret;
         QCNodeConfigIfs &cfgIfs = m_qnn.GetConfigurationIfs();
-        const std::string &options = cfgIfs.GetOptions();
+        std::string options;
+        ret = cfgIfs.GetOptions( options );
         DataTree optionsDt;
         std::string errors;
-        ret = optionsDt.Load( options, errors );
+        if ( QC_STATUS_OK == ret )
+        {
+            ret = optionsDt.Load( options, errors );
+        }
         if ( QC_STATUS_OK == ret )
         {
             ret = optionsDt.Get( "model.inputs", m_inputDts );

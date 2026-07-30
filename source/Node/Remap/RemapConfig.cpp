@@ -227,14 +227,15 @@ QCStatus_e RemapConfig::VerifyAndSet( const std::string config, std::string &err
     return status;
 }
 
-const std::string &RemapConfig::GetOptions()
+QCStatus_e RemapConfig::GetOptions( std::string &options )
 {
 
     DataTree dt;
     dt.Set<uint32_t>( "version", QCNODE_REMAP_VERSION );
     m_options = dt.Dump();
 
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 const QCNodeConfigBase_t &RemapConfig::Get()

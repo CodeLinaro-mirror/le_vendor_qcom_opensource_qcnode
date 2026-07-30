@@ -213,12 +213,16 @@ QCStatus_e SampleQnn::Init( std::string name, SampleConfig_t &config )
     if ( QC_STATUS_OK == ret )
     {
         QCNodeConfigIfs &cfgIfs = m_qnn.GetConfigurationIfs();
-        const std::string &options = cfgIfs.GetOptions();
+        std::string options;
+        ret = cfgIfs.GetOptions( options );
         DataTree optionsDt;
         std::vector<DataTree> inputDts;
         std::vector<DataTree> outputDts;
         std::string errors;
-        ret = optionsDt.Load( options, errors );
+        if ( QC_STATUS_OK == ret )
+        {
+            ret = optionsDt.Load( options, errors );
+        }
         if ( QC_STATUS_OK == ret )
         {
             ret = optionsDt.Get( "model.inputs", inputDts );
@@ -244,17 +248,20 @@ QCStatus_e SampleQnn::Init( std::string name, SampleConfig_t &config )
             }
         }
 
-        for ( auto &outDt : outputDts )
+        if ( QC_STATUS_OK == ret )
         {
-            TensorInfo_t info;
-            ret = ConvertDtToInfo( outDt, info );
-            if ( QC_STATUS_OK == ret )
+            for ( auto &outDt : outputDts )
             {
-                m_outputsInfo.push_back( info );
-            }
-            else
-            {
-                break;
+                TensorInfo_t info;
+                ret = ConvertDtToInfo( outDt, info );
+                if ( QC_STATUS_OK == ret )
+                {
+                    m_outputsInfo.push_back( info );
+                }
+                else
+                {
+                    break;
+                }
             }
         }
     }
@@ -283,7 +290,7 @@ QCStatus_e SampleQnn::Init( std::string name, SampleConfig_t &config )
     {
         if ( true == m_bAsync )
         {
-            m_pFrameDescPool = new NodeFrameDescriptorPool(
+            m_pFrameDescPool = new ( std::nothrow ) NodeFrameDescriptorPool(
                     m_poolSize, m_inputsInfo.size() + m_outputsInfo.size() + 1 );
             if ( nullptr == m_pFrameDescPool )
             {

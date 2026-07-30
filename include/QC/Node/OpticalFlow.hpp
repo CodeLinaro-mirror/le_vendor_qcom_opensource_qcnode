@@ -5,9 +5,9 @@
 #ifndef QC_NODE_OPTICAL_FLOW_HPP
 #define QC_NODE_OPTICAL_FLOW_HPP
 
+#include "QC/Node/NodeBase.hpp"
 #include "svLme.h"
 #include "svUtils.h"
-#include "QC/Node/NodeBase.hpp"
 
 namespace QC
 {
@@ -18,8 +18,8 @@ using namespace SV;
 
 /** @brief The QCNode OpticalFlow Version */
 #define QCNODE_OFL_VERSION_MAJOR 2U
-#define QCNODE_OFL_VERSION_MINOR 0U
-#define QCNODE_OFL_VERSION_PATCH 1U
+#define QCNODE_OFL_VERSION_MINOR 1U
+#define QCNODE_OFL_VERSION_PATCH 0U
 
 #define QCNODE_OFL_VERSION                                                                         \
     ( ( QCNODE_OFL_VERSION_MAJOR << 16U ) | ( QCNODE_OFL_VERSION_MINOR << 8U ) |                   \
@@ -196,39 +196,43 @@ public:
      *        "width": "The width in pixels of the I/O frame, type: uint32_t, default: 0",
      *        "height": "The height in pixels of the I/O frame, type: uint32_t, default: 0",
      *        "frameRate": "Input frames per second, type: uint32_t, default: 30",
-     *        "format": "Input image format (e.g., NV12, NV12_UBWC, P010), type: uint32_t, default: nv12",
-     *        "motionMapFracEn": "Enable fractional bits of motion vector values, type: bool, default: true",
-     *        "motionMapUpscale": "Config to decide upscaling of final motion vector output, type: uint8_t, default: MOTION_MAP_UPSCALE_NONE",
-     *        "motionDirection": "Config to specify direction of local motion estimation, type: uint8_t, default: MOTION_DIRECTION_FORWARD",
-     *        "motionMapStepSize": "Config to decide the sampling for motion map, type: uint8_t, default: MOTION_MAP_STEP_SIZE_1",
-     *        "confidenceOutputEn": "Enable confidence map output, type: bool, default: false",
-     *        "refinementLevel": "Refinement level for output motion map, type: uint8_t, default: REFINEMENT_LEVEL_REFINED_L1",
-     *        "chromaProcEn": "Enable chrominance processing, type: bool, default: false",
-     *        "maskLowTextureEn": "Enable masking of low-texture regions, type: bool, default: false",
-     *        "computationAccuracy": "Defines the underlying implementation to use, type: uint8_t, default: COMPUTATION_ACCURACY_MEDIUM",
+     *        "format": "Input image format (e.g., NV12, NV12_UBWC, P010), type: uint32_t, default:
+     * nv12", "motionMapFracEn": "Enable fractional bits of motion vector values, type: bool,
+     * default: true", "motionMapUpscale": "Config to decide upscaling of final motion vector
+     * output, type: uint8_t, default: MOTION_MAP_UPSCALE_NONE", "motionDirection": "Config to
+     * specify direction of local motion estimation, type: uint8_t, default:
+     * MOTION_DIRECTION_FORWARD", "motionMapStepSize": "Config to decide the sampling for motion
+     * map, type: uint8_t, default: MOTION_MAP_STEP_SIZE_1", "confidenceOutputEn": "Enable
+     * confidence map output, type: bool, default: false", "refinementLevel": "Refinement level for
+     * output motion map, type: uint8_t, default: REFINEMENT_LEVEL_REFINED_L1", "chromaProcEn":
+     * "Enable chrominance processing, type: bool, default: false", "maskLowTextureEn": "Enable
+     * masking of low-texture regions, type: bool, default: false", "computationAccuracy": "Defines
+     * the underlying implementation to use, type: uint8_t, default: COMPUTATION_ACCURACY_MEDIUM",
      *        "noiseScaleSrc": "Source image noise scaling factor, type: float32_t, default: 1.0f",
-     *        "noiseScaleDst": "Destination image noise scaling factor, type: float32_t, default: 1.0f",
-     *        "noiseOffsetSrc": "Source image noise offset, type: float32_t, default: 0.0f",
-     *        "noiseOffsetDst": "Destination image noise offset, type: float32_t, default: 0.0f",
-     *        "motionVarianceTolerance": "Motion variance tolerance, type: float32_t, default: 0.36f",
-     *        "occlusionTolerance": "Occlusion tolerance, type: float32_t, default: 0.5f",
+     *        "noiseScaleDst": "Destination image noise scaling factor, type: float32_t,
+     * default: 1.0f", "noiseOffsetSrc": "Source image noise offset, type: float32_t, default:
+     * 0.0f", "noiseOffsetDst": "Destination image noise offset, type: float32_t, default: 0.0f",
+     *        "motionVarianceTolerance": "Motion variance tolerance, type: float32_t, default:
+     * 0.36f", "occlusionTolerance": "Occlusion tolerance, type: float32_t, default: 0.5f",
      *        "edgePenalty": "Edge penalty for motion calculation, type: float32_t, default: 0.0f",
-     *        "initialPenalty": "Initial penalty for motion propagation, type: float32_t, default: 0.0f",
-     *        "neighborPenalty": "Neighbor penalty for motion calculation, type: float32_t, default: 0.0f",
-     *        "smoothnessPenalty": "Smoothness constraint penalty, type: float32_t, default: 0.0f",
+     *        "initialPenalty": "Initial penalty for motion propagation, type: float32_t, default:
+     * 0.0f", "neighborPenalty": "Neighbor penalty for motion calculation, type: float32_t, default:
+     * 0.0f", "smoothnessPenalty": "Smoothness constraint penalty, type: float32_t, default: 0.0f",
      *        "textureMetric": "Texture quality importance metric, type: uint32_t, default: 100",
      *        "edgeAlignMetric": "Edge alignment importance metric, type: uint32_t, default: 100",
-     *        "motionVarianceMetric": "Motion variance importance metric, type: uint32_t, default: 100",
-     *        "occlusionMetric": "Occlusion consistency importance metric, type: uint32_t, default: 100",
-     *        "segmentationThreshold": "Segmentation bias threshold, type: float32_t, default: 0.5f",
-     *        "globalMotionDetailThreshold": "Global motion threshold for textured regions, type: float32_t, default: 0.66f",
-     *        "imageSharpnessThreshold": "Image sharpness threshold for edge detection, type: float32_t, default: 0.4f",
-     *        "mvEdgeThreshold": "Motion vector edge selection threshold, type: float32_t, default: 0.43f",
-     *        "refinementThreshold": "Refinement threshold for motion vectors, type: float32_t, default: 0.75f",
-     *        "textureThreshold": "Texture threshold for low-texture region detection, type: float32_t, default: 0.167f",
-     *        "lightingCondition": "Lighting condition for automotive platform, type: uint8_t, default: LIGHTING_CONDITION_HIGH",
-     *        "isFirstRequest": "Indicates whether this is the first request, type: bool, default: false",
-     *        "requestId": "Unique identifier for the request, type: uint64_t, default: 0"
+     *        "motionVarianceMetric": "Motion variance importance metric, type: uint32_t, default:
+     * 100", "occlusionMetric": "Occlusion consistency importance metric, type: uint32_t, default:
+     * 100", "segmentationThreshold": "Segmentation bias threshold, type: float32_t, default: 0.5f",
+     *        "globalMotionDetailThreshold": "Global motion threshold for textured regions, type:
+     * float32_t, default: 0.66f", "imageSharpnessThreshold": "Image sharpness threshold for edge
+     * detection, type: float32_t, default: 0.4f", "mvEdgeThreshold": "Motion vector edge selection
+     * threshold, type: float32_t, default: 0.43f", "refinementThreshold": "Refinement threshold for
+     * motion vectors, type: float32_t, default: 0.75f", "textureThreshold": "Texture threshold for
+     * low-texture region detection, type: float32_t, default: 0.167f", "lightingCondition":
+     * "Lighting condition for automotive platform, type: uint8_t, default:
+     * LIGHTING_CONDITION_HIGH", "isFirstRequest": "Indicates whether this is the first request,
+     * type: bool, default: false", "requestId": "Unique identifier for the request, type: uint64_t,
+     * default: 0"
      *     }
      *   }
      *  @return QC_STATUS_OK on success, other values on failure.
@@ -241,7 +245,7 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the Configuration Structure.
@@ -270,7 +274,7 @@ class OpticalFlowMonitoringIfs : public QCNodeMonitoringIfs
 public:
     OpticalFlowMonitoringIfs() = default;
     OpticalFlowMonitoringIfs( const OpticalFlowMonitoringIfs & ) = default;
-    OpticalFlowMonitoringIfs& operator=( const OpticalFlowMonitoringIfs& ) = default;
+    OpticalFlowMonitoringIfs &operator=( const OpticalFlowMonitoringIfs & ) = default;
     ~OpticalFlowMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
@@ -278,7 +282,7 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    virtual const std::string &GetOptions() { return m_options; }
+    virtual QCStatus_e GetOptions( std::string &options ) { return QC_STATUS_UNSUPPORTED; }
 
     virtual const QCNodeMonitoringBase_t &Get() { return m_config; };
 

@@ -30,7 +30,7 @@ namespace Node
 
 /** @brief The QCNode SimulationNode Version */
 #define QCNODE_SIMULATION_NODE_VERSION_MAJOR 1U
-#define QCNODE_SIMULATION_NODE_VERSION_MINOR 0U
+#define QCNODE_SIMULATION_NODE_VERSION_MINOR 1U
 #define QCNODE_SIMULATION_NODE_VERSION_PATCH 0U
 
 #define QCNODE_SIMULATION_NODE_VERSION                                                             \
@@ -137,7 +137,7 @@ public:
      * @brief Get Configuration Options
      * @return A reference string to the JSON configuration options.
      */
-    const std::string &GetOptions() override;
+    QCStatus_e GetOptions( std::string &options ) override;
 
     /**
      * @brief Get the Configuration Structure.
@@ -213,7 +213,7 @@ public:
      * @brief Get monitoring options
      * @return Reference to options string
      */
-    const std::string &GetOptions() override;
+    QCStatus_e GetOptions( std::string &options ) override;
 
     /**
      * @brief Get monitoring configuration

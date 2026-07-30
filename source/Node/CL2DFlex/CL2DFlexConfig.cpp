@@ -268,13 +268,14 @@ QCStatus_e CL2DFlexConfig::VerifyAndSet( const std::string config, std::string &
     return status;
 }
 
-const std::string &CL2DFlexConfig::GetOptions()
+QCStatus_e CL2DFlexConfig::GetOptions( std::string &options )
 {
     DataTree dt;
     dt.Set<uint32_t>( "version", QCNODE_CL2DFLEX_VERSION );
     m_options = dt.Dump();
 
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 const QCNodeConfigBase_t &CL2DFlexConfig::Get()

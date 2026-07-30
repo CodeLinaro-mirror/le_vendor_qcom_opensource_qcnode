@@ -1,11 +1,11 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-#include <gtest/gtest.h>
 #include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <gtest/gtest.h>
 #include <vector>
 
 #include "QC/Infras/Log/Logger.hpp"
@@ -207,7 +207,11 @@ public:
         return status;
     }
 
-    const std::string &GetOptions() { return m_options; }
+    QCStatus_e GetOptions( std::string &options ) override
+    {
+        options = m_options;
+        return QC_STATUS_OK;
+    }
 
     const QCNodeConfigBase_t &Get() { return m_config; }
 
@@ -231,7 +235,11 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    const std::string &GetOptions() { return m_options; }
+    QCStatus_e GetOptions( std::string &options ) override
+    {
+        options = m_options;
+        return QC_STATUS_OK;
+    }
 
     const QCNodeMonitoringBase_t &Get() { return m_config; }
 

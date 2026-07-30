@@ -364,7 +364,7 @@ QCStatus_e SimulationNodeConfig::SetupGlobalBufferIdMap()
     return status;
 }
 
-const std::string &SimulationNodeConfig::GetOptions()
+QCStatus_e SimulationNodeConfig::GetOptions( std::string &options )
 {
     if ( m_options.empty() )
     {
@@ -409,7 +409,8 @@ const std::string &SimulationNodeConfig::GetOptions()
 
         m_options = dt.Dump();
     }
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 const QCNodeConfigBase_t &SimulationNodeConfig::Get()

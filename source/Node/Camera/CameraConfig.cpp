@@ -650,9 +650,10 @@ QCStatus_e CameraConfig::VerifyAndSet( const std::string config, std::string &er
     return status;
 }
 
-const std::string &CameraConfig::GetOptions()
+QCStatus_e CameraConfig::GetOptions( std::string &options )
 {
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 const QCNodeConfigBase_t &CameraConfig::Get()
