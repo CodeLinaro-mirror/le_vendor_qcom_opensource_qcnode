@@ -1024,7 +1024,11 @@ static void SetupRemapForRunWithInitNoCT( FadasRemapTestable &r, QCProcessorType
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm );
     r.SetProcessor( proc );
-    r.SetHandleIndex( 0 );
+    /* Fix: use the processor's own handle index so that Deinit() decrements the
+     * correct s_useRef slot.  Hardcoding 0 here caused Init(GPU/CPU) to increment
+     * s_useRef[GPU/CPU] while Deinit() decremented s_useRef[HTP0] (slot 0),
+     * leaking the GPU/CPU reference count across tests. */
+    r.SetHandleIndex( static_cast<uint32_t>( proc ) );
     FadasROI_t roi = { 0, 0, 64, 64 };
     r.CreateRemapWorker( 0, inFmt, 64, 64, roi );
 }
@@ -1043,7 +1047,11 @@ static void SetupRemapForRunWithInitFull( FadasRemapTestable &r, QCProcessorType
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm );
     r.SetProcessor( proc );
-    r.SetHandleIndex( 0 );
+    /* Fix: use the processor's own handle index so that Deinit() decrements the
+     * correct s_useRef slot.  Hardcoding 0 here caused Init(HTP0) to increment
+     * s_useRef[HTP0] correctly, but any future use with a different processor
+     * would silently leak that processor's reference count. */
+    r.SetHandleIndex( static_cast<uint32_t>( proc ) );
     FadasROI_t roi = { 0, 0, 64, 64 };
     r.CreateRemapWorker( 0, inFmt, 64, 64, roi );
     TensorDescriptor_t x = MakeTensor( 64, 64 ), y = MakeTensor( 64, 64 );
@@ -1060,7 +1068,7 @@ TEST_F( FadasIfaceTest, DestroyMap_GPU_Fail_v2 )
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_GPU );
-    r.SetHandleIndex( 0 );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_GPU ) );
     FadasROI_t roi = { 0, 0, 64, 64 };
     r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_UYVY, 64, 64, roi );
     TensorDescriptor_t x = MakeTensor( 64, 64 ), y = MakeTensor( 64, 64 );
@@ -1552,7 +1560,7 @@ TEST_F( FadasIfaceTest, CreatRemapTable_GPU_InvalidPipeline_Fixed )
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_GPU );
-    r.SetHandleIndex( 0 );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_GPU ) );
     FadasROI_t roi = { 0, 0, 64, 64 };
     r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_NV12_UBWC, 64, 64, roi );
     TensorDescriptor_t x = MakeTensor( 64, 64 ), y = MakeTensor( 64, 64 );
@@ -1573,7 +1581,7 @@ TEST_F( FadasIfaceTest, CreatRemapTable_GPU_NoUndistortion_Success_Fixed )
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_GPU );
-    r.SetHandleIndex( 0 );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_GPU ) );
     FadasROI_t roi = { 0, 0, 64, 64 };
     r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_UYVY, 64, 64, roi );
     TensorDescriptor_t x = MakeTensor( 64, 64 ), y = MakeTensor( 64, 64 );
@@ -1596,7 +1604,7 @@ TEST_F( FadasIfaceTest, DestroyMap_GPU_WithMap_Fixed )
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_GPU );
-    r.SetHandleIndex( 0 );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_GPU ) );
     FadasROI_t roi = { 0, 0, 64, 64 };
     r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_UYVY, 64, 64, roi );
     TensorDescriptor_t x = MakeTensor( 64, 64 ), y = MakeTensor( 64, 64 );
@@ -2858,6 +2866,12 @@ static FadasError_e LocalFadasRegBufGPU_Fail( FadasBufType_e, void *, uint32_t )
     return FADAS_ERROR_FAIL;
 }
 
+static FadasError_e LocalFadasRegBufGPU_BatchSuccess( FadasBufType_e, const void *, size_t,
+                                                      int32_t, int32_t )
+{
+    return FADAS_ERROR_NONE;
+}
+
 /* ================================================================
  * FadasSrv.cpp — Init / Deinit
  * ================================================================ */
@@ -3870,6 +3884,7 @@ TEST_F( FadasIfaceTest, FadasRegisterBufCPU_BatchGT1 )
 TEST_F( FadasIfaceTest, FadasRegisterBufGPU_BatchGT1 )
 {
     FadasSrvTestable srv;
+    MockDlsymForSymbol( "FadasRegBuf", (void *) LocalFadasRegBufGPU_BatchSuccess );
     srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 16, 16, 3 );
     int32_t fd = srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
@@ -3883,6 +3898,7 @@ TEST_F( FadasIfaceTest, FadasRegisterBufGPU_BatchGT1 )
 TEST_F( FadasIfaceTest, FadasRegisterBufGPU_Success )
 {
     FadasSrvTestable srv;
+    MockDlsymForSymbol( "FadasRegBuf", (void *) LocalFadasRegBufGPU_BatchSuccess );
     srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_IN );
@@ -3909,6 +3925,7 @@ TEST_F( FadasIfaceTest, DeregBuf_CPU_BatchGT1 )
 TEST_F( FadasIfaceTest, DeregBuf_GPU_BatchGT1 )
 {
     FadasSrvTestable srv;
+    MockDlsymForSymbol( "FadasRegBuf", (void *) LocalFadasRegBufGPU_BatchSuccess );
     srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 16, 16, 3 );
     int32_t fd = srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
