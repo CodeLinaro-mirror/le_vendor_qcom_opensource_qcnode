@@ -770,7 +770,7 @@ TEST_F( QnnTest, StateMachine )
 {
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
     std::string options;
-    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, cfgIfs.GetOptions( options ) );
     ASSERT_EQ( "{}", options );
 
     ret = qnn.Start();
