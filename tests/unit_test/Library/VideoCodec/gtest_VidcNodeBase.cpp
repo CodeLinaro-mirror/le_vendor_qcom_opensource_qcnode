@@ -258,6 +258,18 @@ public:
     using VidcNodeBase::ValidateBuffers;
     using VidcNodeBase::ValidateFrameSubmission;
 
+    // Expose lifecycle / buffer ops so coverage tests can drive both enc and dec branches.
+    using VidcNodeBase::AllocateBuffer;
+    using VidcNodeBase::DeInitialize;
+    using VidcNodeBase::FreeInputBuffers;
+    using VidcNodeBase::FreeOutputBuffers;
+    using VidcNodeBase::NegotiateBufferReq;
+    using VidcNodeBase::PostInit;
+    using VidcNodeBase::SetBuffer;
+    using VidcNodeBase::Start;
+    using VidcNodeBase::Stop;
+    using VidcNodeBase::WaitForState;
+
     using VidcNodeBase::m_bufSize;
     using VidcNodeBase::m_inputBufferList;
     using VidcNodeBase::m_outputBufferList;
@@ -279,7 +291,7 @@ public:
         // Not needed for state; provided for completeness
         (void) self;
     }
-    static void EvtCb( VideoCodec_EventType_e evt, const void *pMsg, void *ctx )
+    static void EvtCb( VideoCodec_EventType_e evt, void *pMsg, void *ctx )
     {
         auto *self = static_cast<TestableVidcNodeBase *>( ctx );
         self->EventCallback( evt, pMsg );   // protected → accessible here
@@ -983,6 +995,140 @@ TEST_F( VidcNodeBaseTest, ValidAndInvalidStaticConfig )
     errors.clear();
     EXPECT_EQ( cfgIfs.VerifyAndSet( dataTree, dataTree.Dump(), errors, out ),
                QC_STATUS_BAD_ARGUMENTS );
+}
+
+// =====================================================================================
+// ==== Coverage boost: decoder-mode lifecycle, non-dynamic SetBuffer, free buffers, ===
+// ====                 wrong-state guards, NegotiateBufferReq enc/dec strings        ==
+// =====================================================================================
+
+// A decoder-wired node so the VIDEO_DEC branches of Start/Stop/NegotiateBufferReq/
+// PrintConfig (the `else` arms that the encoder fixture never takes) get executed.
+class VidcNodeBaseDecoderTest : public testing::Test
+{
+protected:
+    TestableVidcNodeBase node;
+    VidcNodeBase_Config_t m_cfg{};
+    VidcCodecMeta_t m_meta{};
+
+    void SetUp() override
+    {
+        g_open_should_fail = false;
+        g_sleep_calls = 0;
+        g_req_in = {};
+        g_req_in.buf_type = VIDC_BUFFER_INPUT;
+        g_req_in.actual_count = 4;
+        g_req_in.size = 4096;
+        g_req_out = {};
+        g_req_out.buf_type = VIDC_BUFFER_OUTPUT;
+        g_req_out.actual_count = 4;
+        g_req_out.size = 8192;
+
+        m_cfg.nodeId.name = "vidc-dec";
+        m_cfg.nodeId.id = 7;
+        m_cfg.width = 1280;
+        m_cfg.height = 720;
+        m_cfg.frameRate = 30;
+        m_cfg.numInputBufferReq = 4;
+        m_cfg.numOutputBufferReq = 4;
+        m_cfg.bInputDynamicMode = false;
+        m_cfg.bOutputDynamicMode = false;
+        m_cfg.inFormat = QC_IMAGE_FORMAT_NV12;
+        m_cfg.outFormat = QC_IMAGE_FORMAT_NV12;
+
+        m_meta.codecType = VIDEO_CODEC_H264;
+        m_meta.width = m_cfg.width;
+        m_meta.height = m_cfg.height;
+        m_meta.frameRate = m_cfg.frameRate;
+
+        node.SetConfig( &m_cfg );
+        node.WireRealClient( "vidc-dec", LOGGER_LEVEL_DEBUG, VIDEO_DEC, m_cfg, m_meta );
+    }
+    void TearDown() override { node.CloseDriver(); }
+};
+
+// Decoder Start drives StartDriver(START_INPUT) (the `else` arm at VidcNodeBase.cpp:181).
+// The base EventCallback does not move to RUNNING on START_INPUT_DONE (only VideoDecoder
+// does), so the node times out and lands in ERROR — exercising that decoder path + the
+// post-start failure branch.
+TEST_F( VidcNodeBaseDecoderTest, Start_Decoder_UsesStartInput )
+{
+    node.SetState( QC_OBJECT_STATE_READY );
+    QCStatus_e rc = node.Start();
+    (void) rc;   // OK if VideoDecoder-style event arrived; otherwise ERROR via timeout
+    EXPECT_NE( QC_OBJECT_STATE_READY, node.GetState() );   // transitioned out of READY
+}
+
+// Decoder Stop drives StopDecoder() (the `else` arm at VidcNodeBase.cpp:223).
+TEST_F( VidcNodeBaseDecoderTest, Stop_Decoder_UsesStopDecoder )
+{
+    node.SetState( QC_OBJECT_STATE_RUNNING );
+    EXPECT_EQ( QC_STATUS_OK, node.Stop() );
+    EXPECT_EQ( QC_OBJECT_STATE_READY, node.GetState() );
+}
+
+// NegotiateBufferReq on a decoder node executes the dec-string arms (L640/648 enc?dec).
+TEST_F( VidcNodeBaseDecoderTest, NegotiateBufferReq_Decoder_InputAndOutput )
+{
+    EXPECT_EQ( QC_STATUS_OK, node.NegotiateBufferReq( VIDEO_CODEC_BUF_INPUT ) );
+    EXPECT_EQ( QC_STATUS_OK, node.NegotiateBufferReq( VIDEO_CODEC_BUF_OUTPUT ) );
+}
+
+// NegotiateBufferReq fails when the driver requires more buffers than the app provides
+// (dec branch of the error string).
+TEST_F( VidcNodeBaseDecoderTest, NegotiateBufferReq_Decoder_DriverNeedsMore_Fails )
+{
+    g_req_in.actual_count = 99;   // driver demands far more than config's 4
+    EXPECT_NE( QC_STATUS_OK, node.NegotiateBufferReq( VIDEO_CODEC_BUF_INPUT ) );
+}
+
+// SetBuffer(OUTPUT) in non-dynamic mode delegates to the driver (covers the output
+// branch of SetBuffer at L591-594, and the non-dynamic SetBuffer delegate at L601-604).
+TEST_F( VidcNodeBaseDecoderTest, SetBuffer_Output_NonDynamic_Delegates )
+{
+    static VideoFrameDescriptor_t f{};
+    f.dmaHandle = 0x4321;
+    f.pBuf = reinterpret_cast<void *>( 0xC000 );
+    f.size = 8192;
+    f.width = m_cfg.width;
+    f.height = m_cfg.height;
+    f.format = m_cfg.outFormat;
+    f.pid = 1234;
+    node.m_outputBufferList.push_back( std::ref( f ) );
+    EXPECT_EQ( QC_STATUS_OK, node.SetBuffer( VIDEO_CODEC_BUF_OUTPUT ) );
+}
+
+// FreeInputBuffers / FreeOutputBuffers wrappers (L661-681).
+TEST_F( VidcNodeBaseDecoderTest, FreeInputAndOutputBuffers )
+{
+    EXPECT_EQ( QC_STATUS_OK, node.FreeInputBuffers() );
+    EXPECT_EQ( QC_STATUS_OK, node.FreeOutputBuffers() );
+}
+
+// Start from a non-READY state returns BAD_STATE (VidcNodeBase.cpp:165 true edge).
+TEST_F( VidcNodeBaseDecoderTest, Start_WrongState_BadState )
+{
+    node.SetState( QC_OBJECT_STATE_INITIAL );
+    EXPECT_EQ( QC_STATUS_BAD_STATE, node.Start() );
+}
+
+// AllocateBuffer for OUTPUT, non-dynamic, success path (collects descriptors, L506-516).
+TEST_F( VidcNodeBaseDecoderTest, AllocateBuffer_Output_NonDynamic_Collects )
+{
+    node.m_bufSize[VIDEO_CODEC_BUF_OUTPUT] = 4096;
+    static VideoFrameDescriptor_t a{}, b{}, c{}, d{};
+    VideoFrameDescriptor_t *arr[4] = { &a, &b, &c, &d };
+    std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> refs;
+    for ( auto *p : arr )
+    {
+        p->size = 8192;
+        p->width = m_cfg.width;
+        p->height = m_cfg.height;
+        p->format = m_cfg.outFormat;
+        refs.push_back( reinterpret_cast<QCBufferDescriptorBase_t &>( *p ) );
+    }
+    EXPECT_EQ( QC_STATUS_OK, node.AllocateBuffer( refs, 0, VIDEO_CODEC_BUF_OUTPUT ) );
+    EXPECT_EQ( 4u, node.m_outputBufferList.size() );
 }
 
 #ifndef GTEST_QCNODE

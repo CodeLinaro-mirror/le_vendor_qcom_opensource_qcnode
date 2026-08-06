@@ -5,8 +5,8 @@
 #ifndef QC_VIDEO_CODEC_NODE_BASE_HPP
 #define QC_VIDEO_CODEC_NODE_BASE_HPP
 
-#include "QC/Node/NodeBase.hpp"
 #include "QC/Node/Ifs/QCNodeIfs.hpp"
+#include "QC/Node/NodeBase.hpp"
 #include "VidcDrvClient.hpp"
 #include <mutex>
 #include <queue>
@@ -22,16 +22,17 @@ namespace QC::Node
  */
 typedef struct VidcNodeBase_Config : public QCNodeConfigBase_t
 {
-    uint32_t width;     /**< in pixels */
-    uint32_t height;    /**< in pixels */
-    uint32_t frameRate; /**< fps */
-    uint32_t numInputBufferReq;
-    uint32_t numOutputBufferReq;
-    bool bInputDynamicMode;
-    bool bOutputDynamicMode;
-    QCImageFormat_e inFormat;  /**< uncompressed type */
-    QCImageFormat_e outFormat; /**< compressed type */
-    Logger_Level_e logLevel;
+    ~VidcNodeBase_Config() override = default;
+    uint32_t width{ 0U };     /**< in pixels */
+    uint32_t height{ 0U };    /**< in pixels */
+    uint32_t frameRate{ 0U }; /**< fps */
+    uint32_t numInputBufferReq{ 0U };
+    uint32_t numOutputBufferReq{ 0U };
+    bool bInputDynamicMode{ false };
+    bool bOutputDynamicMode{ false };
+    QCImageFormat_e inFormat{};  /**< uncompressed type */
+    QCImageFormat_e outFormat{}; /**< compressed type */
+    Logger_Level_e logLevel{ LOGGER_LEVEL_ERROR };
 } VidcNodeBase_Config_t;
 
 class VidcNodeBaseConfigIfs : public NodeConfigIfs
@@ -50,7 +51,7 @@ public:
      * @brief VideoDecoderConfigIfs Destructor
      * @return None
      */
-    virtual ~VidcNodeBaseConfigIfs() {}
+    virtual ~VidcNodeBaseConfigIfs() = default;
 
     /**
      * @brief Verify and Load the json string
@@ -73,13 +74,13 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    const virtual std::string &GetOptions() = 0;
+    const std::string &GetOptions() override = 0;
 
     /**
      * @brief Get the Configuration Structure.
      * @return A reference to the Configuration Structure.
      */
-    const virtual QCNodeConfigBase_t &Get() = 0;
+    const QCNodeConfigBase_t &Get() override = 0;
 
 protected:
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors,
@@ -108,10 +109,10 @@ public:
      * @brief deinitialize the video codec
      * @return QC_STATUS_OK on success, others on failure
      */
-    virtual QCStatus_e DeInitialize();
+    QCStatus_e DeInitialize() override;
 
-    virtual QCStatus_e Start();
-    virtual QCStatus_e Stop();
+    QCStatus_e Start() override;
+    QCStatus_e Stop() override;
 
     QCStatus_e PostInit( void );
 
@@ -145,7 +146,7 @@ protected:
     std::string m_name;
     QCObjectState_e m_state = QC_OBJECT_STATE_INITIAL;
 
-    void EventCallback( const VideoCodec_EventType_e eventId, const void *pPayload );
+    void EventCallback( const VideoCodec_EventType_e eventId, void *pPayload );
 
     VidcDrvClient m_drvClient;
 

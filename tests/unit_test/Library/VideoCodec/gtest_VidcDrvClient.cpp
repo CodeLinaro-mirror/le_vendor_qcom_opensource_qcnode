@@ -387,7 +387,7 @@ protected:
         self->last_out = frame;
         self->calls.out_done++;
     }
-    static void EvtCb( VideoCodec_EventType_e evt, const void * /*pMsg*/, void *ctx )
+    static void EvtCb( VideoCodec_EventType_e evt, void * /*pMsg*/, void *ctx )
     {
         auto *self = static_cast<VidcDrvClientTest *>( ctx );
         self->last_evt = evt;
@@ -479,7 +479,7 @@ static void TestOutputDoneCb( VideoFrameDescriptor &frame, void *priv )
     g_outputDoneCnt++;
 }
 
-static void TestEventCb( VideoCodec_EventType_e event, const void *payload, void *priv )
+static void TestEventCb( VideoCodec_EventType_e event, void *payload, void *priv )
 {
     (void) payload;
     (void) priv;
@@ -1479,6 +1479,281 @@ TEST( VidcDrvClientStatic, DeviceCallback_NullSelf_DoesNotCrash )
 
     client.CloseDriver();
     Mockup_Cfg_Reset();
+}
+
+// =====================================================================================
+// ==== Coverage boost: error-string switch, arg validation, static-mode buffers, =====
+// ====                 stop-failure ladder, oversize-property guards             =====
+// =====================================================================================
+
+// VidcErrToStr() is reached only through QC_ERROR(...) on a failed ioctl. Drive
+// SetDrvProperty (via InitDriver's first SET_PROPERTY) to return each distinct
+// vidc_status_type so every switch arm in VidcErrToStr is executed.
+TEST_F( VidcDrvClientTest, VidcErrToStr_AllErrorArms_ViaSetPropertyFailure )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+
+    const unsigned int codes[] = {
+            VIDC_ERR_INDEX_NOMORE,       VIDC_ERR_FAIL,
+            VIDC_ERR_ALLOC_FAIL,         VIDC_ERR_ILLEGAL_OP,
+            VIDC_ERR_BAD_PARAM,          VIDC_ERR_BAD_HANDLE,
+            VIDC_ERR_NOT_SUPPORTED,      VIDC_ERR_BAD_STATE,
+            VIDC_ERR_MAX_CLIENT,         VIDC_ERR_IFRAME_EXPECTED,
+            VIDC_ERR_HW_FATAL,           VIDC_ERR_BITSTREAM_ERR,
+            VIDC_ERR_SEQHDR_PARSE_FAIL,  VIDC_ERR_INSUFFICIENT_BUFFER,
+            VIDC_ERR_BAD_POWER_STATE,    VIDC_ERR_NO_VALID_SESSION,
+            VIDC_ERR_TIMEOUT,            VIDC_ERR_CMDQFULL,
+            VIDC_ERR_START_CODE_NOT_FOUND, VIDC_ERR_UNSUPPORTED_STREAM,
+            VIDC_ERR_SESSION_PICTURE_DROPPED, VIDC_ERR_CLIENTFATAL,
+            VIDC_ERR_NONCOMPLIANT_STREAM, VIDC_ERR_SPURIOUS_INTERRUPT,
+            VIDC_ERR_UNUSED,             0x7fffffffu /* default arm */ };
+
+    vidc_session_codec_type sc{};
+    for ( unsigned int code : codes )
+    {
+        g_mock_cfg.rc_set_property = (int) code;
+        // SetDrvProperty returns FAIL for any nonzero rc, after calling VidcErrToStr(code).
+        EXPECT_EQ( QC_STATUS_FAIL,
+                   dut.SetDrvProperty( VIDC_I_SESSION_CODEC, sizeof( sc ), (uint8_t &) sc ) );
+    }
+    g_mock_cfg.rc_set_property = 0;
+}
+
+// OpenDriver rejects any null argument (covers the 4-way && guard, L243).
+TEST_F( VidcDrvClientTest, OpenDriver_NullArgs_Rejected )
+{
+    dut.CloseDriver();   // start from closed
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
+               dut.OpenDriver( nullptr, &VidcDrvClientTest::OutDoneCb, &VidcDrvClientTest::EvtCb,
+                               this ) );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
+               dut.OpenDriver( &VidcDrvClientTest::InDoneCb, nullptr, &VidcDrvClientTest::EvtCb,
+                               this ) );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
+               dut.OpenDriver( &VidcDrvClientTest::InDoneCb, &VidcDrvClientTest::OutDoneCb, nullptr,
+                               this ) );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
+               dut.OpenDriver( &VidcDrvClientTest::InDoneCb, &VidcDrvClientTest::OutDoneCb,
+                               &VidcDrvClientTest::EvtCb, nullptr ) );
+}
+
+// SetDrvProperty / GetDrvProperty reject oversize payloads (L1187, L1220).
+TEST_F( VidcDrvClientTest, SetGetDrvProperty_OversizePayload_Rejected )
+{
+    std::vector<uint8_t> big( 512, 0 );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
+               dut.SetDrvProperty( VIDC_I_FRAME_SIZE, 512, big[0] ) );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
+               dut.GetDrvProperty( VIDC_I_FRAME_SIZE, 512, big[0] ) );
+}
+
+// --- Static (non-dynamic) buffer paths for EmptyBuffer / FillBuffer ---
+// SetBuffer registers handles; in non-dynamic mode EmptyBuffer/FillBuffer must find
+// a registered, not-in-use entry (L711, L797) and reject when already in use (L683/L769).
+TEST_F( VidcDrvClientTest, EmptyBuffer_StaticMode_FoundAndInUse )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    // autofire so EMPTY_INPUT_BUFFER does NOT emit INPUT_DONE (the in-use flag persists).
+    g_autofire_events = true;
+
+    ASSERT_EQ( QC_STATUS_OK, dut.SetDynamicMode( VIDEO_CODEC_BUF_INPUT, false ) );
+
+    VideoFrameDescriptor_t f = MakeFrame( 0x9100, (void *) 0xA100, 4096 );
+    std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> bufs{ std::ref( f ) };
+    ASSERT_EQ( QC_STATUS_OK, dut.SetBuffer( VIDEO_CODEC_BUF_INPUT, bufs ) );
+
+    // First submit: found, not-in-use → OK
+    EXPECT_EQ( QC_STATUS_OK, dut.EmptyBuffer( f ) );
+    // Second submit before INPUT_DONE clears the in-use flag → not available
+    EXPECT_NE( QC_STATUS_OK, dut.EmptyBuffer( f ) );
+    g_autofire_events = false;
+}
+
+TEST_F( VidcDrvClientTest, FillBuffer_StaticMode_FoundAndInUse )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = true;   // FILL_OUTPUT_BUFFER won't emit OUTPUT_DONE → flag persists
+
+    ASSERT_EQ( QC_STATUS_OK, dut.SetDynamicMode( VIDEO_CODEC_BUF_OUTPUT, false ) );
+
+    VideoFrameDescriptor_t f = MakeFrame( 0x9200, (void *) 0xB200, 8192 );
+    std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> bufs{ std::ref( f ) };
+    ASSERT_EQ( QC_STATUS_OK, dut.SetBuffer( VIDEO_CODEC_BUF_OUTPUT, bufs ) );
+
+    EXPECT_EQ( QC_STATUS_OK, dut.FillBuffer( f ) );
+    EXPECT_NE( QC_STATUS_OK, dut.FillBuffer( f ) );   // already in use
+    g_autofire_events = false;
+}
+
+// EmptyBuffer / FillBuffer in static mode with an UNREGISTERED handle → no buffer available.
+TEST_F( VidcDrvClientTest, EmptyBuffer_StaticMode_UnknownHandle_Nomem )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    ASSERT_EQ( QC_STATUS_OK, dut.SetDynamicMode( VIDEO_CODEC_BUF_INPUT, false ) );
+    VideoFrameDescriptor_t f = MakeFrame( 0xDEAD, (void *) 0xA300, 4096 );
+    EXPECT_EQ( QC_STATUS_NOMEM, dut.EmptyBuffer( f ) );
+}
+
+TEST_F( VidcDrvClientTest, FillBuffer_StaticMode_UnknownHandle_Nomem )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    ASSERT_EQ( QC_STATUS_OK, dut.SetDynamicMode( VIDEO_CODEC_BUF_OUTPUT, false ) );
+    VideoFrameDescriptor_t f = MakeFrame( 0xBEEF, (void *) 0xB300, 8192 );
+    EXPECT_EQ( QC_STATUS_NOMEM, dut.FillBuffer( f ) );
+}
+
+// --- StopDecoder failure ladder (non-autofire so emit_* / rc_* take effect) ---
+TEST_F( VidcDrvClientTest, StopDecoder_DrainIoctlFails )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    g_mock_cfg.rc_drain = VIDC_ERR_FAIL;
+    EXPECT_EQ( QC_STATUS_FAIL, dut.StopDecoder() );
+}
+
+TEST_F( VidcDrvClientTest, StopDecoder_LastFlagTimeout )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    g_mock_cfg.emit_drain_events = false;   // neither RESP_DRAIN nor LAST_FLAG → timeout
+    EXPECT_EQ( QC_STATUS_FAIL, dut.StopDecoder() );
+}
+
+TEST_F( VidcDrvClientTest, StopDecoder_StopInputTimeout )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    // drain ladder OK, but suppress stop-input-done → WaitForCmdCompleted(INPUT_STOP) times out
+    g_mock_cfg.emit_stop_input_done = false;
+    EXPECT_EQ( QC_STATUS_FAIL, dut.StopDecoder() );
+}
+
+TEST_F( VidcDrvClientTest, StopDecoder_StopOutputTimeout )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    // drain + stop-input OK, suppress stop-output-done → output stop times out
+    g_mock_cfg.emit_stop_output_done = false;
+    EXPECT_EQ( QC_STATUS_FAIL, dut.StopDecoder() );
+}
+
+TEST_F( VidcDrvClientTest, StopDecoder_StopIoctlFails )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    g_mock_cfg.rc_stop = VIDC_ERR_FAIL;   // VIDC_IOCTL_STOP returns failure
+    EXPECT_EQ( QC_STATUS_FAIL, dut.StopDecoder() );
+}
+
+TEST_F( VidcDrvClientTest, StopEncoder_StopIoctlFails )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    g_mock_cfg.rc_stop = VIDC_ERR_FAIL;
+    EXPECT_EQ( QC_STATUS_FAIL, dut.StopEncoder() );
+}
+
+TEST_F( VidcDrvClientTest, StopEncoder_Timeout )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    g_mock_cfg.emit_evt_stop_done = false;   // no RESP_STOP → timeout
+    EXPECT_EQ( QC_STATUS_FAIL, dut.StopEncoder() );
+}
+
+// DeviceCbHandler: OUTPUT_DONE carrying the EOS flag exercises the EOS warn branch.
+TEST_F( VidcDrvClientTest, Event_OutputDone_EosFlag_WarnsButHandles )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+
+    VideoFrameDescriptor_t f = MakeFrame( 0x9300, (void *) 0xC300, 8192 );
+    std::vector<std::reference_wrapper<VideoFrameDescriptor_t>> bufs{ std::ref( f ) };
+    ASSERT_EQ( QC_STATUS_OK, dut.SetBuffer( VIDEO_CODEC_BUF_OUTPUT, bufs ) );
+
+    vidc_drv_msg_info_type evt{};
+    evt.event_type = VIDC_EVT_RESP_OUTPUT_DONE;
+    evt.payload.frame_data.frm_clnt_data = f.dmaHandle;
+    evt.payload.frame_data.frame_addr = (uint8_t *) f.pBuf;
+    evt.payload.frame_data.data_len = 100;
+    evt.payload.frame_data.flags = static_cast<unsigned int>( VIDC_FRAME_FLAG_EOS );
+    g_cb.handler( reinterpret_cast<uint8_t *>( &evt ), sizeof( evt ), g_cb.data );
+
+    EXPECT_GE( calls.out_done.load(), 1 );
+}
+
+// InitDriver: a SET_PROPERTY failure after the codec is accepted returns FAIL (covers
+// the mid-sequence `if (QC_STATUS_OK == ret)` false edges in InitDriver).
+TEST_F( VidcDrvClientTest, InitDriver_FrameRateSetFails )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = false;
+    g_mock_cfg.rc_set_property = VIDC_ERR_FAIL;
+    VidcCodecMeta_t meta{};
+    meta.codecType = VIDEO_CODEC_H264;
+    meta.width = 1280;
+    meta.height = 720;
+    meta.frameRate = 30;
+    EXPECT_EQ( QC_STATUS_FAIL, dut.InitDriver( meta ) );
+    g_mock_cfg.rc_set_property = 0;
+}
+
+// Encoder-mode InitDriver with HEVC exercises the encoder session branch (L170) and the
+// HEVC codec branch (L456); a following PrintCodecConfig prints the HEVC arm.
+TEST( VidcDrvClientStatic, InitDriver_EncoderHevc_AndPrintConfig )
+{
+    Mockup_Cfg_Reset();
+    g_mock_cfg.use_open_mockup = true;
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_mock_cfg.use_close_mockup = true;
+    g_mock_cfg.use_timer_mockup = true;
+    g_autofire_events = true;
+
+    VidcNodeBase_Config_t cfg{};
+    cfg.numInputBufferReq = 4;
+    cfg.numOutputBufferReq = 4;
+
+    VidcDrvClient client;
+    client.Init( "EncHevc", LOGGER_LEVEL_ERROR, VIDEO_ENC, cfg );
+    ASSERT_EQ( QC_STATUS_OK,
+               client.OpenDriver( TestInputDoneCb, TestOutputDoneCb, TestEventCb, &client ) );
+
+    VidcCodecMeta_t meta{};
+    meta.codecType = VIDEO_CODEC_H265;   // → VIDC_CODEC_HEVC
+    meta.width = 1280;
+    meta.height = 720;
+    meta.frameRate = 30;
+    EXPECT_EQ( QC_STATUS_OK, client.InitDriver( meta ) );
+    client.PrintCodecConfig();   // HEVC arm
+
+    client.CloseDriver();
+    g_autofire_events = false;
+    Mockup_Cfg_Reset();
+}
+
+// DeviceCbHandler with a non-null but too-short message hits the length guard (L954).
+TEST_F( VidcDrvClientTest, DeviceCbHandler_ShortMessage_ReturnsMinusOne )
+{
+    uint8_t tiny[2] = { 0, 0 };
+    int ret = VidcDrvClient::CallDeviceCallback( tiny, sizeof( tiny ), &dut );
+    EXPECT_EQ( -1, ret );
+}
+
+// NegotiateBufferReq where the driver advertises exactly the requested count
+// takes the "no action required" else-branch (L444-447) and succeeds.
+TEST_F( VidcDrvClientTest, NegotiateBufferReq_SameCount_NoReconfig )
+{
+    g_mock_cfg.use_ioctl_mockup = true;
+    g_autofire_events = true;
+    uint32_t buf_num = 4, buf_size = 0;
+    g_req_in.actual_count = 4;   // exactly equal
+    g_req_in.size = 4096;
+    EXPECT_EQ( QC_STATUS_OK, dut.NegotiateBufferReq( VIDEO_CODEC_BUF_INPUT, buf_num, buf_size ) );
+    EXPECT_EQ( 4u, buf_num );
+    g_autofire_events = false;
 }
 
 #ifndef GTEST_QCNODE

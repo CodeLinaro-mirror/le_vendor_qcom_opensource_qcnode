@@ -2090,6 +2090,66 @@ TEST( NodeVideoEncoder_CheckBuffer, DynamicOutput_SizeTooSmallTriggersInvalidBuf
     Mockup_Cfg_Reset();
 }
 
+// =====================================================================================
+// ==== Coverage boost: ValidateConfig resolution/buffer boundary arms + H264_HIGH =====
+// =====================================================================================
+
+// ValidateConfig height-below-min (VideoEncoder.cpp:683).
+TEST( NodeVideoEncoder_Validate, HeightBelowMin_Fails )
+{
+    Mockup_Cfg_Reset();
+    auto cfg = BuildConfig( 60, 256, 64, 30, 2000000, true, true, 4, 4, "nv12", "h264",
+                            "H264_MAIN", "CBR_CFR" );
+    EXPECT_NE( QC_STATUS_OK, ( new QC::Node::VideoEncoder() )->Initialize( cfg ) );
+    Mockup_Cfg_Reset();
+}
+
+// ValidateConfig width-above-max (VideoEncoder.cpp:684).
+TEST( NodeVideoEncoder_Validate, WidthAboveMax_Fails )
+{
+    Mockup_Cfg_Reset();
+    auto cfg = BuildConfig( 61, 9000, 720, 30, 2000000, true, true, 4, 4, "nv12", "h264",
+                            "H264_MAIN", "CBR_CFR" );
+    EXPECT_NE( QC_STATUS_OK, ( new QC::Node::VideoEncoder() )->Initialize( cfg ) );
+    Mockup_Cfg_Reset();
+}
+
+// ValidateConfig height-above-max (VideoEncoder.cpp:685).
+TEST( NodeVideoEncoder_Validate, HeightAboveMax_Fails )
+{
+    Mockup_Cfg_Reset();
+    auto cfg = BuildConfig( 62, 1280, 9000, 30, 2000000, true, true, 4, 4, "nv12", "h264",
+                            "H264_MAIN", "CBR_CFR" );
+    EXPECT_NE( QC_STATUS_OK, ( new QC::Node::VideoEncoder() )->Initialize( cfg ) );
+    Mockup_Cfg_Reset();
+}
+
+// ValidateConfig input/output buffer count below MIN (VideoEncoder.cpp:716/727).
+TEST( NodeVideoEncoder_Validate, BufferCountBelowMin_Fails )
+{
+    Mockup_Cfg_Reset();
+    auto cfgIn = BuildConfig( 63, 1280, 720, 30, 2000000, false, false, 1, 4, "nv12", "h264",
+                              "H264_MAIN", "CBR_CFR" );
+    EXPECT_NE( QC_STATUS_OK, ( new QC::Node::VideoEncoder() )->Initialize( cfgIn ) );
+    Mockup_Cfg_Reset();
+    auto cfgOut = BuildConfig( 64, 1280, 720, 30, 2000000, false, false, 4, 1, "nv12", "h264",
+                               "H264_MAIN", "CBR_CFR" );
+    EXPECT_NE( QC_STATUS_OK, ( new QC::Node::VideoEncoder() )->Initialize( cfgOut ) );
+    Mockup_Cfg_Reset();
+}
+
+// ParseStaticConfig H264_HIGH profile-string arm (VideoEncoder.cpp:892).
+TEST( NodeVideoEncoder_Validate, H264HighProfile_ParsedAndInitialized )
+{
+    Mockup_Cfg_Reset();
+    auto cfg = BuildConfig( 65, 1280, 720, 30, 4000000, true, true, 4, 4, "nv12", "h264",
+                            "H264_HIGH", "CBR_CFR" );
+    QCNodeIfs *node = new QC::Node::VideoEncoder();
+    EXPECT_EQ( QC_STATUS_OK, node->Initialize( cfg ) );
+    (void) node->DeInitialize();
+    Mockup_Cfg_Reset();
+}
+
 #ifndef GTEST_QCNODE
 #if __CTC__
 extern "C" void ctc_append_all( void );

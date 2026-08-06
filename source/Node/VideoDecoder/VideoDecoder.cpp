@@ -270,7 +270,7 @@ QCStatus_e VideoDecoder::InitDrvProperty()
     {
         QC_DEBUG( "Setting VIDC_I_DEC_CONT_ON_RECONFIG" );
         vidc_enable_type enable;
-        enable.enable = true;
+        enable.enable = TRUE;
         ret = m_drvClient.SetDrvProperty( VIDC_I_DEC_CONT_ON_RECONFIG, sizeof( vidc_enable_type ),
                                           (uint8_t &) enable );
     }
@@ -521,7 +521,7 @@ void VideoDecoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 {
     NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1 );
 
-    frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID, inFrameDesc );
+    (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID, inFrameDesc );
 
     if ( m_callback )
     {
@@ -534,7 +534,7 @@ void VideoDecoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
 {
     NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1 );
 
-    frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, outFrameDesc );
+    (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, outFrameDesc );
 
     if ( m_callback )
     {
@@ -543,7 +543,7 @@ void VideoDecoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
     }
 }
 
-void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, const void *pEvent )
+void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, void *pEvent )
 {
     NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_EVENT_BUFF_ID + 1 );
 
@@ -571,15 +571,14 @@ void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, const void *
 
     if ( m_callback )
     {
-        NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_EVENT_BUFF_ID + 1 );
-        QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );
-
         QCBufferDescriptorBase_t errDesc;
-        errDesc.name = std::to_string( eventId );
-        errDesc.pBuf = const_cast<void *>( pEvent );
-        errDesc.size = sizeof( vidc_drv_msg_info_type );
-        frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, errDesc );
 
+        errDesc.name = std::to_string( eventId );
+        errDesc.pBuf = pEvent;
+        errDesc.size = sizeof( vidc_drv_msg_info_type );
+        (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, errDesc );
+
+        QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );
         m_callback( evtInfo );
     }
 }
@@ -634,7 +633,7 @@ void VideoDecoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc, void 
     }
 }
 
-void VideoDecoder::EventCallback( VideoCodec_EventType_e eventId, const void *pEvent,
+void VideoDecoder::EventCallback( VideoCodec_EventType_e eventId, void *pEvent,
                                   void *pPrivData )
 {
     VideoDecoder *nvd = static_cast<VideoDecoder *>( pPrivData );

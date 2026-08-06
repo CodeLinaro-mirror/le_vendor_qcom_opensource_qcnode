@@ -89,7 +89,7 @@ typedef void ( *VideoCodec_InFrameCallback_t )( VideoFrameDescriptor &inFrameDes
 typedef void ( *VideoCodec_OutFrameCallback_t )( VideoFrameDescriptor &outFrameDesc,
                                                  void *pPrivData );
 /** @brief callback for event */
-typedef void ( *VideoCodec_EventCallback_t )( VideoCodec_EventType_e eventId, const void *pEvent,
+typedef void ( *VideoCodec_EventCallback_t )( VideoCodec_EventType_e eventId, void *pEvent,
                                               void *pPrivData );
 
 typedef struct VidcNodeBase_Config VidcNodeBase_Config_t;

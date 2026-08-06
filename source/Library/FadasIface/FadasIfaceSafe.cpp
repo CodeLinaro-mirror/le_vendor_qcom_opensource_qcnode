@@ -180,19 +180,16 @@ AEEResult FadasIface_FadasRemap_CreateMapFromMap(
             if ( ret == AEE_SUCCESS )
             {
                 /* Verify CRC over the returned mapPtr value. */
-                if ( mapPtr != nullptr )
+                struct scatter_buffer sbRx[1] = { { 0 } };
+                uint32_t rxNum = 0U;
+                sbRx[0].buf = reinterpret_cast<const char *>( mapPtr );
+                sbRx[0].len = sizeof( *mapPtr );
+                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
                 {
-                    struct scatter_buffer sbRx[1] = { { 0 } };
-                    uint32_t rxNum = 0U;
-                    sbRx[0].buf = reinterpret_cast<const char *>( mapPtr );
-                    sbRx[0].len = sizeof( *mapPtr );
-                    if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
-                    {
-                        ret = AEE_EFAILED;
-                    }
-                    else
-                    {
-                    }
+                    ret = AEE_EFAILED;
+                }
+                else
+                {
                 }
             }
             else
@@ -247,19 +244,16 @@ AEEResult FadasIface_FadasRemap_CreateMapNoUndistortion( remote_handle64 _h, uin
                     crcTx, &crcRx );
             if ( ret == AEE_SUCCESS )
             {
-                if ( mapPtr != nullptr )
+                struct scatter_buffer sbRx[1] = { { 0 } };
+                uint32_t rxNum = 0U;
+                sbRx[0].buf = reinterpret_cast<const char *>( mapPtr );
+                sbRx[0].len = sizeof( *mapPtr );
+                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
                 {
-                    struct scatter_buffer sbRx[1] = { { 0 } };
-                    uint32_t rxNum = 0U;
-                    sbRx[0].buf = reinterpret_cast<const char *>( mapPtr );
-                    sbRx[0].len = sizeof( *mapPtr );
-                    if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
-                    {
-                        ret = AEE_EFAILED;
-                    }
-                    else
-                    {
-                    }
+                    ret = AEE_EFAILED;
+                }
+                else
+                {
                 }
             }
             else
@@ -329,18 +323,12 @@ AEEResult FadasIface_FadasRemap_CreateWorkers( remote_handle64 _h, uint64 *worke
                                                            crcTx, &crcRx );
             if ( ret == AEE_SUCCESS )
             {
-                if ( worker_ptr != nullptr )
+                struct scatter_buffer sbRx[1] = {};
+                sbRx[0].buf = reinterpret_cast<const char *>( worker_ptr );
+                sbRx[0].len = sizeof( *worker_ptr );
+                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
                 {
-                    struct scatter_buffer sbRx[1] = {};
-                    sbRx[0].buf = reinterpret_cast<const char *>( worker_ptr );
-                    sbRx[0].len = sizeof( *worker_ptr );
-                    if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
-                    {
-                        ret = AEE_EFAILED;
-                    }
-                    else
-                    {
-                    }
+                    ret = AEE_EFAILED;
                 }
                 else
                 {

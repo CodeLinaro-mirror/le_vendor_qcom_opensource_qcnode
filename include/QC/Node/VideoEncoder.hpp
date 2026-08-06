@@ -23,7 +23,7 @@ namespace QC::Node
 /** @brief The QCNode VideoEncoder Version */
 #define QCNODE_VIDEOENCODER_VERSION_MAJOR 2U
 #define QCNODE_VIDEOENCODER_VERSION_MINOR 0U
-#define QCNODE_VIDEOENCODER_VERSION_PATCH 0U
+#define QCNODE_VIDEOENCODER_VERSION_PATCH 1U
 
 #define QCNODE_VIDEOENCODER_VERSION                                                                \
     ( ( QCNODE_VIDEOENCODER_VERSION_MAJOR << 16U ) | ( QCNODE_VIDEOENCODER_VERSION_MINOR << 8U ) | \
@@ -196,7 +196,9 @@ class VideoEncoderMonitoringIfs : public QCNodeMonitoringIfs
 {
 public:
     VideoEncoderMonitoringIfs( Logger &logger ) : m_logger( logger ) {}
-    virtual ~VideoEncoderMonitoringIfs() {}
+    VideoEncoderMonitoringIfs( const VideoEncoderMonitoringIfs &other ) : m_logger( other.m_logger ) {}
+    VideoEncoderMonitoringIfs& operator=( const VideoEncoderMonitoringIfs& ) = default;
+    virtual ~VideoEncoderMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
     {
@@ -340,7 +342,7 @@ protected:
     QCStatus_e CheckBuffer( const VideoFrameDescriptor &vidFrmDesc, VideoCodec_BufType_e bufferType );
     void InFrameCallback( VideoFrameDescriptor &inFrameDesc );
     void OutFrameCallback( VideoFrameDescriptor &outFrameDesc );
-    void EventCallback( VideoEncoder_EventType_e eventId, const void *pEvent );
+    void EventCallback( VideoEncoder_EventType_e eventId, void *pEvent );
 
 private:
     VideoEncoderConfigIfs m_configIfs;
@@ -353,7 +355,7 @@ private:
 
     static void InFrameCallback( VideoFrameDescriptor &inFrameDesc, void *pPrivData );
     static void OutFrameCallback( VideoFrameDescriptor &outFrameDesc, void *pPrivData );
-    static void EventCallback( VideoCodec_EventType_e eventId, const void *pPayload,
+    static void EventCallback( VideoCodec_EventType_e eventId, void *pEvent,
                                void *pPrivData );
 };
 

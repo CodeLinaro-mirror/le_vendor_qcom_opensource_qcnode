@@ -118,7 +118,7 @@ private:
                                  uint32_t bufSize, uint32_t bufOffset, uint32_t batch );
     int32_t RegisterImage( const ImageDescriptor_t &imageDesc, FadasBufType_e bufferType );
     int32_t RegisterTensor( const TensorDescriptor_t &tensorDesc, FadasBufType_e bufferType );
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
     QCStatus_e GetDomain( QCProcessorType_e processor, uint32_t coreId, fastrpc_domain &domain );
 #endif
 

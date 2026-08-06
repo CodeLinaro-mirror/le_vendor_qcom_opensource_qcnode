@@ -225,7 +225,7 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
+| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu, gpu] |
 | core_id        | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
 | cpu_threads_affinity | false | int list | [] | CPU core IDs to pin worker threads to (CPU processor only). If absent or empty, platform defaults are used: [12,13,14,15] on Linux, [0,1,2,3] otherwise |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
@@ -279,7 +279,7 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
+| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu, gpu] |
 | core_ids      | false    | int list  | 0       | Comma-separated list of core IDs on which the QNN model will run. |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | async         | fasle    | bool      | false   | If true, enable to use QNN Async Execute API, else use QNN Sync Execute API. |
@@ -371,7 +371,7 @@ The command line template example for Lidar pipeline:
 | buffer_size        | false    | int       | 2\*width\*height     | The image buffer size |
 | input_topic        | true     | string    | -           | the input topic name |
 | output_topic       | true     | string    | -           | the output topic name |
-| format             | false    | string    | "nv12"      | The image format, options from [nv12, nv12_ubwc] |
+| format             | false    | string    | "nv12"      | The image format, options from [nv12, nv12_ubwc, p010] |
 | output_format      | false    | string    | h265        | The output image format, options from [h264, h265] |
 | profile | false    | string    | HEVC_MAIN for h265 or H264_MAIN for h264 | The video encoder profile, options from [H264_BASELINE, H264_HIGH, H264_MAIN, HEVC_MAIN, HEVC_MAIN10] |
 | gop        | false    | int       | 20     | No of P-Pictures between 2 I-Frames |
@@ -418,7 +418,7 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu, gpu] |
+| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu, gpu] |
 | core_id       | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | pillar_size_x | false    | float     | 0.16    | Pillar size in x direction in meters |
@@ -453,7 +453,7 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, cpu] |
+| processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu] |
 | core_id       | false    | int       | 0       | The processor core ID, options from [0,1,2,3] |
 | rsm_priority  | false    | int       | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
 | pillar_size_x | false    | float     | 0.16    | Pillar size in x direction in meters |
@@ -640,12 +640,12 @@ The command line template example:
 
 | attribute     | required | type      | default | comments |
 |---------------|----------|-----------|---------|----------|
-| eva_mode      | false    | string    | dsp     | the eval filter mode, options from [dsp, cpu, disable] |
+| eva_mode      | false    | string    | dsp     | the eval filter mode, options from [dsp, cpu, disable]. Only parsed in EVA_AUTO builds (SampleOpticalFlowEvaAuto); ignored in the default EVA build |
 | direction     | false    | string    | forward | the opticalflow direction, options from [forward, backward] |
 | step_size     | false    | int       | 1       | the step size, options from [0, 1, 2] |
 | width         | true     | int       | -       | The input image width |
 | height        | true     | int       | -       | The input image height |
-| format        | false    | string    | nv12    | The input image format, options from [nv12, nv12_ubwc] |
+| format        | false    | string    | nv12    | The input image format. EVA build: [nv12, nv12_ubwc]. EVA_AUTO build: [uyvy, nv12, p010] |
 | pool_size     | false    | int       | 4       | The image memory pool size |
 | fps           | false    | int       | 30      | The frame rate per second |
 | input_topic   | true     | string    | -       | the input topic name |
@@ -699,10 +699,13 @@ The FrameSync sample synchronises frames from multiple input topics and publishe
 | timestamp_threshold_ms | false    | int       | 10      | Maximum acceptable timestamp spread in ms; used by `buffer_timestamp` mode |
 | queue_depth            | false    | int       | 1       | Per-subscriber frame ring depth; used by `buffer_timestamp` mode |
 | perms                  | false    | int list  | -       | A list of integers to permute the output frame order |
+| skip_wait_ready        | false    | int list  | -       | Input-topic indices to **not** wait on in `WaitReady()` before the cycle starts (e.g. `0,3` => don't block on input 0 and 3). If omitted, `WaitReady()` waits on **all** inputs. Each index must be in `[0, number-1]`. |
 | input_topicX           | true     | string    | -       | the input topic name for input X |
 | output_topic           | true     | string    | -       | the output topic name |
 
 Note: "X" is value from 0 to number-1.
+
+Note (`WaitReady` / HS): before the HeteroScheduler starts its scheduling cycle, FrameSync calls `WaitReady()` to block until upstream inputs are live. By default it waits for **every** input. When some inputs should not gate the start (e.g. best-effort inputs, or inputs whose readiness the scheduler handles), list those indices in `skip_wait_ready` so FrameSync does not stall on them. Example: `-k skip_wait_ready -v 0,3` waits on all inputs except 0 and 3.
 
 The command line template example (window mode):
 
@@ -738,7 +741,7 @@ The command line template example (buffer_timestamp mode):
 | direction     | false    | string    | l2r     | the search direction, options from [l2r, r2l] |
 | width         | true     | int       | -       | The input image width |
 | height        | true     | int       | -       | The input image height |
-| format        | false    | string    | nv12    | The input image format, options from [nv12, nv12_ubwc, p010, tp10_ubwc] |
+| format        | false    | string    | nv12    | The input image format. EVA build: [nv12, nv12_ubwc]. EVA_AUTO build: [nv12, p010, nv12_ubwc, tp10_ubwc] |
 | pool_size     | false    | int       | 4       | The image memory pool size |
 | fps           | false    | int       | 30      | The frame rate per second |
 | cache         | false    | bool      | true    | use cached memory or not for the buffer pool |
@@ -811,7 +814,6 @@ The command line template example:
 | timeout_ms | false | int | 5000 | Processing timeout in milliseconds (max 60 seconds) |
 | enable_performance_log | false | bool | false | Enable/disable performance logging |
 | pool_size | false | int | 4 | Number of buffers in output buffer pool (max 32) |
-| cache | false | bool | true | Enable/disable cached memory allocation |
 | input_topic | true | string | - | Input topic name for radar data |
 | output_topic | true | string | - | Output topic name for processed results |
 
@@ -835,7 +837,6 @@ The command line template example:
     -k timeout_ms -v 10000 \
     -k enable_performance_log -v true \
     -k pool_size -v 8 \
-    -k cache -v true \
     -k input_topic -v /sensor/radar/RADAR0/raw \
     -k output_topic -v /sensor/radar/RADAR0/processed \
 ```
