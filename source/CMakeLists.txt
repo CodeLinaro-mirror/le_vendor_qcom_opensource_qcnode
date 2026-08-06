@@ -5,7 +5,9 @@ add_subdirectory(Node)
 
 set( HEADERS_DIR ${PROJECT_SOURCE_DIR}/include )
 
-file( WRITE ${CMAKE_BINARY_DIR}/null.cpp "" )
+if( NOT EXISTS ${CMAKE_BINARY_DIR}/null.cpp )
+    file( WRITE ${CMAKE_BINARY_DIR}/null.cpp "" )
+endif()
 
 set( QCNODE_SOURCES ${CMAKE_BINARY_DIR}/null.cpp )
 

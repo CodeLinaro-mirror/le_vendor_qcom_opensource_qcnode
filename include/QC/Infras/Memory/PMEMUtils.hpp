@@ -26,6 +26,9 @@ public:
      */
     PMEMUtils();
 
+    PMEMUtils( const PMEMUtils & ) = default;
+    PMEMUtils& operator=( const PMEMUtils& ) = default;
+
     /**
      * @brief Destructor for the PMEMUtils class.
      * This destructor releases any resources allocated by the ManagerLocal object.

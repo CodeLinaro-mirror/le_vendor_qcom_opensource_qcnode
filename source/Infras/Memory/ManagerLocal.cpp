@@ -32,7 +32,7 @@ QCStatus_e ManagerLocal::Initialize( const QCMemoryManagerInit_t &init )
         QC_ERROR( "QC_OBJECT_STATE_INITIAL != m_state" );
         status = QC_STATUS_BAD_STATE;
     }
-    else if ( 0 == init.numOfNodes )
+    else if ( 0U == static_cast<uint32_t>( init.numOfNodes ) )
     {
         QC_ERROR( "0 ==  init.numOfNodes" );
         status = QC_STATUS_BAD_ARGUMENTS;
@@ -48,10 +48,10 @@ QCStatus_e ManagerLocal::Initialize( const QCMemoryManagerInit_t &init )
     {
         m_pools.reserve( m_config.numOfNodes );
         m_allocations.reserve( m_config.numOfNodes );
-        for ( auto i = 0; i < m_config.numOfNodes; i++ )
+        for ( uint32_t i = 0U; i < static_cast<uint32_t>( m_config.numOfNodes ); i++ )
         {
-            m_pools.emplace_back();
-            m_allocations.emplace_back();
+            (void) m_pools.emplace_back();
+            (void) m_allocations.emplace_back();
         }
 
         state = QC_OBJECT_STATE_READY;
@@ -67,7 +67,7 @@ ManagerLocal::~ManagerLocal()
 {
     if ( GetState() == QC_OBJECT_STATE_READY )
     {
-        DeInitialize();
+        (void) DeInitialize();
     }
 
     (void) QC_LOGGER_DEINIT();
@@ -103,7 +103,7 @@ QCStatus_e ManagerLocal::DeInitialize()
         }
 
         // Clear the vectors (this will properly destruct the objects)
-        for ( auto i = 0; i < m_config.numOfNodes; i++ )
+        for ( uint32_t i = 0U; i < static_cast<uint32_t>( m_config.numOfNodes ); i++ )
         {
             QC_DEBUG( "DB memory free itteration %d ", i );
             PoolMapWithMutex &refPoolMapWithMutex = m_pools.back();
@@ -157,7 +157,7 @@ QCStatus_e ManagerLocal::Register( const QCNodeID_t &node, QCMemoryHandle_t &han
         std::uniform_int_distribution<uint32_t> distribution( 0, UINT32_MAX );
 
         // Set Node enum into memory handler
-        handle.SetNodeType( node.type );
+        (void) handle.SetNodeType( node.type );
         QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32 " pid %" PRIu32 " ",
                   handle.GetNodeType(), handle.GetNodeCount(), handle.GetRandomNumber(),
                   handle.GetProcessId() );
@@ -182,10 +182,11 @@ QCStatus_e ManagerLocal::Register( const QCNodeID_t &node, QCMemoryHandle_t &han
             else
             {
                 // Set node count based on current registry size
-                handle.SetNodeCount( m_handleToNodeIdInVector.size() + 1 );
+                (void) handle.SetNodeCount(
+                        static_cast<uint8_t>( m_handleToNodeIdInVector.size() + 1U ) );
 
                 // Generate and set random number
-                handle.SetRandomNumber( distribution( randomNumbersGenerator ) );
+                (void) handle.SetRandomNumber( distribution( randomNumbersGenerator ) );
 
                 QC_DEBUG( "Memory Handle node type %d count %d random Number %" PRIu32
                           " pid %" PRIu32 " ",
@@ -202,7 +203,7 @@ QCStatus_e ManagerLocal::Register( const QCNodeID_t &node, QCMemoryHandle_t &han
                 else
                 {
                     // Insert the new handle-to-node mapping
-                    m_handleToNodeIdInVector.insert( { handle, node.id } );
+                    (void) m_handleToNodeIdInVector.insert( { handle, node.id } );
                     if ( false == IsMemoryHandleRegistered( handle, tempNodeId ) )
                     {
                         QC_ERROR( "Failed to insert handle into registry" );
@@ -245,6 +246,10 @@ QCStatus_e ManagerLocal::UnRegister( const QCMemoryHandle_t &memHandle )
                       memHandle.GetNodeType(), memHandle.GetNodeCount(),
                       memHandle.GetRandomNumber(), memHandle.GetProcessId() );
         }
+        else
+        {
+            /* no action required */
+        }
     }
 
     // If validation passed, proceed with resource cleanup and handle removal
@@ -265,7 +270,7 @@ QCStatus_e ManagerLocal::UnRegister( const QCMemoryHandle_t &memHandle )
             // Remove handle from registry with unique lock
             {
                 std::unique_lock<std::shared_mutex> writeLock( m_handle2NodeIdLock );
-                m_handleToNodeIdInVector.erase( memHandle );
+                (void) m_handleToNodeIdInVector.erase( memHandle );
                 if ( true == IsMemoryHandleRegistered( memHandle, nodeId ) )
                 {
                     // erasure failed
@@ -341,14 +346,15 @@ QCStatus_e ManagerLocal::CreatePool( const QCMemoryHandle_t &handle,
             // check uniqness
 
             // Set memory handler into pool handler
-            poolHandle.SetMemoryHandle( handle );
+            (void) poolHandle.SetMemoryHandle( handle );
             // generate and set random number
-            poolHandle.SetRandomNumber( distribution( randomNumbersGenerator ) );
+            (void) poolHandle.SetRandomNumber(
+                    static_cast<uint32_t>( distribution( randomNumbersGenerator ) ) );
 
             // set new pool count
             uint8_t count = m_pools[nodeIndex].poolSequenceCounter;
             m_pools[nodeIndex].poolSequenceCounter++;
-            poolHandle.SetPoolCount( count );
+            (void) poolHandle.SetPoolCount( count );
             QC_DEBUG( "Memory Pool Handle node type %d count %d random Number %" PRIu32
                       " pid %" PRIu32 "",
                       poolHandle.GetMemoryHandle().GetNodeType(),
@@ -385,7 +391,7 @@ QCStatus_e ManagerLocal::CreatePool( const QCMemoryHandle_t &handle,
                     if ( status == QC_STATUS_OK )
                     {
                         state = QC_OBJECT_STATE_READY;
-                        poolsMap.insert( { poolHandle, std::ref( *pool ) } );
+                        (void) poolsMap.insert( { poolHandle, std::ref( *pool ) } );
                         status = IS_IN_DB_STATUS( poolsMap, poolHandle );
                         QC_DEBUG( "poolsMap,size() == %d", poolsMap.size() );
                         QC_DEBUG( "GetState () == %lu", state );
@@ -649,7 +655,7 @@ QCStatus_e ManagerLocal::AllocateBuffer( const QCMemoryHandle_t handle,
         else if ( QC_STATUS_OK == status )
         {
             std::set<QCBufferDescriptorBase_t> &bufferSet = m_allocations[nodeIndex].allocationSet;
-            bufferSet.insert( buff );
+            (void) bufferSet.insert( buff );
             status = IS_IN_DB_STATUS( bufferSet, buff );
             if ( QC_STATUS_OK != status )
             {
@@ -657,7 +663,7 @@ QCStatus_e ManagerLocal::AllocateBuffer( const QCMemoryHandle_t handle,
                 QC_ERROR( "GetState () == %d", state );
                 // Attempt to free bufferwhich info wasnt properly inserted into
                 // data base
-                allocatorRef.Free( buff );
+                (void) allocatorRef.Free( buff );
             }
         }
         else
@@ -713,7 +719,7 @@ QCStatus_e ManagerLocal::FreeBuffer( const QCMemoryHandle_t handle,
             status = allocatorRef.Free( buff );
             if ( QC_STATUS_OK == status )
             {
-                bufferSet.erase( buff );
+                (void) bufferSet.erase( buff );
                 status = IS_NOT_IN_DB_STATUS( bufferSet, buff );
             }
         }
@@ -899,7 +905,7 @@ inline bool ManagerLocal::IsMemoryHandleRegistered( const QCMemoryHandle_t &hand
     }
     else
     {
-        nodeId = it->second;
+        nodeId = static_cast<uint8_t>( it->second );
     }
 
     return result;

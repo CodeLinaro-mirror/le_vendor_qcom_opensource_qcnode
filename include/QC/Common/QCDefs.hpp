@@ -9,11 +9,6 @@
 namespace QC
 {
 
-#ifndef QC_TARGET_SOC
-#define QC_TARGET_SOC 8797
-#warning "QC_TARGET_SOC is not defined. Default to 8797"
-#endif
-
 /** @brief QC Status */
 typedef enum
 {
@@ -70,6 +65,7 @@ typedef enum
     QC_NODE_TYPE_CUSTOM_2,
     QC_NODE_TYPE_CUSTOM_3,
     QC_NODE_TYPE_CUSTOM_4,
+    QC_NODE_TYPE_SIMNODE,
     QC_NODE_TYPE_LAST,
     QC_NODE_TYPE_MAX = UINT8_MAX
 } QCNodeType_e;

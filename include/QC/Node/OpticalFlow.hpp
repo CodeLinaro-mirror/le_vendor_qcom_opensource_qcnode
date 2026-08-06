@@ -19,7 +19,7 @@ using namespace SV;
 /** @brief The QCNode OpticalFlow Version */
 #define QCNODE_OFL_VERSION_MAJOR 2U
 #define QCNODE_OFL_VERSION_MINOR 0U
-#define QCNODE_OFL_VERSION_PATCH 0U
+#define QCNODE_OFL_VERSION_PATCH 1U
 
 #define QCNODE_OFL_VERSION                                                                         \
     ( ( QCNODE_OFL_VERSION_MAJOR << 16U ) | ( QCNODE_OFL_VERSION_MINOR << 8U ) |                   \
@@ -162,6 +162,7 @@ public:
     OpticalFlow_Config();
     OpticalFlow_Config( const OpticalFlow_Config &rhs );
     OpticalFlow_Config &operator=( const OpticalFlow_Config &rhs );
+    ~OpticalFlow_Config() override = default;
 
 } OpticalFlow_Config_t;
 
@@ -267,8 +268,10 @@ typedef struct OpticalFlowMonitorConfig : public QCNodeMonitoringBase_t
 class OpticalFlowMonitoringIfs : public QCNodeMonitoringIfs
 {
 public:
-    OpticalFlowMonitoringIfs() {}
-    ~OpticalFlowMonitoringIfs() {}
+    OpticalFlowMonitoringIfs() = default;
+    OpticalFlowMonitoringIfs( const OpticalFlowMonitoringIfs & ) = default;
+    OpticalFlowMonitoringIfs& operator=( const OpticalFlowMonitoringIfs& ) = default;
+    ~OpticalFlowMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
     {

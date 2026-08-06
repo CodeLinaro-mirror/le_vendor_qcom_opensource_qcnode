@@ -28,8 +28,10 @@ namespace QC
 namespace Node
 {
 
+#if defined( QC_TARGET_SOC )
 #if ( QC_TARGET_SOC == 8295 ) || ( QC_TARGET_SOC == 8620 ) || ( QC_TARGET_SOC == 8650 )
 #define QC_USE_REMOTE_REGISTER_V2
+#endif
 #endif
 
 std::mutex QnnImpl::s_lock[QNN_PROCESSOR_MAX];
@@ -102,7 +104,7 @@ QCStatus_e QnnImpl::GetQnnFunctionPointers( std::string backendPath, std::string
     QCStatus_e status = QC_STATUS_OK;
     void *libModelHandle = nullptr;
     void *libBackendHandle =
-            dlopen( backendPath.c_str(), (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_GLOBAL ) );
+            dlopen( backendPath.c_str(), (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_LOCAL ) );
     if ( nullptr == libBackendHandle )
     {
         QC_ERROR( "Unable to load backend. dlerror(): %s", dlerror() );
@@ -177,7 +179,7 @@ QCStatus_e QnnImpl::GetQnnFunctionPointers( std::string backendPath, std::string
         {
             QC_INFO( "Loading model shared library (%s)", modelPath.c_str() );
             libModelHandle = dlopen( modelPath.c_str(),
-                                     (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_GLOBAL ) );
+                                     (int) ( (uint32_t) RTLD_NOW | (uint32_t) RTLD_LOCAL ) );
             if ( nullptr == libModelHandle )
             {
                 QC_ERROR( "Unable to load model. dlerror(): %s", dlerror() );
@@ -642,10 +644,14 @@ QCStatus_e QnnImpl::CopyGraphsInfo( const QnnSystemContext_GraphInfo_t *graphsIn
                                     graphsInfo[gIdx]->numOutputTensors );
                 }
             }
-            free( *graphsInfo );
+            free( graphsInfo );
+            graphsInfo = nullptr;
         }
-        free( graphsInfo );
-        graphsInfo = nullptr;
+        if ( nullptr != graphInfoArr )
+        {
+            free( graphInfoArr );
+            graphInfoArr = nullptr;
+        }
     }
     return status;
 }
@@ -930,7 +936,7 @@ QCStatus_e QnnImpl::CreateFromBinaryBuffer( QCBufferDescriptorBase &bufDesc )
             &binaryInfoSize );
     if ( QNN_SUCCESS != retVal )
     {
-        QC_ERROR( "Failed to get context binary info." );
+        QC_ERROR( "Failed to get context binary info: %" PRIu64, retVal );
         status = QC_STATUS_FAIL;
     }
 
@@ -999,7 +1005,7 @@ QCStatus_e QnnImpl::CreateFromBinaryFile( std::string modelFile )
 {
     QCStatus_e status = QC_STATUS_OK;
     QCBufferDescriptorBase bufDesc;
-    uint32_t bufferSize = 0;
+    uint64_t bufferSize = 0;
     FILE *pFile = fopen( modelFile.c_str(), "rb" );
     if ( nullptr == pFile )
     {
@@ -1008,9 +1014,9 @@ QCStatus_e QnnImpl::CreateFromBinaryFile( std::string modelFile )
     }
     else
     {
-        fseek( pFile, 0, SEEK_END );
-        bufferSize = static_cast<uint32_t>( ftell( pFile ) );
-        fseek( pFile, 0, SEEK_SET );
+        (void) fseek( pFile, 0, SEEK_END );
+        bufferSize = static_cast<uint64_t>( ftell( pFile ) );
+        (void) fseek( pFile, 0, SEEK_SET );
         if ( 0 == bufferSize )
         {
             QC_ERROR( "Received path to an empty file. Nothing to deserialize." );
@@ -1072,9 +1078,9 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
     QnnDevice_Infrastructure_t deviceInfra = nullptr;
     Qnn_ErrorHandle_t retVal;
     QnnHtpPerfInfrastructure_PowerConfig_t powerConfig;
-    memset( &powerConfig, 0, sizeof( powerConfig ) );
+    (void) memset( &powerConfig, 0, sizeof( powerConfig ) );
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
     QnnHtpPerfInfrastructure_PowerConfig_t powerHmxConfig;
     memset( &powerHmxConfig, 0, sizeof( powerHmxConfig ) );
 #endif
@@ -1132,7 +1138,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
         powerConfig.dcvsV3Config.sleepDisable = 0;
         powerConfig.dcvsV3Config.setSleepDisable = 0;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
         powerHmxConfig.option = QNN_HTP_PERF_INFRASTRUCTURE_POWER_CONFIGOPTION_HMX_V2;
         powerHmxConfig.hmxV2Config.hmxPickDefault = 0;
 #endif
@@ -1154,7 +1160,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerMax =
                         DCVS_VOLTAGE_VCORNER_MAX_VOLTAGE_CORNER;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_MAX;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_MAX;
@@ -1171,7 +1177,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_TURBO;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_TURBO;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_TUR;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_TUR;
@@ -1189,7 +1195,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_SVS;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_SVS;
@@ -1207,7 +1213,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS2;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS2;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1225,7 +1231,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS_PLUS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS_PLUS;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1243,7 +1249,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_CORNER_DISABLE;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_CORNER_DISABLE;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1259,7 +1265,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_NOM;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_NOM;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_NOM;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_NOM;
@@ -1275,7 +1281,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_NOM_PLUS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_NOM_PLUS;
 
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_NOM_L1;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_NOM_L1;
@@ -1296,10 +1302,16 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
         {
             powerConfig.dcvsV3Config.contextId = powerConfigId;
             const QnnHtpPerfInfrastructure_PowerConfig_t *powerConfigs[] = { &powerConfig,
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
                                                                              &powerHmxConfig,
 #endif
-                                                                             NULL };
+                                                                             nullptr };
+#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+            if ( QNN_PROCESSOR_HTP0 != m_config.processorType )
+            { /* No HMX for HPASS */
+                powerConfigs[1] = nullptr;
+            }
+#endif
             retVal = m_perfInfra->setPowerConfig( powerConfigId, powerConfigs );
             if ( QNN_SUCCESS != retVal )
             {
@@ -1766,10 +1778,11 @@ QCStatus_e QnnImpl::RemoteRegisterBuf( const TensorDescriptor_t &tensorDesc, int
     extDomainId = get_extended_domains_id( domain, client );
 #endif
 
+    std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
+
     int rpcFd = rpcmem_to_fd( tensorDesc.pBuf );
     if ( rpcFd < 0 )
     {
-        std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
 #ifdef QC_USE_REMOTE_REGISTER_V2
 #if defined( __QNXNTO__ )
         remote_register_buf_v2( extDomainId, tensorDesc.pBuf, static_cast<int>( tensorDesc.size ),
@@ -1802,7 +1815,6 @@ QCStatus_e QnnImpl::RemoteRegisterBuf( const TensorDescriptor_t &tensorDesc, int
     }
     else
     {
-        std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
         auto it = s_dmaMemRefMap[m_config.processorType].find( tensorDesc.pBuf );
         if ( it != s_dmaMemRefMap[m_config.processorType].end() )
         {
@@ -2386,7 +2398,7 @@ void QnnImpl::RemoteDeRegisterBuf( void *pData, size_t size )
 #else
             remote_register_buf( pData, static_cast<int>( size ), -1 );
 #endif
-            s_dmaMemRefMap[m_config.processorType].erase( it );
+            (void) s_dmaMemRefMap[m_config.processorType].erase( it );
         }
     }
     else
@@ -2857,6 +2869,10 @@ QCTensorType_e QnnImpl::SwitchFromQnnDataType( Qnn_DataType_t dataType )
             tensorType = QC_TENSOR_TYPE_UFIXED_POINT_32;
             break;
 
+        case QNN_DATATYPE_BOOL_8:
+            tensorType = QC_TENSOR_TYPE_BOOL_8;
+            break;
+
         default:
             QC_ERROR( "unsupported qnn data type: %d", (int) dataType );
             break;
@@ -2935,6 +2951,10 @@ Qnn_DataType_t QnnImpl::SwitchToQnnDataType( QCTensorType_e tensorType )
 
         case QC_TENSOR_TYPE_UFIXED_POINT_32:
             dataType = QNN_DATATYPE_UFIXED_POINT_32;
+            break;
+
+        case QC_TENSOR_TYPE_BOOL_8:
+            dataType = QNN_DATATYPE_BOOL_8;
             break;
 
         default:

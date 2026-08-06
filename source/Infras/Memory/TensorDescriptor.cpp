@@ -24,7 +24,7 @@ TensorDescriptor &TensorDescriptor::operator=( const TensorDescriptor &other )
         this->type = QC_BUFFER_TYPE_TENSOR;
         this->tensorType = other.tensorType;
         uint32_t numDims = std::min( other.numDims, (uint32_t) QC_NUM_TENSOR_DIMS );
-        std::copy( other.dims, other.dims + numDims, this->dims );
+        (void) std::copy( &other.dims[0], other.dims + numDims, &this->dims[0] );
         this->numDims = numDims;
     }
     return *this;

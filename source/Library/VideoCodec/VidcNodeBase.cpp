@@ -66,8 +66,8 @@ QCStatus_e VidcNodeBaseConfigIfs::VerifyAndSet( const std::string cfg, std::stri
         QC_DEBUG( "FrameWidth = %" PRIu32, config.width );
         QC_DEBUG( "FrameHeight = %" PRIu32, config.height );
         QC_DEBUG( "frameRate = %" PRIu32, config.frameRate );
-        QC_DEBUG( "bInputDynamicMode = %d", (int) config.bInputDynamicMode );
-        QC_DEBUG( "bOutputDynamicMode = %d", (int) config.bOutputDynamicMode );
+        QC_DEBUG( "bInputDynamicMode = %d", config.bInputDynamicMode ? 1 : 0 );
+        QC_DEBUG( "bOutputDynamicMode = %d", config.bOutputDynamicMode ? 1 : 0 );
         QC_DEBUG( "numInputBufferReq = %" PRIu32 " ", config.numInputBufferReq );
         QC_DEBUG( "numOutputBufferReq = %" PRIu32 " ", config.numOutputBufferReq );
         QC_DEBUG( "inFormat = %d", config.inFormat );
@@ -150,7 +150,10 @@ QCStatus_e VidcNodeBaseConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
         status = QC_STATUS_BAD_ARGUMENTS;
     }
 
-    if ( QC_STATUS_OK != status ) printf( "errors: %s", errors.c_str() );
+    if ( QC_STATUS_OK != status )
+    {
+        (void) printf( "errors: %s", errors.c_str() );
+    }
 
     return status;
 }
@@ -357,6 +360,10 @@ QCStatus_e VidcNodeBase::ValidateBuffers()
         QC_ERROR( "should provide input buffer in config in non-dynamic mode!" );
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
+    else
+    {
+        /* no action required */
+    }
 
     if ( ( QC_STATUS_OK == ret ) && ( true == m_pConfig->bOutputDynamicMode ) &&
          ( !m_outputBufferList.empty() ) )
@@ -369,6 +376,10 @@ QCStatus_e VidcNodeBase::ValidateBuffers()
     {
         QC_ERROR( "should provide output buffer in config in non-dynamic mode!" );
         ret = QC_STATUS_BAD_ARGUMENTS;
+    }
+    else
+    {
+        /* no action required */
     }
 
     QC_DEBUG( "check buffers done" );
@@ -385,9 +396,14 @@ QCStatus_e VidcNodeBase::ValidateFrameSubmission( const VideoFrameDescriptor_t &
 
     QC_DEBUG( "validate frame submission begin" );
 
-    if ( VIDEO_CODEC_BUF_INPUT == bufferType ) inOutStr = "inputBuffer";
+    if ( VIDEO_CODEC_BUF_INPUT == bufferType )
+    {
+        inOutStr = "inputBuffer";
+    }
     else
+    {
         inOutStr = "outputBuffer";
+    }
 
     if ( QC_OBJECT_STATE_RUNNING != m_state )
     {
@@ -509,7 +525,7 @@ QCStatus_e VidcNodeBase::AllocateBuffer(
 {
     QCStatus_e status = QC_STATUS_OK;
     VideoFrameDescriptor *vidFrmDescList = nullptr;
-    uint32_t bufNum, bufSize, bufNumGiven = buffers.size() - bufferIdx;
+    uint32_t bufNum, bufSize, bufNumGiven = static_cast<uint32_t>( buffers.size() - bufferIdx );
     bool dynamicMode = false;
 
     if ( VIDEO_CODEC_BUF_INPUT == bufferType )
@@ -709,7 +725,7 @@ void VidcNodeBase::PrintConfig()
     QC_DEBUG( "OutBufSize = %" PRIu32, m_bufSize[VIDEO_CODEC_BUF_OUTPUT] );
 }
 
-void VidcNodeBase::EventCallback( const VideoCodec_EventType_e eventId, const void *pPayload )
+void VidcNodeBase::EventCallback( const VideoCodec_EventType_e eventId, void *pPayload )
 {
     QC_DEBUG( "VidcNodeBase::EventCallback: Received event: %d, pPayload:%p", eventId, pPayload );
 

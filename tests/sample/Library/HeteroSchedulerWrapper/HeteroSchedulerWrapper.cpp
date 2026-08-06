@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <sstream>
 #include <thread>
 
 namespace QC
@@ -26,12 +27,6 @@ HeteroSchedulerWrapper::HeteroSchedulerWrapper()
     QC_LOGGER_INIT( "HeteroSchedulerWrapper", LOGGER_LEVEL_INFO );
 }
 
-HeteroSchedulerWrapper &HeteroSchedulerWrapper::getInstance()
-{
-    static HeteroSchedulerWrapper instance;
-    return instance;
-}
-
 HeteroSchedulerWrapper::~HeteroSchedulerWrapper()
 {
     Cleanup();
@@ -40,6 +35,15 @@ HeteroSchedulerWrapper::~HeteroSchedulerWrapper()
 QCStatus_e HeteroSchedulerWrapper::Initialize( const std::string &clientName )
 {
     QCStatus_e status = QC_STATUS_OK;
+
+    QC_TRACE_INIT( [&]() {
+        std::ostringstream oss;
+        oss << "{";
+        oss << "\"name\": \"" << clientName << "\", ";
+        oss << "\"processor\": \"HeteroScheduler\"";
+        oss << "}";
+        return oss.str();
+    }() );
 
     if ( m_bInitialized )
     {
@@ -137,8 +141,11 @@ QCStatus_e HeteroSchedulerWrapper::RegisterVertex( const std::vector<SampleIF *>
                 {
                     std::function<int( const std::uint32_t *, std::size_t )> run_cb;
 
-                    run_cb = [cb]( const std::uint32_t *rids, std::size_t count ) {
+                    run_cb = [this, cb, sampleName = std::string( matchingSample->GetName() )](
+                                     const std::uint32_t *rids, std::size_t count ) {
+                        QC_TRACE_BEGIN( sampleName, {} );
                         cb( rids, count );
+                        QC_TRACE_END( sampleName, {} );
                         return 0;
                     };
 

@@ -10,8 +10,8 @@
 #include <vector>
 #pragma weak remote_session_control
 #include "AEEStdErr.h"
-#include <remote.h>
 #include "FadasIfaceSafe.hpp"
+#include <remote.h>
 extern "C"
 {
 #include "fastrpc_api.h"
@@ -56,6 +56,9 @@ using namespace QC::Memory;
 #ifndef NSP_CORES_ID_MAX
 #define NSP_CORES_ID_MAX 3
 #endif
+
+
+#define QC_AEE_ENOSUCHMAP 0x80000448
 
 typedef FadasError_e ( *FuncFadasInitGPU_t )( const char *licenseKey );
 typedef FadasError_e ( *FuncFadasDeInitGPU_t )( void );
@@ -115,7 +118,7 @@ private:
                                  uint32_t bufSize, uint32_t bufOffset, uint32_t batch );
     int32_t RegisterImage( const ImageDescriptor_t &imageDesc, FadasBufType_e bufferType );
     int32_t RegisterTensor( const TensorDescriptor_t &tensorDesc, FadasBufType_e bufferType );
-#if ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
     QCStatus_e GetDomain( QCProcessorType_e processor, uint32_t coreId, fastrpc_domain &domain );
 #endif
 

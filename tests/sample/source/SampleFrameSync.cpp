@@ -3,6 +3,9 @@
 
 
 #include "QC/sample/SampleFrameSync.hpp"
+#include "TimestampSync.hpp"
+
+#include <algorithm>
 
 namespace QC
 {
@@ -26,12 +29,31 @@ void SampleFrameSync::RunnableCallback( const std::uint32_t *rids, std::size_t c
 }
 #endif
 
+QCStatus_e SampleFrameSync::WaitReady()
+{
+    QCStatus_e ret = QC_STATUS_OK;
+
+    /* m_waitReadyIndices is populated in ParseConfig: the customer-specified
+     * subset, or all inputs when not configured. */
+    for ( size_t k = 0; ( k < m_waitReadyIndices.size() ) && ( QC_STATUS_OK == ret ); k++ )
+    {
+        uint32_t idx = m_waitReadyIndices[k];
+        ret = m_subs[idx].WaitUntilFrame( 1000 );
+        if ( QC_STATUS_OK != ret )
+        {
+            QC_ERROR( "input %u not ready after 1000 ms", idx );
+        }
+    }
+
+    return ret;
+}
+
 QCStatus_e SampleFrameSync::ParseConfig( SampleConfig_t &config )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    m_number = Get( config, "number", 2 );
-    if ( m_number < 2 )
+    m_number = Get( config, "number", 1 );
+    if ( m_number < 1 )
     {
         QC_ERROR( "invalid number = %u\n", m_number );
         ret = QC_STATUS_BAD_ARGUMENTS;
@@ -53,6 +75,30 @@ QCStatus_e SampleFrameSync::ParseConfig( SampleConfig_t &config )
     std::vector<uint32_t> perms;
     m_perms = Get( config, "perms", perms );
 
+    /* Inputs to NOT wait on in WaitReady(). "skip_wait_ready" lists the input
+     * indices to skip (e.g. "0,3" => don't block on input 0 and 3). When not
+     * specified, wait on all inputs. m_waitReadyIndices ends up as
+     * {all inputs} - {skipped}. */
+    std::vector<uint32_t> skip;
+    skip = Get( config, "skip_wait_ready", skip );
+    for ( auto idx : skip )
+    {
+        if ( idx >= m_number )
+        {
+            QC_ERROR( "skip_wait_ready entry %" PRIu32 " out of range (number=%u)\n", idx,
+                      m_number );
+            ret = QC_STATUS_BAD_ARGUMENTS;
+        }
+    }
+    m_waitReadyIndices.clear();
+    for ( uint32_t i = 0; i < m_number; i++ )
+    {
+        if ( std::find( skip.begin(), skip.end(), i ) == skip.end() )
+        {
+            m_waitReadyIndices.push_back( i );
+        }
+    }
+
     m_outputTopicName = Get( config, "output_topic", "" );
     if ( "" == m_outputTopicName )
     {
@@ -66,11 +112,18 @@ QCStatus_e SampleFrameSync::ParseConfig( SampleConfig_t &config )
     {
         m_syncMode = FRAME_SYNC_MODE_WINDOW;
     }
+    else if ( "buffer_timestamp" == syncModeStr )
+    {
+        m_syncMode = FRAME_SYNC_MODE_BUFFER_TIMESTAMP;
+    }
     else
     {
         QC_ERROR( "invalid mode %s\n", syncModeStr.c_str() );
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
+
+    m_timestampThresholdMs = Get( config, "timestamp_threshold_ms", (uint32_t) 10 );
+    m_queueDepth = Get( config, "queue_depth", (uint32_t) 1 );
 
     return ret;
 }
@@ -88,9 +141,11 @@ QCStatus_e SampleFrameSync::Init( std::string name, SampleConfig_t &config )
     if ( QC_STATUS_OK == ret )
     {
         m_subs.resize( m_number );
+        uint32_t queueDepth = m_queueDepth;
         for ( uint32_t i = 0; ( i < m_number ) && ( QC_STATUS_OK == ret ); i++ )
         {
-            ret = m_subs[i].Init( name + "_" + std::to_string( i ), m_inputTopicNames[i] );
+            ret = m_subs[i].Init( name + "_" + std::to_string( i ), m_inputTopicNames[i],
+                                  queueDepth );
         }
     }
 
@@ -115,6 +170,10 @@ QCStatus_e SampleFrameSync::Start()
         {
             m_thread = std::thread( &SampleFrameSync::threadWindowMain, this );
         }
+        else if ( FRAME_SYNC_MODE_BUFFER_TIMESTAMP == m_syncMode )
+        {
+            m_thread = std::thread( &SampleFrameSync::threadBufferTimestampMain, this );
+        }
 #ifdef QC_ENABLE_HS
     }
 #endif
@@ -123,6 +182,18 @@ QCStatus_e SampleFrameSync::Start()
 }
 
 void SampleFrameSync::Execute()
+{
+    if ( FRAME_SYNC_MODE_BUFFER_TIMESTAMP == m_syncMode )
+    {
+        ExecuteBufferTimestamp();
+    }
+    else
+    {
+        ExecuteWindowSync();
+    }
+}
+
+void SampleFrameSync::ExecuteWindowSync()
 {
     QCStatus_e ret;
     uint64_t timeoutMs = (uint64_t) m_windowMs;
@@ -168,40 +239,7 @@ void SampleFrameSync::Execute()
         }
         if ( framesList.size() == (size_t) m_number )
         {
-            DataFrames_t outFrames;
-            for ( auto &frames : framesList )
-            {
-                for ( auto &frame : frames.frames )
-                {
-                    outFrames.Add( frame );
-                }
-            }
-            if ( ( m_perms.size() > 0 ) && ( m_perms.size() <= outFrames.frames.size() ) )
-            {
-                DataFrames_t newFrames;
-                for ( auto i : m_perms )
-                {
-                    if ( i < outFrames.frames.size() )
-                    {
-                        newFrames.Add( outFrames.frames[i] );
-                    }
-                    else
-                    {
-                        QC_ERROR( "perms index %" PRIu32 " out of range %" PRIu64, i,
-                                  outFrames.frames.size() );
-                        ret = QC_STATUS_OUT_OF_BOUND;
-                        break;
-                    }
-                }
-                if ( QC_STATUS_OK == ret )
-                {
-                    m_pub.Publish( newFrames );
-                }
-            }
-            else
-            {
-                m_pub.Publish( outFrames );
-            }
+            PublishFrames( framesList, frameId );
             PROFILER_END();
             TRACE_END( frameId );
         }
@@ -214,11 +252,158 @@ void SampleFrameSync::Execute()
 #endif
 }
 
+void SampleFrameSync::ExecuteBufferTimestamp()
+{
+    /*
+     * BUFFER_TIMESTAMP SYNC — OVERVIEW
+     * =================================
+     *
+     * Each camera's DataSubscriber holds a ring of the last `queue_depth` frames
+     * (config key "queue_depth", default 1).  Peek() returns a non-consuming
+     * snapshot ordered oldest→newest.
+     *
+     * Goal: pick one frame per camera so that max_ts − min_ts is minimised.
+     * Implemented via FindMinSpreadIndices() — see TimestampSync.hpp for the
+     * full algorithm description, complexity analysis, and worked example.
+     *
+     * ── queue_depth=1 (degenerate case) ────────────────────────────────────────
+     *
+     *   Each camera has exactly one buffered frame.  The window holds a single
+     *   candidate per camera; the max-camera pointer is already at 0, so the
+     *   loop exits immediately after the initial evaluation.
+     *
+     * ── queue_depth=2+ (general case) ──────────────────────────────────────────
+     *
+     * ── Example: 3 cameras, queue_depth=3, 30ms frame gap, timestamps in µs ───
+     *
+     *   Cam 0 buffer:  idx[0]=100000  idx[1]=130000  idx[2]=160000  (oldest→newest, 30ms gap)
+     *   Cam 1 buffer:  idx[0]=103000  idx[1]=133000  idx[2]=163000  (3ms late,  30ms gap)
+     *   Cam 2 buffer:  idx[0]=098000  idx[1]=128000                 (2ms early, only 2 arrived)
+     *
+     *   Step 0  ptrs=[2,2,1]  spread=35ms
+     *   Step 1  max=cam1→ptr1=1  spread=32ms  ✓
+     *   Step 2  max=cam0→ptr0=1  spread= 5ms  ✓  ← done (≤ threshold)
+     *
+     *   Result: ptrs=[1,1,1], spread=5ms → freshest frame set with minimum spread
+     */
+
+    /* --- Step 1: Peek all subscribers — non-consuming snapshot ----------- */
+    std::vector<std::vector<DataFrames_t>> camFrames( m_number );
+    bool allReady = true;
+
+    for ( uint32_t i = 0; ( i < m_number ) && allReady; i++ )
+    {
+        m_subs[i].Peek( camFrames[i] );
+        if ( camFrames[i].empty() )
+        {
+            QC_ERROR( "cam %u peek returned no frames", i );
+            allReady = false;
+        }
+    }
+
+    if ( true == allReady )
+    {
+        uint64_t frameId = camFrames[0].back().FrameId( 0 );
+        PROFILER_BEGIN();
+        TRACE_BEGIN( frameId );
+
+        uint64_t threshold = (uint64_t) m_timestampThresholdMs * 1000ULL; /* ms → µs */
+
+        /* --- Step 2: Sliding-window search for minimum timestamp spread ---- */
+        std::vector<std::vector<uint64_t>> timestamps( m_number );
+        for ( uint32_t i = 0; i < m_number; i++ )
+        {
+            timestamps[i].reserve( camFrames[i].size() );
+            for ( auto &f : camFrames[i] )
+            {
+                timestamps[i].push_back( f.Timestamp( 0 ) );
+            }
+        }
+
+        std::vector<size_t> bestSel;
+        uint64_t bestSpread = FindMinSpreadIndices( timestamps, threshold, bestSel );
+
+        /* --- Step 3: Assemble and publish the best-matched frame set ----- */
+        QC_DEBUG( "buffer_timestamp: spread=%" PRIu64 " us (threshold=%" PRIu32 " ms)\n",
+                  bestSpread, m_timestampThresholdMs );
+
+        std::vector<DataFrames_t> selectedFrames;
+        selectedFrames.reserve( m_number );
+        for ( uint32_t i = 0; i < m_number; i++ )
+        {
+            selectedFrames.push_back( camFrames[i][bestSel[i]] );
+        }
+        PublishFrames( selectedFrames, frameId );
+        PROFILER_END();
+        TRACE_END( frameId );
+    }
+}
+
+void SampleFrameSync::PublishFrames( std::vector<DataFrames_t> &selectedFrames, uint64_t frameId )
+{
+    DataFrames_t outFrames;
+    for ( auto &frames : selectedFrames )
+    {
+        for ( auto &frame : frames.frames )
+        {
+            outFrames.Add( frame );
+        }
+    }
+
+    QCStatus_e ret = QC_STATUS_OK;
+    if ( ( m_perms.size() > 0 ) && ( m_perms.size() <= outFrames.frames.size() ) )
+    {
+        DataFrames_t newFrames;
+        for ( auto idx : m_perms )
+        {
+            if ( idx < outFrames.frames.size() )
+            {
+                newFrames.Add( outFrames.frames[idx] );
+            }
+            else
+            {
+                QC_ERROR( "perms index %" PRIu32 " out of range %" PRIu64, idx,
+                          outFrames.frames.size() );
+                ret = QC_STATUS_OUT_OF_BOUND;
+                break;
+            }
+        }
+        if ( QC_STATUS_OK == ret )
+        {
+            m_pub.Publish( newFrames );
+        }
+    }
+    else
+    {
+        m_pub.Publish( outFrames );
+    }
+}
+
+void SampleFrameSync::threadBufferTimestampMain()
+{
+    WaitReady();
+    uint64_t windowNs = m_windowMs * 1000000;
+
+
+    while ( false == m_stop )
+    {
+        auto cycleStart = std::chrono::steady_clock::now();
+        ExecuteBufferTimestamp();
+        uint64_t elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                   std::chrono::steady_clock::now() - cycleStart )
+                                   .count();
+        if ( elapsed < windowNs )
+        {
+            std::this_thread::sleep_for( std::chrono::nanoseconds( windowNs - elapsed ) );
+        }
+    }
+}
+
 void SampleFrameSync::threadWindowMain()
 {
     while ( false == m_stop )
     {
-        Execute();
+        ExecuteWindowSync();
     }
 }
 

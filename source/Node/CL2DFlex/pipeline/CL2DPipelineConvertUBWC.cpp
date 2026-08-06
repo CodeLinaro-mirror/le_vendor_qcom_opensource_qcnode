@@ -11,7 +11,7 @@ namespace Node
 
 CL2DPipelineConvertUBWC::CL2DPipelineConvertUBWC() {}
 
-CL2DPipelineConvertUBWC::~CL2DPipelineConvertUBWC() {}
+CL2DPipelineConvertUBWC::~CL2DPipelineConvertUBWC() = default;
 
 QCStatus_e CL2DPipelineConvertUBWC::Init(
         uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig, OpenclSrv *pOpenclSrvObj,

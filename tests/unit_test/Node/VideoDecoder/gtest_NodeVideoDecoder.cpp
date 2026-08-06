@@ -1,10 +1,11 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-#include <gtest/gtest.h>
+#include <MMTimer.h>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <gtest/gtest.h>
 #include <malloc.h>
 #include <stdio.h>
 #include <thread>
@@ -90,13 +91,17 @@ extern "C"
     // Near other globals:
     static std::atomic<int> g_set_buffer_out_calls{ 0 };
 
+    // Fail the Nth (1-based) SET_PROPERTY ioctl to exercise InitDrvProperty's
+    // mid-sequence `if (QC_STATUS_OK == ret)` false edges. 0 = never fail.
+    static std::atomic<int> g_set_prop_calls{ 0 };
+    static std::atomic<int> g_fail_set_prop_on{ 0 };
+
     // fast "sleep" so WaitForState/WaitForCmdCompleted do not block
     static std::atomic<int> g_sleep_calls{ 0 };
     int __mockup_MM_Timer_Sleep( unsigned int ms )
     {
         g_sleep_calls++;
-        usleep( ms % 1000 );
-        for ( ; ( ms /= 1000 ); ) usleep( 1000 );
+        (void) MM_Timer_Sleep( ms );
         return 0;
     }
 
@@ -230,6 +235,12 @@ extern "C"
             case VIDC_IOCTL_SET_PROPERTY:
             {
                 if ( !in /*|| in_len < sizeof(vidc_drv_property_type)*/ ) return VIDC_ERR_BAD_PARAM;
+                // Optional fault injection: fail the Nth SET_PROPERTY call.
+                int n = ++g_set_prop_calls;
+                if ( g_fail_set_prop_on != 0 && n == g_fail_set_prop_on )
+                {
+                    return VIDC_ERR_FAIL;
+                }
                 auto *p = reinterpret_cast<vidc_drv_property_type *>( in );
                 if ( p->prop_hdr.prop_id == VIDC_I_BUFFER_REQUIREMENTS )
                 {
@@ -615,6 +626,8 @@ protected:
         g_emit_start_output_done = true;
         g_emit_stop_done = true;
         g_emit_output_reconfig_once = false;
+        g_set_prop_calls = 0;
+        g_fail_set_prop_on = 0;
 
         g_unit_counters = &counters;
 
@@ -1613,6 +1626,115 @@ TEST_F( VideoDecoderTest, FinishOutputReconfig_BreaksOnFirstSubmitFailure )
 
     // Assert: FillBuffer was never called -> loop broke on the first (small) descriptor
     EXPECT_EQ( 0, g_fill_output_calls.load() );
+}
+
+// InitDrvProperty mid-sequence SET_PROPERTY failures. InitDriver issues 5 SET_PROPERTY
+// calls (SESSION_CODEC, FRAME_RATE x2, FRAME_SIZE x2); InitDrvProperty then issues
+// COLOR_FORMAT (#6), DEC_OUTPUT_ORDER (#7), CONT_ON_RECONFIG (#8). Failing each in turn
+// drives the `if (QC_STATUS_OK == ret)` false edges at VideoDecoder.cpp:249/260/269.
+TEST_F( VideoDecoderTest, InitDrvProperty_ColorFormatSetFails )
+{
+    g_fail_set_prop_on = 6;   // COLOR_FORMAT
+    auto init = MakeInit();
+    EXPECT_NE( QC_STATUS_OK, dec.Initialize( init ) );
+    EXPECT_EQ( QC_OBJECT_STATE_ERROR, dec.GetState() );
+}
+
+TEST_F( VideoDecoderTest, InitDrvProperty_DecOrderSetFails )
+{
+    g_fail_set_prop_on = 7;   // DEC_OUTPUT_ORDER
+    auto init = MakeInit();
+    EXPECT_NE( QC_STATUS_OK, dec.Initialize( init ) );
+    EXPECT_EQ( QC_OBJECT_STATE_ERROR, dec.GetState() );
+}
+
+TEST_F( VideoDecoderTest, InitDrvProperty_ContOnReconfigSetFails )
+{
+    g_fail_set_prop_on = 8;   // CONT_ON_RECONFIG
+    auto init = MakeInit();
+    EXPECT_NE( QC_STATUS_OK, dec.Initialize( init ) );
+    EXPECT_EQ( QC_OBJECT_STATE_ERROR, dec.GetState() );
+}
+
+// ValidateConfig boundary arms: min/max width and height, and P010 output (the
+// valid non-NV12 decoder output) — covers VideoDecoder.cpp:290-312.
+TEST( Decoder_ValidateConfig, HeightBelowMin_Fails )
+{
+    QC::Node::VideoDecoder dec;
+    auto cfg = BuildCfgJson( 256, 64, 30, "h264", "nv12", true, true, 4, 4, "HLow" );
+    QCNodeInit_t init{ .config = cfg, .callback = TestOnDoneCb };
+    EXPECT_NE( QC_STATUS_OK, dec.Initialize( init ) );
+}
+
+TEST( Decoder_ValidateConfig, HeightAboveMax_Fails )
+{
+    QC::Node::VideoDecoder dec;
+    auto cfg = BuildCfgJson( 256, 9000, 30, "h264", "nv12", true, true, 4, 4, "HHigh" );
+    QCNodeInit_t init{ .config = cfg, .callback = TestOnDoneCb };
+    EXPECT_NE( QC_STATUS_OK, dec.Initialize( init ) );
+}
+
+TEST( Decoder_ValidateConfig, WidthAboveMax_Fails )
+{
+    QC::Node::VideoDecoder dec;
+    auto cfg = BuildCfgJson( 9000, 720, 30, "h264", "nv12", true, true, 4, 4, "WHigh" );
+    QCNodeInit_t init{ .config = cfg, .callback = TestOnDoneCb };
+    EXPECT_NE( QC_STATUS_OK, dec.Initialize( init ) );
+}
+
+TEST_F( VideoDecoderTest, Initialize_P010_Output_Succeeds )
+{
+    // P010 is the valid non-NV12 decoder output → ValidateConfig P010 arm + GetVidcFormat P010.
+    DataTree dt;
+    dt.Set<std::string>( "name", "UNIT_VideoDecoder_P010" );
+    dt.Set<uint32_t>( "id", 1 );
+    dt.Set<std::string>( "logLevel", "ERROR" );
+    dt.Set<uint32_t>( "width", 1280 );
+    dt.Set<uint32_t>( "height", 720 );
+    dt.Set<bool>( "bInputDynamicMode", true );
+    dt.Set<bool>( "bOutputDynamicMode", true );
+    dt.Set<uint32_t>( "numInputBufferReq", 4 );
+    dt.Set<uint32_t>( "numOutputBufferReq", 4 );
+    dt.Set<uint32_t>( "frameRate", 30 );
+    dt.Set<std::string>( "inputImageFormat", "h265" );
+    dt.Set<std::string>( "outputImageFormat", "p010" );
+    DataTree root;
+    root.Set( "static", dt );
+    QCNodeInit_t init{};
+    init.config = root.Dump();
+    init.callback = TestOnDoneCb;
+    EXPECT_EQ( QC_STATUS_OK, dec.Initialize( init ) );
+    EXPECT_EQ( QC_OBJECT_STATE_READY, dec.GetState() );
+}
+
+// EventCallback with a null user callback exercises the `if (m_callback)` false edges
+// (VideoDecoder.cpp:526/539/572) without delivering to a user sink.
+TEST_F( VideoDecoderTest, EventCallback_NoUserCallback_DoesNotDeliver )
+{
+    QCNodeInit_t init{};
+    init.config = cfgJson;
+    init.callback = nullptr;   // no user callback → m_callback is null
+    ASSERT_EQ( QC_STATUS_OK, dec.Initialize( init ) );
+    ASSERT_EQ( QC_STATUS_OK, dec.Start() );
+    ASSERT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
+
+    // A normal error event flows through EventCallback; with m_callback null the
+    // delivery branch is skipped (no crash, no user dispatch).
+    EmitVidcEvent( VIDC_EVT_INFO_OUTPUT_RECONFIG );   // → VIDEO_CODEC_EVT_ERROR (normal error)
+    EXPECT_EQ( QC_OBJECT_STATE_RUNNING, dec.GetState() );
+}
+
+// ProcessFrameDescriptor with a descriptor that carries neither input nor output buffer
+// (both dynamic_casts yield null) → INVALID_BUF (VideoDecoder.cpp:442/448/450 true edge).
+TEST_F( VideoDecoderTest, ProcessFrameDescriptor_NoBuffers_InvalidBuf )
+{
+    auto init = MakeInit();
+    ASSERT_EQ( QC_STATUS_OK, dec.Initialize( init ) );
+    ASSERT_EQ( QC_STATUS_OK, dec.Start() );
+
+    NodeFrameDescriptor empty( 0 );
+    empty.Clear();
+    EXPECT_NE( QC_STATUS_OK, dec.ProcessFrameDescriptor( empty ) );
 }
 
 #ifndef GTEST_QCNODE

@@ -19,7 +19,7 @@ VoxelizationImpl::VoxelizationImpl( QCNodeID_t &nodeId, Logger &logger )
       m_state( QC_OBJECT_STATE_INITIAL )
 {}
 
-VoxelizationImpl::~VoxelizationImpl() {}
+VoxelizationImpl::~VoxelizationImpl() = default;
 
 QCStatus_e
 VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
@@ -41,6 +41,14 @@ VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
             case QC_PROCESSOR_HTP1:
                 processor = "htp1";
                 break;
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+            case QC_PROCESSOR_HTP2:
+                processor = "htp2";
+                break;
+            case QC_PROCESSOR_HTP3:
+                processor = "htp3";
+                break;
+#endif
             case QC_PROCESSOR_CPU:
                 processor = "cpu";
                 break;
@@ -832,7 +840,7 @@ QCStatus_e VoxelizationImpl::DeRegisterBuffer( QCBufferDescriptorBase_t &buffer 
     }
     QC_INFO( "Buffer(%p) deregister", buffer.pBuf );
 
-    m_bufferMap.erase( bufferHandle );
+    (void) m_bufferMap.erase( bufferHandle );
 
     return ret;
 }

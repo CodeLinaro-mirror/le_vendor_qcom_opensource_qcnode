@@ -12,6 +12,15 @@ DataTree::DataTree( const json &js ) : m_json( js ) {}
 
 DataTree::DataTree( const DataTree &rhs ) : m_json( rhs.m_json ) {}
 
+DataTree& DataTree::operator=( const DataTree &rhs )
+{
+    if ( this != &rhs )
+    {
+        m_json = rhs.m_json;
+    }
+    return *this;
+}
+
 DataTree::~DataTree() {}
 
 QCStatus_e DataTree::Load( const std::string &context, std::string &errors )
@@ -294,6 +303,10 @@ QCTensorType_e DataTree::GetTensorType( const std::string key, QCTensorType_e dv
         {
             retV = QC_TENSOR_TYPE_UFIXED_POINT_32;
         }
+        else if ( "bool8" == tensorType )
+        {
+            retV = QC_TENSOR_TYPE_BOOL_8;
+        }
         else
         {
             retV = QC_TENSOR_TYPE_MAX;
@@ -538,6 +551,9 @@ void DataTree::SetTensorType( const std::string key, QCTensorType_e kv )
             break;
         case QC_TENSOR_TYPE_UFIXED_POINT_32:
             tensorType = "ufixed_point32";
+            break;
+        case QC_TENSOR_TYPE_BOOL_8:
+            tensorType = "bool8";
             break;
         default:
             tensorType = "unknown";

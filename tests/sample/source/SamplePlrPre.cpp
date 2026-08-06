@@ -96,7 +96,12 @@ QCStatus_e SamplePlrPre::ParseConfig( SampleConfig_t &config )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
+    m_bLatest = Get( config, "latest", true );
+
     m_processor = m_config.GetProcessorType( "processorType", QC_PROCESSOR_CPU );
+    m_rsmPriority = Get( config, "rsm_priority", 0 );
+    uint32_t coreId = Get( config, "core_id", 0 );
+    m_coreIds = { coreId };
 
     return ret;
 }
@@ -319,7 +324,7 @@ QCStatus_e SamplePlrPre::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_processor );
+        ret = SampleIF::Init( m_processor, m_rsmPriority, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )
@@ -329,7 +334,7 @@ QCStatus_e SamplePlrPre::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = m_sub.Init( name, m_inputTopicName );
+        ret = m_sub.Init( name, m_inputTopicName, 2, m_bLatest );
     }
 
     if ( QC_STATUS_OK == ret )

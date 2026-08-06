@@ -73,6 +73,7 @@ private:
 
     std::string m_inputTopicName;
     std::string m_outputTopicName;
+    bool m_bLatest = true;
 
     QCAllocationCache_e m_bufferCache = QC_CACHEABLE;
 

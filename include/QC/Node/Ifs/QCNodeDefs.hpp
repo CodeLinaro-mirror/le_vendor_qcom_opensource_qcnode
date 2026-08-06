@@ -35,13 +35,13 @@ typedef struct QCNodeID
     /**
      * @var type
      * @brief The ID of the QCNode. */
-    QCNodeType_e type;
+    QCNodeType_e type{ QC_NODE_TYPE_RESERVED };
 
     /**
      * @var id
      * @brief The unique id of the QCNode.
      * The id values are zero based countinuous value*/
-    uint8_t id;
+    uint8_t id{ 0U };
 } QCNodeID_t;
 
 /**

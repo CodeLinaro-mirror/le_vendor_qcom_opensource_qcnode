@@ -59,11 +59,20 @@ static void LoadRealSvcl()
 template <typename Fn>
 Fn LoadSym( const char* sym )
 {
+    // Try RTLD_NEXT first: finds the real implementation in libsvcl.so by searching
+    // shared libraries loaded after this interposer. This is the standard Linux
+    // interpose pattern and avoids depending on a specific library file name.
+    dlerror();
+    void* p = dlsym( RTLD_NEXT, sym );
+    (void)dlerror();
+    if ( p != nullptr )
+        return reinterpret_cast<Fn>( p );
+    // Fallback: explicit dlopen by name (original path, preserved for QNX compatibility).
     std::call_once( g_svclOnce, LoadRealSvcl );
     if ( !g_svclHandle )
         return nullptr;
     dlerror();
-    void* p = dlsym( g_svclHandle, sym );
+    p = dlsym( g_svclHandle, sym );
     (void)dlerror();
     return reinterpret_cast<Fn>( p );
 }
@@ -302,9 +311,15 @@ SV::LME* SV::LME::Create( SV::Session*              pSession,
     static Fn realFn = nullptr;
     if ( !realFn )
     {
-        // Mangled name: nm -D coverage/libsvcl.so | grep 'LME.*Create'
+        // LME::Create takes std::string, whose mangled name differs between
+        // QNX/libc++ (NSt3__2) and Linux/libstdc++ (NSt7__cxx11).
+#ifdef __QNX__
         realFn = LoadSym<Fn>(
             "_ZN2SV3LME6CreateEPNS_7SessionERKNS_16FeatureConfigMapINS0_8ConfigIdEEEPFvNS_6StatusERNS0_6OutputERSA_PS0_PvSF_EPKvNSt3__212basic_stringIcNSK_11char_traitsIcEENSK_9allocatorIcEEEE" );
+#else
+        realFn = LoadSym<Fn>(
+            "_ZN2SV3LME6CreateEPNS_7SessionERKNS_16FeatureConfigMapINS0_8ConfigIdEEEPFvNS_6StatusERNS0_6OutputESA_PS0_PvSC_EPKvNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE" );
+#endif
     }
     if ( !realFn )
         return nullptr;

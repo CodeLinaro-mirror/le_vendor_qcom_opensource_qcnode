@@ -16,6 +16,7 @@
 
 #include "QC/Common/Types.hpp"
 #include "QC/Infras/Log/Logger.hpp"
+#include "QC/Infras/NodeTrace/NodeTrace.hpp"
 #include "cf_orchestrator.h"
 #include <functional>
 #include <map>
@@ -28,6 +29,7 @@ namespace QC
 namespace sample
 {
 
+using namespace QC::Node;
 /**
  * @class HeteroSchedulerWrapper
  * @brief Utility class for managing HeteroScheduler client registration.
@@ -64,11 +66,9 @@ public:
     using VertexCallback = std::function<void( const std::uint32_t *, std::size_t )>;
 
     /**
-     * @brief Get the singleton instance of HeteroSchedulerWrapper.
-     *
-     * @return Reference to the singleton instance
+     * @brief Constructor.
      */
-    static HeteroSchedulerWrapper &getInstance();
+    HeteroSchedulerWrapper();
 
     /**
      * @brief Destructor - ensures proper cleanup.
@@ -159,15 +159,10 @@ public:
     const std::string &GetClientName() const { return m_clientName; }
 
 private:
-    /**
-     * @brief Private constructor for singleton pattern.
-     */
-    HeteroSchedulerWrapper();
-
-    std::string m_clientName;                       ///< Client identifier
-    bool m_bInitialized;                            ///< Initialization state
-    bool m_bRunning;                                ///< Running state
-    std::vector<std::string> m_vertNames;           ///< Name of node vertices
+    std::string m_clientName;               ///< Client identifier
+    bool m_bInitialized;                    ///< Initialization state
+    bool m_bRunning;                        ///< Running state
+    std::vector<std::string> m_vertNames;   ///< Name of node vertices
 
     /**
      * @brief Internal cleanup helper.
@@ -175,6 +170,8 @@ private:
     void Cleanup();
 
     QC_DECLARE_LOGGER();
+
+    QC_DECLARE_NODETRACE();
 };
 
 #endif   // QC_HETERO_SCHEDULER_WRAPPER_HPP

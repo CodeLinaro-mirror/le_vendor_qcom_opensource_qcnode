@@ -65,6 +65,22 @@ QCStatus_e RemapConfig::VerifyStaticConfig( DataTree &dt, std::string &errors )
         }
     }
 
+    /* Validate cpuThreadsAffinity: all core IDs must be non-negative integers */
+    if ( dt.Exists( "cpuThreadsAffinity" ) )
+    {
+        std::vector<int32_t> affinity =
+                dt.Get<int32_t>( "cpuThreadsAffinity", std::vector<int32_t>{} );
+        for ( int32_t coreId : affinity )
+        {
+            if ( coreId < 0 )
+            {
+                errors += "cpuThreadsAffinity contains invalid (negative) core ID, ";
+                status = QC_STATUS_BAD_ARGUMENTS;
+                break;
+            }
+        }
+    }
+
     std::vector<DataTree> globalBufferIdMap;
     status2 = dt.Get( "globalBufferIdMap", globalBufferIdMap );
     if ( QC_STATUS_OUT_OF_BOUND == status2 )
@@ -177,6 +193,9 @@ QCStatus_e RemapConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
 
         config.bDeRegisterAllBuffersWhenStop =
                 dt.Get<bool>( "deRegisterAllBuffersWhenStop", false );
+
+        config.params.cpuThreadsAffinity =
+                dt.Get<int32_t>( "cpuThreadsAffinity", std::vector<int32_t>{} );
     }
     else
     {

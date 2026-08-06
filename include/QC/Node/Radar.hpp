@@ -6,7 +6,6 @@
 
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
 #include "QC/Node/NodeBase.hpp"
-#include "RadarIface.hpp"
 
 #include <cinttypes>
 #include <cmath>
@@ -21,6 +20,17 @@ namespace QC
 {
 namespace Node
 {
+
+/**
+ * @brief Represents the Radar implementation used by Node Radar.
+ *
+ * This class encapsulates the specific implementation details of the
+ * Radar processing that are internal to Node Radar.
+ *
+ * It serves as a central reference for components that need to interact with
+ * the underlying Radar implementation.
+ */
+class RadarImpl;
 
 /** @brief Radar Processing Service Configuration */
 typedef struct
@@ -136,8 +146,10 @@ typedef struct RadarMonitorConfig : public QCNodeMonitoringBase_t
 class RadarMonitoringIfs : public QCNodeMonitoringIfs
 {
 public:
-    RadarMonitoringIfs() {}
-    ~RadarMonitoringIfs() {}
+    RadarMonitoringIfs() = default;
+    RadarMonitoringIfs( const RadarMonitoringIfs & ) = default;
+    RadarMonitoringIfs& operator=( const RadarMonitoringIfs& ) = default;
+    ~RadarMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
     {
@@ -165,13 +177,13 @@ public:
      * @brief Radar Constructor
      * @return None
      */
-    Radar() : m_configIfs( m_logger ){};
+    Radar();
 
     /**
      * @brief Radar Destructor
      * @return None
      */
-    ~Radar(){};
+    ~Radar();
 
     /**
      * @brief Initializes Node Radar.
@@ -234,7 +246,7 @@ private:
 
 private:
     Radar_Config_t m_config;
-    QC::Library::RadarIface m_radarIface; /**< Radar processing interface */
+    std::unique_ptr<RadarImpl> m_pImpl; /**< Radar processing interface */
     std::unordered_map<void *, uint64_t> m_registeredInputBuffers;
     std::unordered_map<void *, uint64_t> m_registeredOutputBuffers;
 

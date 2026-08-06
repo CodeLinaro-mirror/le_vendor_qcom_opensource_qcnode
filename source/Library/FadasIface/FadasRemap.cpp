@@ -18,7 +18,8 @@ QCStatus_e FadasRemap::SetRemapParams( uint32_t numOfInputs, uint32_t outputWidt
                                        uint32_t outputHeight, QCImageFormat_e outputFormat,
                                        FadasNormlzParams_t normlzR, FadasNormlzParams_t normlzG,
                                        FadasNormlzParams_t normlzB, bool bEnableUndistortion,
-                                       bool bEnableNormalize )
+                                       bool bEnableNormalize,
+                                       const std::vector<int32_t> &cpuThreadsAffinity )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
@@ -52,6 +53,7 @@ QCStatus_e FadasRemap::SetRemapParams( uint32_t numOfInputs, uint32_t outputWidt
         m_normlz[2] = normlzB;
         m_bEnableUndistortion = bEnableUndistortion;
         m_bEnableNormalize = bEnableNormalize;
+        m_cpuThreadsAffinity = cpuThreadsAffinity;
     }
 
     return ret;
@@ -225,7 +227,11 @@ QCStatus_e FadasRemap::CreatRemapTable( uint32_t inputId, uint32_t mapWidth, uin
     }
     else
     {
-        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+             || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+        )
         {
             FadasIface_FadasRemapPipeline_e pipeline = RemapGetPipelineDSP(
                     m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
@@ -369,7 +375,11 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
     }
     else
     {
-        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+             || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+        )
         {
             FadasIface_FadasRemapPipeline_e pipeline = RemapGetPipelineDSP(
                     m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
@@ -400,7 +410,16 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
         }
         else
         {
-            int32_t pThreadsAffinity[] = { 0, 1, 2, 3 };
+            std::vector<int32_t> threadsAffinity = m_cpuThreadsAffinity;
+            if ( threadsAffinity.empty() )
+            {
+/* Use platform default values if not configured via JSON */
+#if defined( __linux__ )
+                threadsAffinity = { 12, 13, 14, 15 };
+#else
+                threadsAffinity = { 0, 1, 2, 3 };
+#endif
+            }
             FadasRemapPipeline_e pipeline = RemapGetPipelineCPU(
                     m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
             if ( FADAS_REMAP_PIPELINE_MAX == pipeline )
@@ -410,7 +429,9 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
             }
             else
             {
-                void *workerPtr = FadasRemap_CreateWorkers( 4, pThreadsAffinity, pipeline );
+                void *workerPtr =
+                        FadasRemap_CreateWorkers( static_cast<int32_t>( threadsAffinity.size() ),
+                                                  threadsAffinity.data(), pipeline );
                 if ( workerPtr == nullptr )
                 {
                     QC_ERROR( "Failed to create a remap worker for CPU!" );
@@ -780,7 +801,11 @@ QCStatus_e FadasRemap::RemapRun( QCFrameDescriptorNodeIfs &frameDesc )
 
     if ( QC_STATUS_OK == ret )
     {
-        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+             || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+        )
         {
             ret = RemapRunDSP( frameDesc );
         }
@@ -799,7 +824,11 @@ QCStatus_e FadasRemap::DestroyWorkers()
 
     for ( int i = 0; i < QC_MAX_INPUTS; i++ )
     {
-        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+             || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+        )
         {
             if ( 0 != m_workerPtrsDSP[i] )
             {
@@ -839,7 +868,11 @@ QCStatus_e FadasRemap::DestroyMap()
 
     for ( int i = 0; i < QC_MAX_INPUTS; i++ )
     {
-        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+        if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+             || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+        )
         {
             if ( 0 != m_remapPtrsDSP[i] )
             {

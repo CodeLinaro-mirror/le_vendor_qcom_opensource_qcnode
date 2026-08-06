@@ -12,8 +12,11 @@ namespace QC
 typedef struct QCNodeConfigBase
 {
     virtual ~QCNodeConfigBase() = default;
-    QCNodeID_t nodeId;
-    uint32_t numOfEntries;
+    QCNodeConfigBase() = default;
+    QCNodeConfigBase( const QCNodeConfigBase & ) = default;
+    QCNodeConfigBase& operator=( const QCNodeConfigBase& ) = default;
+    QCNodeID_t nodeId{};
+    uint32_t numOfEntries{ 0U };
 } QCNodeConfigBase_t;
 
 class QCNodeConfigIfs
@@ -36,6 +39,10 @@ public:
     virtual const QCNodeConfigBase_t &Get() = 0;
 
 protected:
+    QCNodeConfigIfs() = default;
+    QCNodeConfigIfs( const QCNodeConfigIfs & ) = default;
+    QCNodeConfigIfs& operator=( const QCNodeConfigIfs& ) = default;
+    ~QCNodeConfigIfs() = default;
     // In implementation a data member will be placed here from a type
     // which inherits "QCNodeConfigBase_t" as base
 };
