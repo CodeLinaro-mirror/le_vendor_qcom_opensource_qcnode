@@ -13,6 +13,9 @@
 #include <condition_variable>
 #include <stdio.h>
 #include <string>
+#if defined( __linux__ )
+#include <sched.h>
+#endif
 
 using namespace QC::Node;
 using namespace QC::test::utils;
@@ -3130,13 +3133,17 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4a_SocBasedFallback_NoAffinity
  * @brief Scenario 4b: Platform-specific behavior when passing cores [4,5,6,7]
  * @coverage FadasRemap.cpp - CreateRemapWorker: platform-specific core availability
  *
- * Cores [4,5,6,7] behavior differs by platform:
- *   QNX  : cores 4-7 are available → Initialize succeeds (QC_STATUS_OK)
- *   Linux: hardcoded default is {12,13,14,15}; cores 4-7 may NOT exist on the
- *          Linux target → FadasRemap_CreateWorkers may return nullptr → QC_STATUS_FAIL
+ * Cores [4,5,6,7] behavior depends on which cores are actually online at runtime:
+ *   - If all of [4,5,6,7] are available → Initialize succeeds (QC_STATUS_OK)
+ *   - If any of [4,5,6,7] are NOT available → FadasRemap_CreateWorkers returns
+ *     nullptr → QC_STATUS_FAIL
  *
- * @expected QNX:   QC_STATUS_OK
- *           Linux: QC_STATUS_FAIL (cores 4-7 not available on Linux target)
+ * On Linux, availability is checked dynamically via sched_getaffinity() so the
+ * test passes on any device regardless of which CPU cores are online.
+ *
+ * @expected QNX:   QC_STATUS_OK (cores 4-7 always available on QNX target)
+ *           Linux: QC_STATUS_OK  if cores 4-7 are online (e.g. SA8797 with 18 cores)
+ *                  QC_STATUS_FAIL if cores 4-7 are offline
  */
 TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
 {
@@ -3144,7 +3151,6 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
     DataTree dt;
     BuildMinimalCpuConfig( dt );
 
-    /* Cores [4,5,6,7]: valid on QNX, may not exist on Linux (default is {12,13,14,15}) */
     std::vector<int32_t> affinity = { 4, 5, 6, 7 };
     dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
 
@@ -3154,10 +3160,41 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
     QCStatus_e ret = remap.Initialize( config );
     printf( "Scenario4b Initialize ret = %d\n", ret );
 #if defined( __linux__ )
-    EXPECT_EQ( QC_STATUS_FAIL, ret );
+    /* Dynamically check if all requested cores are available on this device. */
+    bool allCoresAvailable = true;
+    cpu_set_t mask;
+    CPU_ZERO( &mask );
+    if ( sched_getaffinity( 0, sizeof( mask ), &mask ) == 0 )
+    {
+        for ( int32_t cpu : affinity )
+        {
+            if ( !CPU_ISSET( cpu, &mask ) )
+            {
+                allCoresAvailable = false;
+                break;
+            }
+        }
+    }
+    else
+    {
+        allCoresAvailable = false;
+    }
+    printf( "Scenario4b: cores [4,5,6,7] all available = %s\n",
+            allCoresAvailable ? "true" : "false" );
+
+    if ( allCoresAvailable )
+    {
+        EXPECT_EQ( QC_STATUS_OK, ret );
+    }
+    else
+    {
+        EXPECT_EQ( QC_STATUS_FAIL, ret );
+    }
 #else
+    /* QNX: cores 4-7 are always available on the target */
     EXPECT_EQ( QC_STATUS_OK, ret );
 #endif
+
     if ( QC_STATUS_OK == ret )
     {
         remap.DeInitialize();
