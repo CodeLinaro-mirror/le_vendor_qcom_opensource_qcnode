@@ -29,7 +29,7 @@ target_link_libraries( CameraSdkForTest QCNodeBase CameraMock )
 
 add_executable( gtest_NodeCamera gtest_NodeCamera.cpp )
 target_include_directories( gtest_NodeCamera PUBLIC ${HEADERS_DIR} ${CMAKE_SYSROOT}/usr/include/system )
-target_link_libraries( gtest_NodeCamera gtest CameraSdkForTest QCNodeTestUtils QCNodeSample camera_metadata )
+target_link_libraries( gtest_NodeCamera gtest CameraSdkForTest QCNodeTestMockCLib QCNodeTestUtils QCNodeSample camera_metadata )
 
 install( TARGETS gtest_NodeCamera DESTINATION bin )
 install( TARGETS CameraMock DESTINATION lib )

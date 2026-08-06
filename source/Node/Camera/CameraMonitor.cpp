@@ -21,7 +21,19 @@ QCStatus_e CameraMonitor::GetOptions( std::string &options )
 
 const QCNodeMonitoringBase_t &CameraMonitor::Get()
 {
-    return m_pCamImpl->GetMonitorConifg();
+    static const CameraImplMonitorConfig_t s_defaultMonitorConfig{};
+    const QCNodeMonitoringBase_t *pMonitorConfig = &s_defaultMonitorConfig;
+
+    if ( nullptr == m_pCamImpl )
+    {
+        QC_ERROR( "CameraImpl not allocated (out of memory)" );
+    }
+    else
+    {
+        pMonitorConfig = &m_pCamImpl->GetMonitorConifg();
+    }
+
+    return *pMonitorConfig;
 }
 
 }   // namespace Node

@@ -9,7 +9,9 @@
 #include <string>
 #include <unistd.h>
 
+#include "CameraImpl.hpp"
 #include "CameraMock.hpp"
+#include "MockCLib.hpp"
 #include "QC/Node/Camera.hpp"
 #include "QC/sample/SharedBufferPool.hpp"
 #include "gtest/gtest.h"
@@ -74,8 +76,6 @@ MockApi_SetFullMockFnc_t g_setFullMockFnc = nullptr;
 MockApi_TriggerEventFnc_t g_triggerEventFnc = nullptr;
 
 // global metadata param
-const uint32_t MAX_METADATA_TAG_NUM = 50;
-const uint32_t MAX_METADATA_TAG_DATA = 65536;
 BufferProps_t g_bufferProp;
 QCarCamBufferList_t g_bufferList;
 uint32_t g_bufferNum = 4;
@@ -6717,6 +6717,317 @@ TEST( Camera, EXCEPTION_Test_ImportBuffers_DuplicateHandle_Mock )
         }
     }
     (void) dupPool.Deinit();
+    (void) DeinitBuffers();
+}
+
+TEST( Camera, ImplAllocFail_NoMem_Mock )
+{
+    /* Fail the first malloc of exactly sizeof(CameraImpl) bytes. new(std::nothrow)
+     * routes through malloc, so this yields nullptr for CameraImpl. */
+    MockC_MallocCtrlSizeAndCount( sizeof( CameraImpl ), 1 );
+    QC::Node::Camera camera;
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, camera.GetState() );
+
+    QCNodeInit_t config;
+    ASSERT_EQ( QC_STATUS_NOMEM, camera.Initialize( config ) );
+    ASSERT_EQ( QC_STATUS_NOMEM, camera.Start() );
+    ASSERT_EQ( QC_STATUS_NOMEM, camera.Stop() );
+    ASSERT_EQ( QC_STATUS_NOMEM, camera.DeInitialize() );
+
+    NodeFrameDescriptor frameDesc( 1 );
+    ASSERT_EQ( QC_STATUS_NOMEM, camera.ProcessFrameDescriptor( frameDesc ) );
+}
+
+TEST( Camera, SetFrameBuffers_FrameDescAllocFail_NoMem_Mock )
+{
+    MockC_ClearAll();
+    (void) DeinitBuffers();
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_imx728_request_nv12.json", NoOpCb );
+    SetFullMockParam();
+    {
+        DataTree fullDt2, staticCfg2;
+        std::string errors2;
+        (void) fullDt2.Load( config.config, errors2 );
+        (void) fullDt2.Get( "static", staticCfg2 );
+        QCStatus_e dbgRet = AllocateFrameBuffers( staticCfg2, config.buffers );
+        fprintf( stderr,
+                 "[DBG_ALLOC] SetFrameBuffers_FrameDescAllocFail: AllocateFrameBuffers ret=%d "
+                 "pools=%zu\n",
+                 dbgRet, g_bufferPools.size() );
+        ASSERT_EQ( QC_STATUS_OK, dbgRet );
+    }
+
+    QC::Node::Camera camera;
+
+    /* streamConfigs[0] has 8 buffer IDs → bufferNum=8; fail the CameraFrameDescriptor_t[8]
+     * malloc. MOCK_NEW_ARRAY_RANGE brackets [sizeof(T)*n, sizeof(T)*n + cookie_upper_bound]
+     * to absorb the ABI-dependent array cookie. */
+    const size_t kFrameBufNum = 8;
+    MockC_MallocCtrlSizeRangeAndCount(
+            MOCK_NEW_ARRAY_RANGE( CameraFrameDescriptor_t, kFrameBufNum ), 1 );
+    QCStatus_e ret = camera.Initialize( config );
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+    (void) DeinitBuffers();
+}
+
+TEST( Camera, SetFrameBuffers_QCarCamFrameBufAllocFail_NoMem_Mock )
+{
+    MockC_ClearAll();
+    (void) DeinitBuffers();
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_imx728_request_nv12.json", NoOpCb );
+    SetFullMockParam();
+    AllocateFrameBuffersForConfig( config );
+
+    QC::Node::Camera camera;
+
+    /* First alloc CameraFrameDescriptor_t[8] succeeds; target the second alloc
+     * QCarCamBuffer_t[8]. Distinct sizeof → distinct window, so the first alloc
+     * is not in range and only the QCarCamBuffer_t[8] alloc fails. */
+    MockC_MallocCtrlSizeRangeAndCount( MOCK_NEW_ARRAY_RANGE( QCarCamBuffer_t, 8 ), 1 );
+    QCStatus_e ret = camera.Initialize( config );
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+    (void) DeinitBuffers();
+}
+
+TEST( Camera, ConfigParseStaticConfig_ImplAllocFail_NoMem_Mock )
+{
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_imx728_request_nv12.json", NoOpCb );
+
+    MockC_MallocCtrlSizeAndCount( sizeof( CameraImpl ), 1 );
+    QC::Node::Camera camera;
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, camera.GetState() );
+
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_NOMEM,
+               camera.GetConfigurationIfs().VerifyAndSet( config.config, errors ) );
+}
+
+TEST( Camera, ConfigGet_ImplAllocFail_Default_Mock )
+{
+    MockC_MallocCtrlSizeAndCount( sizeof( CameraImpl ), 1 );
+    QC::Node::Camera camera;
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, camera.GetState() );
+
+    /* Must return the static default reference without crashing. */
+    const QCNodeConfigBase_t &baseCfg = camera.GetConfigurationIfs().Get();
+    (void) baseCfg;
+}
+
+TEST( Camera, MonitorGet_ImplAllocFail_Default_Mock )
+{
+    MockC_MallocCtrlSizeAndCount( sizeof( CameraImpl ), 1 );
+    QC::Node::Camera camera;
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, camera.GetState() );
+
+    /* Must return the static default reference without crashing. */
+    const QCNodeMonitoringBase_t &baseMon = camera.GetMonitoringIfs().Get();
+    (void) baseMon;
+}
+
+TEST( Camera, RegisterInjectionBufferList_BufDescAllocFail_NoMem_Mock )
+{
+    MockC_ClearAll();
+    (void) DeinitBuffers();
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_isp_injection.json",
+                      NoOpCb );
+    /* Empty header buffer IDs so only the input list is registered — simpler setup */
+    SetConfig( config, "metaDataConfigs[0].InjectionConfig.headerBufferIds",
+               nlohmann::json::array() );
+    SetConfig( config, "metaDataConfigs[0].InjectionConfig.eepromBufferIds",
+               nlohmann::json::array() );
+    SetFullMockParam();
+    AllocateFrameBuffersForConfig( config );
+
+    DataTree staticCfg;
+    {
+        DataTree fullDt;
+        std::string e;
+        fullDt.Load( config.config, e );
+        fullDt.Get( "static", staticCfg );
+    }
+    BufferProps_t localBufProp;
+    localBufProp.size =
+            calculate_camera_metadata_size( MAX_METADATA_TAG_NUM, MAX_METADATA_TAG_DATA );
+    localBufProp.allocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA;
+    localBufProp.cache = QC_CACHEABLE;
+    ASSERT_EQ( QC_STATUS_OK, AllocateMetaDataBuffers( staticCfg, config.buffers, localBufProp ) );
+    ASSERT_EQ( QC_STATUS_OK,
+               AllocateGenericBuffers( "inj_eh", 2, 3840 * 2160 * 2, config.buffers ) );
+
+    QC::Node::Camera camera;
+
+    /* inputBufferIds has 2 entries → BufferDescriptor_t[2]. The same size window
+     * can recur earlier in Initialize, so fire on the first match after arming —
+     * which is the RegisterInjectionBufferList allocation, since we arm right
+     * before Initialize and injection registration is reached first. */
+    MockC_MallocCtrlSizeRangeAndCount( MOCK_NEW_ARRAY_RANGE( BufferDescriptor_t, 2 ), 1 );
+    QCStatus_e ret = camera.Initialize( config );
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    if ( g_controlFnc != nullptr )
+    {
+        for ( int i = 0; i < MOCK_API_MAX; i++ )
+        {
+            g_controlFnc( static_cast<MockAPI_ID_e>( i ), MOCK_CONTROL_API_NONE, nullptr );
+        }
+    }
+    (void) DeinitBuffers();
+}
+
+TEST( Camera, RegisterInjectionBufferList_QCarCamBufAllocFail_NoMem_Mock )
+{
+    MockC_ClearAll();
+    (void) DeinitBuffers();
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_isp_injection.json",
+                      NoOpCb );
+    SetConfig( config, "metaDataConfigs[0].InjectionConfig.headerBufferIds",
+               nlohmann::json::array() );
+    SetConfig( config, "metaDataConfigs[0].InjectionConfig.eepromBufferIds",
+               nlohmann::json::array() );
+    SetFullMockParam();
+    AllocateFrameBuffersForConfig( config );
+
+    DataTree staticCfg;
+    {
+        DataTree fullDt;
+        std::string e;
+        fullDt.Load( config.config, e );
+        fullDt.Get( "static", staticCfg );
+    }
+    BufferProps_t localBufProp;
+    localBufProp.size =
+            calculate_camera_metadata_size( MAX_METADATA_TAG_NUM, MAX_METADATA_TAG_DATA );
+    localBufProp.allocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA;
+    localBufProp.cache = QC_CACHEABLE;
+    ASSERT_EQ( QC_STATUS_OK, AllocateMetaDataBuffers( staticCfg, config.buffers, localBufProp ) );
+    ASSERT_EQ( QC_STATUS_OK,
+               AllocateGenericBuffers( "inj_eh", 2, 3840 * 2160 * 2, config.buffers ) );
+
+    QC::Node::Camera camera;
+
+    MockC_MallocCtrlSizeRangeAndCount( MOCK_NEW_ARRAY_RANGE( QCarCamBuffer_t, 2 ), 1 );
+    QCStatus_e ret = camera.Initialize( config );
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    if ( g_controlFnc != nullptr )
+    {
+        for ( int i = 0; i < MOCK_API_MAX; i++ )
+        {
+            g_controlFnc( static_cast<MockAPI_ID_e>( i ), MOCK_CONTROL_API_NONE, nullptr );
+        }
+    }
+    (void) DeinitBuffers();
+}
+
+TEST( Camera, SetMetaDataBuffers_BufDescAllocFail_NoMem_Mock )
+{
+    MockC_ClearAll();
+    (void) DeinitBuffers();
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_isp_injection.json",
+                      NoOpCb );
+    /* Disable injection so only SetMetaDataBuffers (not RegisterInjectionBufferList) runs */
+    SetConfig( config, "metaDataConfigs[0].metaDataType", std::string( "SENSOR_METADATA" ) );
+    SetFullMockParam();
+    AllocateFrameBuffersForConfig( config );
+
+    DataTree staticCfg;
+    {
+        DataTree fullDt;
+        std::string e;
+        fullDt.Load( config.config, e );
+        fullDt.Get( "static", staticCfg );
+    }
+    BufferProps_t localBufProp;
+    localBufProp.size =
+            calculate_camera_metadata_size( MAX_METADATA_TAG_NUM, MAX_METADATA_TAG_DATA );
+    localBufProp.allocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA;
+    localBufProp.cache = QC_CACHEABLE;
+    ASSERT_EQ( QC_STATUS_OK, AllocateMetaDataBuffers( staticCfg, config.buffers, localBufProp ) );
+
+    QC::Node::Camera camera;
+
+    MockC_MallocCtrlSizeRangeAndCount( MOCK_NEW_ARRAY_RANGE( BufferDescriptor_t, 4 ), 1 );
+    QCStatus_e ret = camera.Initialize( config );
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    if ( g_controlFnc != nullptr )
+    {
+        for ( int i = 0; i < MOCK_API_MAX; i++ )
+        {
+            g_controlFnc( static_cast<MockAPI_ID_e>( i ), MOCK_CONTROL_API_NONE, nullptr );
+        }
+    }
+    (void) DeinitBuffers();
+}
+
+TEST( Camera, SetMetaDataBuffers_QCarCamBufAllocFail_NoMem_Mock )
+{
+    MockC_ClearAll();
+    (void) DeinitBuffers();
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_isp_injection.json",
+                      NoOpCb );
+    SetConfig( config, "metaDataConfigs[0].metaDataType", std::string( "SENSOR_METADATA" ) );
+    SetFullMockParam();
+    AllocateFrameBuffersForConfig( config );
+
+    DataTree staticCfg;
+    {
+        DataTree fullDt;
+        std::string e;
+        fullDt.Load( config.config, e );
+        fullDt.Get( "static", staticCfg );
+    }
+    BufferProps_t localBufProp;
+    localBufProp.size =
+            calculate_camera_metadata_size( MAX_METADATA_TAG_NUM, MAX_METADATA_TAG_DATA );
+    localBufProp.allocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA;
+    localBufProp.cache = QC_CACHEABLE;
+    ASSERT_EQ( QC_STATUS_OK, AllocateMetaDataBuffers( staticCfg, config.buffers, localBufProp ) );
+
+    QC::Node::Camera camera;
+
+    /* This config has 4 frame buffers AND 4 metadata buffers, so QCarCamBuffer_t[4]
+     * is allocated first in SetFrameBuffers (stream) and again in SetMetaDataBuffers.
+     * Fire on the SECOND match so the metadata guard (CameraImpl.cpp:1503/1504) — not
+     * the frame-buffer guard — is the one exercised. */
+    MockC_MallocCtrlSizeRangeAndCount( MOCK_NEW_ARRAY_RANGE( QCarCamBuffer_t, 4 ), 2 );
+    QCStatus_e ret = camera.Initialize( config );
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    if ( g_controlFnc != nullptr )
+    {
+        for ( int i = 0; i < MOCK_API_MAX; i++ )
+        {
+            g_controlFnc( static_cast<MockAPI_ID_e>( i ), MOCK_CONTROL_API_NONE, nullptr );
+        }
+    }
     (void) DeinitBuffers();
 }
 

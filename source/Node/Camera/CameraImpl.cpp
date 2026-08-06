@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include <cstring>
+#include <new>
 #include <stdint.h>
 #include <thread>
 
@@ -51,6 +52,9 @@ CameraImpl::CameraImpl( QCNodeID_t &nodeId, Logger &logger )
     : m_nodeId( nodeId ),
       m_logger( logger ),
       m_state( QC_OBJECT_STATE_INITIAL ),
+      m_bIsPrimary( false ),
+      m_enableMetaData( false ),
+      m_clientId( 0 ),
       m_QcarCamHndl( QCARCAM_HNDL_INVALID )
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -667,6 +671,10 @@ CameraImpl::Initialize( QCNodeEventCallBack_t callback,
         }
 
         // clear buffers
+        if ( ( 0 != m_clientId ) && ( false == m_bIsPrimary ) )
+        {
+            (void) UnImportBuffers();
+        }
         ClearFrameBuffers();
         ClearMetaDataBuffers();
         if ( true != m_frameBufferMap.empty() )
@@ -967,7 +975,6 @@ QCStatus_e CameraImpl::DeInitialize()
     return ret;
 }
 
-
 QCObjectState_e CameraImpl::GetState()
 {
     return m_state;
@@ -1204,9 +1211,15 @@ QCStatus_e CameraImpl::SetFrameBuffers(
         height = m_streamConfigs[i].height;
         format = m_streamConfigs[i].format;
         bufferNum = m_streamConfigs[i].bufferIds.size();
-
-        m_frameBuffers[i].pCamFrameDescs = new CameraFrameDescriptor_t[bufferNum];
-        m_frameBuffers[i].pQcarCamFrameBuffers = new QCarCamBuffer_t[bufferNum];
+        m_frameBuffers[i].pCamFrameDescs = new ( std::nothrow ) CameraFrameDescriptor_t[bufferNum];
+        m_frameBuffers[i].pQcarCamFrameBuffers = new ( std::nothrow ) QCarCamBuffer_t[bufferNum];
+        if ( ( nullptr == m_frameBuffers[i].pCamFrameDescs ) ||
+             ( nullptr == m_frameBuffers[i].pQcarCamFrameBuffers ) )
+        {
+            QC_ERROR( "Failed to allocate frame buffers for stream %u (out of memory)", streamId );
+            ret = QC_STATUS_NOMEM;
+            break;
+        }
         m_frameBuffers[i].bufferList.id = streamId;
         m_frameBuffers[i].bufferList.nBuffers = static_cast<uint32_t>( bufferNum );
         m_frameBuffers[i].bufferList.pBuffers = m_frameBuffers[i].pQcarCamFrameBuffers;
@@ -1372,78 +1385,98 @@ QCStatus_e CameraImpl::RegisterInjectionBufferList(
     }
     else
     {
-        bufs.pCamMetaDataDescs = new BufferDescriptor_t[numBufs];
-        bufs.pQcarCamMetaDataBuffers = new QCarCamBuffer_t[numBufs];
-        bufs.bufferList.id = listId;
-        bufs.bufferList.nBuffers = (uint32_t) numBufs;
-        bufs.bufferList.pBuffers = bufs.pQcarCamMetaDataBuffers;
-        bufs.bufferList.colorFmt = colorFmt;
-        bufs.bufferList.flags = QCARCAM_BUFFER_FLAG_OS_HNDL;
-
-        for ( size_t k = 0; ( QC_STATUS_OK == ret ) && ( k < numBufs ); k++ )
+        bufs.pCamMetaDataDescs = new ( std::nothrow ) BufferDescriptor_t[numBufs];
+        bufs.pQcarCamMetaDataBuffers = new ( std::nothrow ) QCarCamBuffer_t[numBufs];
+        if ( ( nullptr == bufs.pCamMetaDataDescs ) || ( nullptr == bufs.pQcarCamMetaDataBuffers ) )
         {
-            uint32_t bIdx = bufIds[k];
-            if ( bIdx >= (uint32_t) bufferDescNum )
-            {
-                ret = QC_STATUS_OUT_OF_BOUND;
-                QC_ERROR( "RegisterInjectionBufferList: %s bufferIdx %u is out of range", label,
-                          bIdx );
-            }
-            else
-            {
-                bufs.pCamMetaDataDescs[k] = buffers[bIdx];
-                BufferDescriptor_t *pBuf = &bufs.pCamMetaDataDescs[k];
-                QCarCamBuffer_t *pQBuf = &bufs.pQcarCamMetaDataBuffers[k];
-
-                if ( nullptr == pBuf->pBuf )
-                {
-                    ret = QC_STATUS_INVALID_BUF;
-                    QC_ERROR( "RegisterInjectionBufferList: %s buffer is empty, bufferIdx %u",
-                              label, bIdx );
-                }
-                else
-                {
-                    pQBuf->numPlanes = 1;
-                    pQBuf->planes[0].size = (uint32_t) pBuf->size;
-                    pQBuf->planes[0].memHndl = pBuf->dmaHandle;
-                    pQBuf->planes[0].offset = 0;
-                    pQBuf->planes[0].width = planeWidth;
-                    pQBuf->planes[0].height = planeHeight;
-                    pQBuf->planes[0].stride = planeStride;
-
-                    QC_DEBUG( "RegisterInjectionBufferList: Set %s buffer %u: memHndl: %llu, "
-                              "va: %p, size: %u, width: %u, height: %u, stride: %u",
-                              label, (uint32_t) k, pBuf->dmaHandle, pBuf->pBuf,
-                              pQBuf->planes[0].size, planeWidth, planeHeight, planeStride );
-                }
-            }
+            QC_ERROR( "Failed to allocate injection buffers for list %u (out of memory)", listId );
+            ret = QC_STATUS_NOMEM;
         }
 
         if ( QC_STATUS_OK == ret )
         {
-            QCarCamRet_e qret = QCarCamSetBuffers( m_QcarCamHndl,
-                                                   (const QCarCamBufferList_t *) &bufs.bufferList );
-            if ( QCARCAM_RET_OK == qret )
+            bufs.bufferList.id = listId;
+            bufs.bufferList.nBuffers = (uint32_t) numBufs;
+            bufs.bufferList.pBuffers = bufs.pQcarCamMetaDataBuffers;
+            bufs.bufferList.colorFmt = colorFmt;
+            bufs.bufferList.flags = QCARCAM_BUFFER_FLAG_OS_HNDL;
+
+            for ( size_t k = 0; ( QC_STATUS_OK == ret ) && ( k < numBufs ); k++ )
             {
-                QC_INFO( "RegisterInjectionBufferList: QCarCamSetBuffers success for %s "
-                         "buffers, bufferListId: %u, bufferNum: %u",
-                         label, listId, (uint32_t) numBufs );
-                injectionBuffers.push_back( std::move( bufs ) );
+                uint32_t bIdx = bufIds[k];
+                if ( bIdx >= (uint32_t) bufferDescNum )
+                {
+                    ret = QC_STATUS_OUT_OF_BOUND;
+                    QC_ERROR( "RegisterInjectionBufferList: %s bufferIdx %u is out of range", label,
+                              bIdx );
+                }
+                else
+                {
+                    bufs.pCamMetaDataDescs[k] = buffers[bIdx];
+                    BufferDescriptor_t *pBuf = &bufs.pCamMetaDataDescs[k];
+                    QCarCamBuffer_t *pQBuf = &bufs.pQcarCamMetaDataBuffers[k];
+
+                    if ( nullptr == pBuf->pBuf )
+                    {
+                        ret = QC_STATUS_INVALID_BUF;
+                        QC_ERROR( "RegisterInjectionBufferList: %s buffer is empty, bufferIdx %u",
+                                  label, bIdx );
+                    }
+                    else
+                    {
+                        pQBuf->numPlanes = 1;
+                        pQBuf->planes[0].size = (uint32_t) pBuf->size;
+                        pQBuf->planes[0].memHndl = pBuf->dmaHandle;
+                        pQBuf->planes[0].offset = 0;
+                        pQBuf->planes[0].width = planeWidth;
+                        pQBuf->planes[0].height = planeHeight;
+                        pQBuf->planes[0].stride = planeStride;
+
+                        QC_DEBUG( "RegisterInjectionBufferList: Set %s buffer %u: memHndl: %llu, "
+                                  "va: %p, size: %u, width: %u, height: %u, stride: %u",
+                                  label, (uint32_t) k, pBuf->dmaHandle, pBuf->pBuf,
+                                  pQBuf->planes[0].size, planeWidth, planeHeight, planeStride );
+                    }
+                }
             }
-            else
+
+            if ( QC_STATUS_OK == ret )
             {
-                ret = QC_STATUS_FAIL;
-                QC_ERROR( "RegisterInjectionBufferList: Failed to set QCarCam %s buffers, "
-                          "bufferListId: %u, status: %d",
-                          label, listId, (int) qret );
-                delete[] bufs.pCamMetaDataDescs;
-                delete[] bufs.pQcarCamMetaDataBuffers;
+                QCarCamRet_e qret = QCarCamSetBuffers(
+                        m_QcarCamHndl, (const QCarCamBufferList_t *) &bufs.bufferList );
+                if ( QCARCAM_RET_OK == qret )
+                {
+                    QC_INFO( "RegisterInjectionBufferList: QCarCamSetBuffers success for %s "
+                             "buffers, bufferListId: %u, bufferNum: %u",
+                             label, listId, (uint32_t) numBufs );
+                    injectionBuffers.push_back( std::move( bufs ) );
+                    /* ownership transferred — do not free here */
+                    bufs.pCamMetaDataDescs = nullptr;
+                    bufs.pQcarCamMetaDataBuffers = nullptr;
+                }
+                else
+                {
+                    ret = QC_STATUS_FAIL;
+                    QC_ERROR( "RegisterInjectionBufferList: Failed to set QCarCam %s buffers, "
+                              "bufferListId: %u, status: %d",
+                              label, listId, (int) qret );
+                }
             }
         }
-        else
+
+        /* Single consolidated cleanup: free any buffers not yet transferred.
+         * Covers: (a) alloc failed (NOMEM), (b) loop error (OUT_OF_BOUND /
+         * INVALID_BUF), (c) QCarCamSetBuffers failed.  On success the pointers
+         * were nulled above so this is a no-op. */
+        if ( nullptr != bufs.pCamMetaDataDescs )
         {
             delete[] bufs.pCamMetaDataDescs;
+            bufs.pCamMetaDataDescs = nullptr;
+        }
+        if ( nullptr != bufs.pQcarCamMetaDataBuffers )
+        {
             delete[] bufs.pQcarCamMetaDataBuffers;
+            bufs.pQcarCamMetaDataBuffers = nullptr;
         }
     }
 
@@ -1471,9 +1504,17 @@ QCStatus_e CameraImpl::SetMetaDataBuffers(
         CameraMetaDataConfig_t &metaDataConfig = m_config.metaDataConfigs[i];
         bufferListId = metaDataConfig.bufferListId;
         bufferNum = metaDataConfig.bufferIds.size();
-
-        m_metaDataBuffers[i].pCamMetaDataDescs = new BufferDescriptor_t[bufferNum];
-        m_metaDataBuffers[i].pQcarCamMetaDataBuffers = new QCarCamBuffer_t[bufferNum];
+        m_metaDataBuffers[i].pCamMetaDataDescs = new ( std::nothrow ) BufferDescriptor_t[bufferNum];
+        m_metaDataBuffers[i].pQcarCamMetaDataBuffers =
+                new ( std::nothrow ) QCarCamBuffer_t[bufferNum];
+        if ( ( nullptr == m_metaDataBuffers[i].pCamMetaDataDescs ) ||
+             ( nullptr == m_metaDataBuffers[i].pQcarCamMetaDataBuffers ) )
+        {
+            QC_ERROR( "Failed to allocate metadata buffers for list %u (out of memory)",
+                      bufferListId );
+            ret = QC_STATUS_NOMEM;
+            break;
+        }
         m_metaDataBuffers[i].bufferList.id = bufferListId;
         m_metaDataBuffers[i].bufferList.nBuffers = (uint32_t) bufferNum;
         m_metaDataBuffers[i].bufferList.pBuffers = m_metaDataBuffers[i].pQcarCamMetaDataBuffers;
@@ -1733,8 +1774,16 @@ QCStatus_e CameraImpl::ImportBuffers()
         streamId = m_streamConfigs[i].streamId;
         bufferNum = m_streamConfigs[i].bufferIds.size();
 
-        m_frameBuffers[i].pCamFrameDescs = new CameraFrameDescriptor_t[bufferNum];
-        m_frameBuffers[i].pQcarCamFrameBuffers = new QCarCamBuffer_t[bufferNum];
+        m_frameBuffers[i].pCamFrameDescs = new ( std::nothrow ) CameraFrameDescriptor_t[bufferNum];
+        m_frameBuffers[i].pQcarCamFrameBuffers = new ( std::nothrow ) QCarCamBuffer_t[bufferNum];
+        if ( ( nullptr == m_frameBuffers[i].pCamFrameDescs ) ||
+             ( nullptr == m_frameBuffers[i].pQcarCamFrameBuffers ) )
+        {
+            QC_ERROR( "Failed to allocate import frame buffers for stream %u (out of memory)",
+                      streamId );
+            ret = QC_STATUS_NOMEM;
+            break;
+        }
         m_frameBuffers[i].bufferList.id = streamId;
         m_frameBuffers[i].bufferList.nBuffers = (uint32_t) bufferNum;
         m_frameBuffers[i].bufferList.pBuffers = m_frameBuffers[i].pQcarCamFrameBuffers;
@@ -1833,6 +1882,11 @@ QCStatus_e CameraImpl::UnImportBuffers()
     {
         streamId = m_streamConfigs[i].streamId;
         size_t bufferNum = m_streamConfigs[i].bufferIds.size();
+
+        if ( i >= m_frameBuffers.size() )
+        {
+            break;
+        }
 
         if ( nullptr != m_frameBuffers[i].pCamFrameDescs )
         {
@@ -1934,58 +1988,73 @@ QCStatus_e CameraImpl::QueryInputs()
 
     if ( QC_STATUS_OK == ret )
     {
-        // new T[n] throws on OOM; it never returns null, so no post-alloc null
-        // check is needed.
-        s_cameraInputsInfo.pCameraInputs = new QCarCamInput_t[inputCount];
-        s_cameraInputsInfo.pCamInputModes = new QCarCamInputModes_t[inputCount];
-        (void) memset( s_cameraInputsInfo.pCamInputModes, 0,
-                       sizeof( QCarCamInputModes_t ) * inputCount );
-
-        status = QCarCamQueryInputs( s_cameraInputsInfo.pCameraInputs, inputCount,
-                                     &s_cameraInputsInfo.numInputs );
-
-        if ( ( QCARCAM_RET_OK != status ) || ( s_cameraInputsInfo.numInputs != inputCount ) )
+        s_cameraInputsInfo.pCameraInputs = new ( std::nothrow ) QCarCamInput_t[inputCount];
+        s_cameraInputsInfo.pCamInputModes = new ( std::nothrow ) QCarCamInputModes_t[inputCount];
+        if ( ( nullptr == s_cameraInputsInfo.pCameraInputs ) ||
+             ( nullptr == s_cameraInputsInfo.pCamInputModes ) )
         {
-            QC_LOG_ERROR( "Query failed QCarCamQueryInputs %u %u: ret = %d",
-                          s_cameraInputsInfo.numInputs, inputCount, status );
-            ret = QC_STATUS_FAIL;
+            QC_LOG_ERROR( "Failed to allocate camera input arrays (out of memory)" );
+            ret = QC_STATUS_NOMEM;
         }
-        else
+        if ( QC_STATUS_OK == ret )
         {
-            for ( uint32_t i = 0; i < inputCount; i++ )
+            (void) memset( s_cameraInputsInfo.pCamInputModes, 0,
+                           sizeof( QCarCamInputModes_t ) * inputCount );
+
+            status = QCarCamQueryInputs( s_cameraInputsInfo.pCameraInputs, inputCount,
+                                         &s_cameraInputsInfo.numInputs );
+
+            if ( ( QCARCAM_RET_OK != status ) || ( s_cameraInputsInfo.numInputs != inputCount ) )
             {
-                QC_LOG_INFO( "Available camera input id: %u, numModes = %u",
-                             s_cameraInputsInfo.pCameraInputs[i].inputId,
-                             s_cameraInputsInfo.pCameraInputs[i].numModes );
-
-                s_cameraInputsInfo.pCamInputModes[i].pModes =
-                        new QCarCamMode_t[s_cameraInputsInfo.pCameraInputs[i].numModes];
-                s_cameraInputsInfo.pCamInputModes[i].numModes =
-                        s_cameraInputsInfo.pCameraInputs[i].numModes;
-
-                status = QCarCamQueryInputModes( s_cameraInputsInfo.pCameraInputs[i].inputId,
-                                                 &s_cameraInputsInfo.pCamInputModes[i] );
-                if ( QCARCAM_RET_OK != status )
+                QC_LOG_ERROR( "Query failed QCarCamQueryInputs %u %u: ret = %d",
+                              s_cameraInputsInfo.numInputs, inputCount, status );
+                ret = QC_STATUS_FAIL;
+            }
+            else
+            {
+                for ( uint32_t i = 0; i < inputCount; i++ )
                 {
-                    ret = QC_STATUS_FAIL;
-                    QC_LOG_ERROR( "Query Input Modes failed for input %u: ret = %d",
-                                  s_cameraInputsInfo.pCameraInputs[i].inputId, status );
-                    break;
-                }
-                else
-                {
-                    QC_LOG_INFO( "Found camera with input %du: mode 0 src 0: "
-                                 "resolution %ux%u",
+                    QC_LOG_INFO( "Available camera input id: %u, numModes = %u",
                                  s_cameraInputsInfo.pCameraInputs[i].inputId,
-                                 s_cameraInputsInfo.pCamInputModes[i].pModes[0].sources[0].width,
-                                 s_cameraInputsInfo.pCamInputModes[i].pModes[0].sources[0].height );
+                                 s_cameraInputsInfo.pCameraInputs[i].numModes );
+
+                    s_cameraInputsInfo.pCamInputModes[i].pModes = new ( std::nothrow )
+                            QCarCamMode_t[s_cameraInputsInfo.pCameraInputs[i].numModes];
+                    if ( nullptr == s_cameraInputsInfo.pCamInputModes[i].pModes )
+                    {
+                        QC_LOG_ERROR( "Failed to allocate modes for input %u (out of memory)",
+                                      s_cameraInputsInfo.pCameraInputs[i].inputId );
+                        ret = QC_STATUS_NOMEM;
+                        break;
+                    }
+                    s_cameraInputsInfo.pCamInputModes[i].numModes =
+                            s_cameraInputsInfo.pCameraInputs[i].numModes;
+
+                    status = QCarCamQueryInputModes( s_cameraInputsInfo.pCameraInputs[i].inputId,
+                                                     &s_cameraInputsInfo.pCamInputModes[i] );
+                    if ( QCARCAM_RET_OK != status )
+                    {
+                        ret = QC_STATUS_FAIL;
+                        QC_LOG_ERROR( "Query Input Modes failed for input %u: ret = %d",
+                                      s_cameraInputsInfo.pCameraInputs[i].inputId, status );
+                        break;
+                    }
+                    else
+                    {
+                        QC_LOG_INFO(
+                                "Found camera with input %du: mode 0 src 0: "
+                                "resolution %ux%u",
+                                s_cameraInputsInfo.pCameraInputs[i].inputId,
+                                s_cameraInputsInfo.pCamInputModes[i].pModes[0].sources[0].width,
+                                s_cameraInputsInfo.pCamInputModes[i].pModes[0].sources[0].height );
+                    }
                 }
             }
-        }
 
-        if ( QC_STATUS_OK != ret )
-        {
-            FreeCameraInputsInfo();
+            if ( QC_STATUS_OK != ret )
+            {
+                FreeCameraInputsInfo();
+            }
         }
     }
 
