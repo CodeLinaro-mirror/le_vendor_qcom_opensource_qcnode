@@ -266,7 +266,7 @@ static void SANITY_Voxelization( std::string jsonStr, std::string processorType,
         plrPointsTensorProp.numDims = 1;
 
         coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-        coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+        coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
         coordToPlrIdxTensorProp.dims[1] = 0;
         coordToPlrIdxTensorProp.numDims = 1;
     }
@@ -475,6 +475,41 @@ TEST( FadasPlr, SANITY_VoxelizationHTP1_XYZR )
     SANITY_Voxelization( g_Config_XYZR, processorType, inputMode, pcdFile );
 }
 #endif
+
+// ============================================================================
+// HTP1 TESTS — enabled when HPASS-02 is active (all SOCs that expose htp1)
+// ============================================================================
+
+TEST( FadasPlr, SANITY_VoxelizationHTP1_XYZR_HPASS02 )
+{
+    std::string processorType = "htp1";
+    std::string inputMode = "xyzr";
+    const char *pcdFile = "./data/test/voxelization/pointcloud.bin";
+    SANITY_Voxelization( g_Config_XYZR, processorType, inputMode, pcdFile );
+}
+
+// ============================================================================
+// HTP2 TESTS — enabled when HPASS-02 is active (SOC 8797 exposes htp2/htp3)
+// ============================================================================
+
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+TEST( FadasPlr, SANITY_VoxelizationHTP2_XYZR )
+{
+    std::string processorType = "htp2";
+    std::string inputMode = "xyzr";
+    const char *pcdFile = "./data/test/voxelization/pointcloud.bin";
+    SANITY_Voxelization( g_Config_XYZR, processorType, inputMode, pcdFile );
+}
+
+TEST( FadasPlr, SANITY_VoxelizationHTP3_XYZR )
+{
+    std::string processorType = "htp3";
+    std::string inputMode = "xyzr";
+    const char *pcdFile = "./data/test/voxelization/pointcloud.bin";
+    SANITY_Voxelization( g_Config_XYZR, processorType, inputMode, pcdFile );
+}
+
+#endif   // QC_TARGET_SOC == 8797
 
 // ============================================================================
 // EXTENDED TESTS FOR 100% COVERAGE
@@ -2093,7 +2128,7 @@ TEST( VoxelizationImpl, Initialize_GPU_OpenCLInitFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2211,7 +2246,7 @@ TEST( VoxelizationImpl, Initialize_GPU_KernelSourceLoadFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2331,7 +2366,7 @@ TEST( VoxelizationImpl, Initialize_GPU_XYZR_ClusterKernelCreationFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2460,7 +2495,7 @@ TEST( VoxelizationImpl, Initialize_GPU_XYZRT_ClusterKernelCreationFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2792,7 +2827,7 @@ TEST( VoxelizationImplTest, Initialize_GPU_InvalidMode_MismatchedDimensions )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2922,7 +2957,7 @@ TEST( VoxelizationImplTest, Initialize_GPU_XYZR_With5Dimensions_MCDC_Lines121_12
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -3139,7 +3174,7 @@ TEST( VoxelizationImpl, DeRegisterAllBuffers_GPU_WithRegisteredBuffers )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -3519,7 +3554,7 @@ TEST( VoxelizationImpl, DeRegisterAllBuffers_GPU_WithMockFailure_ErrorAccumulati
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -3920,7 +3955,7 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBufferId_OutOfRange )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -4029,7 +4064,7 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBuffer_CastFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -4141,7 +4176,7 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBuffer_RegBufferDescFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -4271,7 +4306,7 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBuffer_SuccessfulRegistration )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -4422,7 +4457,7 @@ TEST( VoxelizationImpl, RegisterBuffer_GPU_OpenCLFailure_InputBuffer )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -4629,7 +4664,7 @@ TEST( VoxelizationImpl, Initialize_RegisterOutputPlrBuffer_Failure_Lines234_238 
 
     TensorProps_t coordToPlrIdxProp;
     coordToPlrIdxProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxProp.dims[1] = 0;
     coordToPlrIdxProp.numDims = 1;
 
@@ -4792,7 +4827,7 @@ TEST( VoxelizationImpl, Initialize_RegisterOutputFeatureBuffer_Failure_Lines262_
 
     TensorProps_t coordToPlrIdxProp;
     coordToPlrIdxProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxProp.dims[1] = 0;
     coordToPlrIdxProp.numDims = 1;
 
@@ -5816,7 +5851,7 @@ TEST( VoxelizationImpl, Initialize_GPU_CoordToPlrIdxBuffer_RegBufferDescFailure 
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -6051,7 +6086,7 @@ TEST( VoxelizationImpl, Initialize_GPU_CoordToPlrIdxBuffer_SuccessfulRegistratio
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -6938,7 +6973,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_NullBuffer_MCDC_C
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7090,7 +7125,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidNumDims_MC
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7242,7 +7277,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidTensorType
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7394,7 +7429,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidDims0_MCDC
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7546,7 +7581,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidDims1_MCDC
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7698,7 +7733,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_AllValid_MCDC_Cas
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7856,7 +7891,7 @@ static bool SetupMinimalGPU_XYZRT( QCNodeInit_t &config, BufferManager &bufMgr,
 
     TensorProps_t coordProp;
     coordProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordProp.dims[1] = 0;
     coordProp.numDims = 1;
 
@@ -8457,7 +8492,7 @@ TEST( VoxelizationImpl_Fixed, GPU_XYZR_ProcessCL_ExecuteKernelFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -8614,7 +8649,7 @@ static bool SetupGPU_XYZR_VoxelizationImplTest(
 
     TensorProps_t coordProp;
     coordProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordProp.dims[1] = 0;
     coordProp.numDims = 1;
 
