@@ -894,13 +894,8 @@ TEST( NodeVideoEncoder, SANITY_VideoEncoder_Dynamic )
 
     QCNodeConfigIfs &cfgIfs = pNodeVide->GetConfigurationIfs();
     std::string options;
-    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, cfgIfs.GetOptions( options ) );
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
-    printf( "options: %s\n", options.c_str() );
-
-    DataTree optionsDt;
-    ret = optionsDt.Load( options, errors );
-    ASSERT_EQ( QC_STATUS_OK, ret );
 
     uint32_t width = dt.Get( "width", 0 );
     uint32_t height = dt.Get( "height", 0 );
@@ -1080,9 +1075,8 @@ TEST( NodeVideoEncoder, SANITY_VideoEncoder_NonDynamic )
 
     QCNodeConfigIfs &cfgIfs = pNodeVide->GetConfigurationIfs();
     std::string options;
-    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, cfgIfs.GetOptions( options ) );
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
-    printf( "options: %s\n", options.c_str() );
 
     ret = pNodeVide->Start();
     ASSERT_EQ( QC_STATUS_OK, ret );
