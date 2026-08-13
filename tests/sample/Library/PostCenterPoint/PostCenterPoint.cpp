@@ -55,7 +55,7 @@ QCStatus_e PostCenterPoint::Init( const char *pName, const PostCenterPoint_Confi
     if ( QC_STATUS_OK == ret )
     {
         bInitStart = true;
-        ret = m_plrPost.Init( m_config.processor, pName, m_logger.GetLevel() );
+        ret = m_plrPost.Init( m_config.processor, pName, m_logger.GetLevel(), m_config.coreId );
         if ( QC_STATUS_OK != ret )
         {
             QC_ERROR( "Failed to init FadasPlrPost!" );

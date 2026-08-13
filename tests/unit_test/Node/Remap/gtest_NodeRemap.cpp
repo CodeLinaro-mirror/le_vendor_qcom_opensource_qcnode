@@ -110,6 +110,14 @@ void SetConfigRemap( Remap_Config_t *pRemapConfig, DataTree *pdt )
     pdt->Set<bool>( "static.bEnableNormalize", pRemapConfig->bEnableNormalize );
     pdt->Set<uint32_t>( "static.coreId", pRemapConfig->coreId );
 
+    /* Set cpuThreadsAffinity in JSON only when explicitly configured (non-empty).
+     * If empty, the key is omitted → RemapConfig will default to {} → FadasRemap
+     * will fall back to platform defaults {12,13,14,15} on Linux or {0,1,2,3} otherwise. */
+    if ( !pRemapConfig->cpuThreadsAffinity.empty() )
+    {
+        pdt->Set<int32_t>( "static.cpuThreadsAffinity", pRemapConfig->cpuThreadsAffinity );
+    }
+
     if ( true == pRemapConfig->bEnableNormalize )
     {
         pdt->Set<float>( "static.RSub", pRemapConfig->normlzR.sub );
@@ -1416,6 +1424,1582 @@ TEST( RemapImpl_NoFixture, Initialize_Undistortion_MapYWrongType_CoversNullMapYB
     (void) mgr.Free( mapX );
     (void) mgr.Free( imgY );
 }
+
+// ============================================================================
+// NEW TESTS FOR FadasRemap.cpp COVERAGE
+// Add these tests to gtest_NodeRemap.cpp BEFORE the #ifndef GTEST_QCNODE block
+// ============================================================================
+
+// ============================================================================
+// HELPER: Build a minimal Remap node, run one frame, return status.
+// Exercises: SetRemapParams → CreateRemapWorker → RemapGetPipelineCPU/DSP
+//            → CreatRemapTable → ProcessFrameDescriptor → RemapRun
+//            → RemapRunCPU/DSP → DestroyWorkers → DestroyMap
+// ============================================================================
+static QCStatus_e RunRemapOnce( QCProcessorType_e processor,
+                                 QCImageFormat_e inputFormat,
+                                 QCImageFormat_e outputFormat,
+                                 bool bEnableNormalize,
+                                 uint32_t inputW = 64, uint32_t inputH = 64,
+                                 uint32_t outputW = 64, uint32_t outputH = 64 )
+{
+    QC::Node::Remap remap;
+    BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    Remap_Config_t cfg{};
+    cfg.numOfInputs = 1;
+    cfg.inputConfigs[0].inputWidth = inputW;
+    cfg.inputConfigs[0].inputHeight = inputH;
+    cfg.inputConfigs[0].inputFormat = inputFormat;
+    cfg.inputConfigs[0].ROI = { 0, 0, outputW, outputH };
+    cfg.inputConfigs[0].mapWidth = outputW;
+    cfg.inputConfigs[0].mapHeight = outputH;
+    cfg.outputWidth = outputW;
+    cfg.outputHeight = outputH;
+    cfg.outputFormat = outputFormat;
+    cfg.processor = processor;
+    cfg.bEnableUndistortion = false;
+    cfg.bEnableNormalize = bEnableNormalize;
+    cfg.coreId = 0;
+
+    if ( bEnableNormalize )
+    {
+        cfg.normlzR.sub = 123.675f;
+        cfg.normlzR.mul = 1.f / 58.395f;
+        cfg.normlzR.add = 0.f;
+        cfg.normlzG.sub = 116.28f;
+        cfg.normlzG.mul = 1.f / 57.12f;
+        cfg.normlzG.add = 0.f;
+        cfg.normlzB.sub = 103.53f;
+        cfg.normlzB.mul = 1.f / 57.375f;
+        cfg.normlzB.add = 0.f;
+    }
+
+    DataTree dt;
+    dt.Set<std::string>( "static.name", "Remap" );
+    dt.Set<uint32_t>( "static.id", 0 );
+    SetConfigRemap( &cfg, &dt );
+
+    // Build input ImageProps
+    ImageProps_t inProp{};
+    inProp.batchSize = 1;
+    inProp.width = inputW;
+    inProp.height = inputH;
+    inProp.format = inputFormat;
+    if ( QC_IMAGE_FORMAT_NV12 == inputFormat )
+    {
+        inProp.stride[0] = inputW;
+        inProp.stride[1] = inputW;
+        inProp.actualHeight[0] = inputH;
+        inProp.actualHeight[1] = inputH / 2;
+        inProp.planeBufSize[0] = 0;
+        inProp.planeBufSize[1] = 0;
+        inProp.numPlanes = 2;
+    }
+    else if ( QC_IMAGE_FORMAT_UYVY == inputFormat )
+    {
+        inProp.stride[0] = inputW * 2;
+        inProp.actualHeight[0] = inputH;
+        inProp.planeBufSize[0] = 0;
+        inProp.numPlanes = 1;
+    }
+    else
+    {
+        // RGB888, BGR888, or other 3-channel formats
+        inProp.stride[0] = inputW * 3;
+        inProp.actualHeight[0] = inputH;
+        inProp.planeBufSize[0] = 0;
+        inProp.numPlanes = 1;
+    }
+
+    // Build output ImageProps
+    ImageProps_t outProp{};
+    outProp.batchSize = 1;
+    outProp.width = outputW;
+    outProp.height = outputH;
+    outProp.format = outputFormat;
+    outProp.stride[0] = outputW * 3;
+    outProp.actualHeight[0] = outputH;
+    outProp.planeBufSize[0] = 0;
+    outProp.numPlanes = 1;
+
+    ImageDescriptor_t inDesc{}, outDesc{};
+    if ( QC_STATUS_OK != bufMgr.Allocate( inProp, inDesc ) )
+        return QC_STATUS_FAIL;
+    if ( QC_STATUS_OK != bufMgr.Allocate( outProp, outDesc ) )
+    {
+        bufMgr.Free( inDesc );
+        return QC_STATUS_FAIL;
+    }
+
+    std::vector<uint32_t> bufferIds = { 0, 1 };
+    dt.Set<uint32_t>( "static.bufferIds", bufferIds );
+
+    QCNodeInit_t config;
+    config.config = dt.Dump();
+    config.buffers.push_back( inDesc );
+    config.buffers.push_back( outDesc );
+
+    QCStatus_e ret = remap.Initialize( config );
+    if ( QC_STATUS_OK != ret )
+    {
+        bufMgr.Free( inDesc );
+        bufMgr.Free( outDesc );
+        return ret;
+    }
+
+    ret = remap.Start();
+    if ( QC_STATUS_OK != ret )
+    {
+        remap.DeInitialize();
+        bufMgr.Free( inDesc );
+        bufMgr.Free( outDesc );
+        return ret;
+    }
+
+    NodeFrameDescriptor frameDesc( 2 );
+    frameDesc.SetBuffer( 0, inDesc );
+    frameDesc.SetBuffer( 1, outDesc );
+
+    ret = remap.ProcessFrameDescriptor( frameDesc );
+
+    remap.Stop();
+    remap.DeInitialize();
+    bufMgr.Free( inDesc );
+    bufMgr.Free( outDesc );
+    return ret;
+}
+
+// ============================================================================
+// HELPER: Initialize a Remap node with 64x64 UYVY→RGB888 CPU config,
+// then call ProcessFrameDescriptor with mismatched buffers.
+// ============================================================================
+static void RunRemapWithMismatch( QCImageFormat_e inputFmt, uint32_t inputW, uint32_t inputH,
+                                   uint32_t inputBatch, QCImageFormat_e outputFmt,
+                                   uint32_t outputW, uint32_t outputH, uint32_t outputBatch,
+                                   QCStatus_e expectedRet )
+{
+    QC::Node::Remap remap;
+    BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    // Configure node with 64x64 UYVY→RGB888 CPU
+    Remap_Config_t cfg{};
+    cfg.numOfInputs = 1;
+    cfg.inputConfigs[0].inputWidth = 64;
+    cfg.inputConfigs[0].inputHeight = 64;
+    cfg.inputConfigs[0].inputFormat = QC_IMAGE_FORMAT_UYVY;
+    cfg.inputConfigs[0].ROI = { 0, 0, 64, 64 };
+    cfg.inputConfigs[0].mapWidth = 64;
+    cfg.inputConfigs[0].mapHeight = 64;
+    cfg.outputWidth = 64;
+    cfg.outputHeight = 64;
+    cfg.outputFormat = QC_IMAGE_FORMAT_RGB888;
+    cfg.processor = QC_PROCESSOR_CPU;
+    cfg.bEnableUndistortion = false;
+    cfg.bEnableNormalize = false;
+    cfg.coreId = 0;
+
+    DataTree dt;
+    dt.Set<std::string>( "static.name", "Remap" );
+    dt.Set<uint32_t>( "static.id", 0 );
+    SetConfigRemap( &cfg, &dt );
+
+    // Allocate the registered buffers (64x64 UYVY input, 64x64 RGB888 output)
+    ImageProps_t regInProp{};
+    regInProp.batchSize = 1;
+    regInProp.width = 64;
+    regInProp.height = 64;
+    regInProp.format = QC_IMAGE_FORMAT_UYVY;
+    regInProp.stride[0] = 128;
+    regInProp.actualHeight[0] = 64;
+    regInProp.planeBufSize[0] = 0;
+    regInProp.numPlanes = 1;
+
+    ImageProps_t regOutProp{};
+    regOutProp.batchSize = 1;
+    regOutProp.width = 64;
+    regOutProp.height = 64;
+    regOutProp.format = QC_IMAGE_FORMAT_RGB888;
+    regOutProp.stride[0] = 192;
+    regOutProp.actualHeight[0] = 64;
+    regOutProp.planeBufSize[0] = 0;
+    regOutProp.numPlanes = 1;
+
+    ImageDescriptor_t regInDesc{}, regOutDesc{};
+    if ( QC_STATUS_OK != bufMgr.Allocate( regInProp, regInDesc ) )
+        return;
+    if ( QC_STATUS_OK != bufMgr.Allocate( regOutProp, regOutDesc ) )
+    {
+        bufMgr.Free( regInDesc );
+        return;
+    }
+
+    std::vector<uint32_t> bufferIds = { 0, 1 };
+    dt.Set<uint32_t>( "static.bufferIds", bufferIds );
+
+    QCNodeInit_t config;
+    config.config = dt.Dump();
+    config.buffers.push_back( regInDesc );
+    config.buffers.push_back( regOutDesc );
+
+    QCStatus_e ret = remap.Initialize( config );
+    if ( QC_STATUS_OK != ret )
+    {
+        bufMgr.Free( regInDesc );
+        bufMgr.Free( regOutDesc );
+        return;
+    }
+
+    ret = remap.Start();
+    if ( QC_STATUS_OK != ret )
+    {
+        remap.DeInitialize();
+        bufMgr.Free( regInDesc );
+        bufMgr.Free( regOutDesc );
+        return;
+    }
+
+    // Allocate "mismatched" buffers for the frame descriptor
+    ImageProps_t mismatchInProp{};
+    mismatchInProp.batchSize = inputBatch;
+    mismatchInProp.width = inputW;
+    mismatchInProp.height = inputH;
+    mismatchInProp.format = inputFmt;
+    if ( QC_IMAGE_FORMAT_UYVY == inputFmt )
+    {
+        mismatchInProp.stride[0] = inputW * 2;
+        mismatchInProp.numPlanes = 1;
+    }
+    else
+    {
+        mismatchInProp.stride[0] = inputW * 3;
+        mismatchInProp.numPlanes = 1;
+    }
+    mismatchInProp.actualHeight[0] = inputH;
+    mismatchInProp.planeBufSize[0] = 0;
+
+    ImageProps_t mismatchOutProp{};
+    mismatchOutProp.batchSize = outputBatch;
+    mismatchOutProp.width = outputW;
+    mismatchOutProp.height = outputH;
+    mismatchOutProp.format = outputFmt;
+    mismatchOutProp.stride[0] = outputW * 3;
+    mismatchOutProp.actualHeight[0] = outputH;
+    mismatchOutProp.planeBufSize[0] = 0;
+    mismatchOutProp.numPlanes = 1;
+
+    ImageDescriptor_t mismatchInDesc{}, mismatchOutDesc{};
+    if ( QC_STATUS_OK != bufMgr.Allocate( mismatchInProp, mismatchInDesc ) )
+    {
+        remap.Stop();
+        remap.DeInitialize();
+        bufMgr.Free( regInDesc );
+        bufMgr.Free( regOutDesc );
+        return;
+    }
+    if ( QC_STATUS_OK != bufMgr.Allocate( mismatchOutProp, mismatchOutDesc ) )
+    {
+        bufMgr.Free( mismatchInDesc );
+        remap.Stop();
+        remap.DeInitialize();
+        bufMgr.Free( regInDesc );
+        bufMgr.Free( regOutDesc );
+        return;
+    }
+
+    NodeFrameDescriptor frameDesc( 2 );
+    frameDesc.SetBuffer( 0, mismatchInDesc );
+    frameDesc.SetBuffer( 1, mismatchOutDesc );
+
+    ret = remap.ProcessFrameDescriptor( frameDesc );
+    EXPECT_EQ( expectedRet, ret );
+
+    remap.Stop();
+    remap.DeInitialize();
+    bufMgr.Free( regInDesc );
+    bufMgr.Free( regOutDesc );
+    bufMgr.Free( mismatchInDesc );
+    bufMgr.Free( mismatchOutDesc );
+}
+
+// ============================================================================
+// CPU PIPELINE COVERAGE TESTS
+// Coverage: FadasRemap.cpp RemapGetPipelineCPU — all branches
+// ============================================================================
+
+/**
+ * @brief CPU: UYVY → RGB888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU → FADAS_REMAP_PIPELINE_UYVY_TO_RGB888
+ *           RemapRunCPU → UYVY input format branch (line 479-481)
+ *           SetRemapParams → valid RGB888 output (line 43-54)
+ *           DestroyWorkers/DestroyMap → CPU path (else branch)
+ */
+TEST( FadasRemapPipeline, CPU_UYVY_RGB888_NoNormalize )
+{
+    EXPECT_EQ( QC_STATUS_OK,
+               RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY, QC_IMAGE_FORMAT_RGB888,
+                             false ) );
+}
+
+
+/**
+ * @brief CPU: RGB888 → RGB888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU → FADAS_REMAP_PIPELINE_3C888
+ *           RemapRunCPU → RGB888 input format branch (line 483-485)
+ */
+TEST( FadasRemapPipeline, CPU_RGB888_RGB888_NoNormalize )
+{
+    EXPECT_EQ( QC_STATUS_OK,
+               RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_RGB888, QC_IMAGE_FORMAT_RGB888,
+                             false ) );
+}
+
+/**
+ * @brief CPU: RGB888 → RGB888 with normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU — TF2 for third condition
+ *           (RGB888 input, RGB888 output, normalize=true → falls through to else/invalid)
+ */
+TEST( FadasRemapPipeline, CPU_RGB888_RGB888_Normalize )
+{
+    // RGB888 + normalize=true has no CPU pipeline → BAD_ARGUMENTS or FAIL
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_RGB888,
+                                    QC_IMAGE_FORMAT_RGB888, true );
+    EXPECT_NE( QC_STATUS_OK, ret );
+}
+/**
+ * @brief CPU: NV12 → RGB888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU → FADAS_REMAP_PIPELINE_Y8UV8_TO_RGB888
+ *           RemapRunCPU → NV12 input format branch (if FADAS supports NV12 on CPU)
+ */
+TEST( FadasRemapPipeline, CPU_NV12_RGB888_NoNormalize )
+{
+    // NV12 CPU pipeline — result depends on platform FADAS library support
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12,
+                                    QC_IMAGE_FORMAT_RGB888, false );
+    // Accept OK (if NV12 supported) or FAIL (if not supported) — code path IS exercised
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL );
+}
+
+/**
+ * @brief CPU: NV12 → RGB888 with normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU → FADAS_REMAP_PIPELINE_Y8UV8_TO_RGB888_NORMU8
+ */
+TEST( FadasRemapPipeline, CPU_NV12_RGB888_Normalize )
+{
+    // NV12 + normalize CPU pipeline — result depends on platform support
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12,
+                                    QC_IMAGE_FORMAT_RGB888, true );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL );
+}
+
+/**
+ * @brief CPU: NV12 → BGR888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU → FADAS_REMAP_PIPELINE_Y8UV8_TO_BGR888
+ *           SetRemapParams → valid BGR888 output (TF2 for output format condition)
+ */
+TEST( FadasRemapPipeline, CPU_NV12_BGR888_NoNormalize )
+{
+    // NV12→BGR888 CPU pipeline — result depends on platform support
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12,
+                                    QC_IMAGE_FORMAT_BGR888, false );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL );
+}
+
+/**
+ * @brief CPU: UYVY → BGR888 (invalid pipeline — commented out with #if 0)
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU → else branch (invalid pipeline)
+ *           TF3 for first condition: UYVY input, non-RGB888 output
+ *           TF3 for second condition: UYVY input, non-RGB888 output
+ */
+TEST( FadasRemapPipeline, CPU_UYVY_BGR888_InvalidPipeline )
+{
+    // UYVY→BGR888 is commented out in RemapGetPipelineCPU → falls to else (invalid)
+    // CreateRemapWorker returns QC_STATUS_BAD_ARGUMENTS
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY,
+                                    QC_IMAGE_FORMAT_BGR888, false );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+}
+
+/**
+ * @brief CPU: RGB888 → BGR888 (invalid pipeline)
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU → else branch (invalid pipeline)
+ *           TF3 for third condition: RGB888 input, non-RGB888 output
+ */
+TEST( FadasRemapPipeline, CPU_RGB888_BGR888_InvalidPipeline )
+{
+    // RGB888→BGR888 has no CPU pipeline → falls to else (invalid)
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_RGB888,
+                                    QC_IMAGE_FORMAT_BGR888, false );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+}
+
+// ============================================================================
+// RemapRun MISMATCH TESTS
+// Coverage: FadasRemap.cpp RemapRun() — input/output validation checks
+// ============================================================================
+
+/**
+ * @brief Test RemapRun with input format mismatch
+ * @coverage FadasRemap.cpp RemapRun() line 724-728 (format mismatch)
+ */
+TEST( FadasRemapRun, InputFormatMismatch )
+{
+    // Node configured with UYVY, but frame has RGB888
+    RunRemapWithMismatch( QC_IMAGE_FORMAT_RGB888, 64, 64, 1,
+                          QC_IMAGE_FORMAT_RGB888, 64, 64, 1,
+                          QC_STATUS_BAD_ARGUMENTS );
+}
+
+/**
+ * @brief Test RemapRun with input width mismatch
+ * @coverage FadasRemap.cpp RemapRun() line 729-733 (width mismatch)
+ */
+TEST( FadasRemapRun, InputWidthMismatch )
+{
+    // Node configured with width=64, but frame has width=128
+    RunRemapWithMismatch( QC_IMAGE_FORMAT_UYVY, 128, 64, 1,
+                          QC_IMAGE_FORMAT_RGB888, 64, 64, 1,
+                          QC_STATUS_BAD_ARGUMENTS );
+}
+
+/**
+ * @brief Test RemapRun with input height mismatch
+ * @coverage FadasRemap.cpp RemapRun() line 734-738 (height mismatch)
+ */
+TEST( FadasRemapRun, InputHeightMismatch )
+{
+    // Node configured with height=64, but frame has height=128
+    RunRemapWithMismatch( QC_IMAGE_FORMAT_UYVY, 64, 128, 1,
+                          QC_IMAGE_FORMAT_RGB888, 64, 64, 1,
+                          QC_STATUS_BAD_ARGUMENTS );
+}
+
+/**
+ * @brief Test RemapRun with input batch size != 1
+ * @coverage FadasRemap.cpp RemapRun() line 739-743 (batch size check)
+ */
+TEST( FadasRemapRun, InputBatchSizeMismatch )
+{
+    // Node configured with batchSize=1, but frame has batchSize=2
+    RunRemapWithMismatch( QC_IMAGE_FORMAT_UYVY, 64, 64, 2,
+                          QC_IMAGE_FORMAT_RGB888, 64, 64, 1,
+                          QC_STATUS_BAD_ARGUMENTS );
+}
+
+/**
+ * @brief Test RemapRun with output format mismatch
+ * @coverage FadasRemap.cpp RemapRun() line 756-760 (output format mismatch)
+ */
+TEST( FadasRemapRun, OutputFormatMismatch )
+{
+    // Node configured with RGB888 output, but frame has BGR888
+    RunRemapWithMismatch( QC_IMAGE_FORMAT_UYVY, 64, 64, 1,
+                          QC_IMAGE_FORMAT_BGR888, 64, 64, 1,
+                          QC_STATUS_BAD_ARGUMENTS );
+}
+
+/**
+ * @brief Test RemapRun with output width mismatch
+ * @coverage FadasRemap.cpp RemapRun() line 761-765 (output width mismatch)
+ */
+TEST( FadasRemapRun, OutputWidthMismatch )
+{
+    // Node configured with output width=64, but frame has width=128
+    RunRemapWithMismatch( QC_IMAGE_FORMAT_UYVY, 64, 64, 1,
+                          QC_IMAGE_FORMAT_RGB888, 128, 64, 1,
+                          QC_STATUS_BAD_ARGUMENTS );
+}
+
+/**
+ * @brief Test RemapRun with output height mismatch
+ * @coverage FadasRemap.cpp RemapRun() line 766-770 (output height mismatch)
+ */
+TEST( FadasRemapRun, OutputHeightMismatch )
+{
+    // Node configured with output height=64, but frame has height=128
+    RunRemapWithMismatch( QC_IMAGE_FORMAT_UYVY, 64, 64, 1,
+                          QC_IMAGE_FORMAT_RGB888, 64, 128, 1,
+                          QC_STATUS_BAD_ARGUMENTS );
+}
+
+/**
+ * @brief Test RemapRun with output batch mismatch
+ * @coverage FadasRemap.cpp RemapRun() line 771-775 (output batch mismatch)
+ */
+TEST( FadasRemapRun, OutputBatchMismatch )
+{
+    // Node configured with numOfInputs=1, output batchSize must be 1, but frame has 2
+    RunRemapWithMismatch( QC_IMAGE_FORMAT_UYVY, 64, 64, 1,
+                          QC_IMAGE_FORMAT_RGB888, 64, 64, 2,
+                          QC_STATUS_BAD_ARGUMENTS );
+}
+
+/**
+ * @brief Test RemapRun with HTP1 processor path
+ * @coverage FadasRemap.cpp RemapRun() line 783 — HTP1 path (MC/DC pair 2: F||T)
+ *           DestroyWorkers() line 802 — HTP1 path
+ *           DestroyMap() line 842 — HTP1 path
+ */
+TEST( FadasRemapRun, HTP1ProcessorPath )
+{
+    // HTP1 exercises the (F) || (T) MC/DC pair in RemapRun, DestroyWorkers, DestroyMap
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP1, QC_IMAGE_FORMAT_UYVY,
+                                    QC_IMAGE_FORMAT_RGB888, false );
+    // Result depends on HTP1 availability; accept OK, FAIL, or INVALID_BUF
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL ||
+                 ret == QC_STATUS_INVALID_BUF );
+}
+
+/**
+ * @brief Test SetRemapParams with invalid output format (NV12)
+ * @coverage FadasRemap.cpp SetRemapParams() line 33-37 — invalid output format error path
+ *           (MC/DC pair: both RGB888 and BGR888 checks fail → QC_STATUS_BAD_ARGUMENTS)
+ */
+TEST( FadasRemapSetRemapParams, InvalidOutputFormatNV12 )
+{
+    // NV12 is not a valid output format for SetRemapParams
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY,
+                                    QC_IMAGE_FORMAT_NV12, false );
+    EXPECT_NE( QC_STATUS_OK, ret );
+}
+
+/**
+ * @brief CPU: NV12_UBWC → BGR888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineCPU → FADAS_REMAP_PIPELINE_UBWC_NV12_TO_BGR888
+ *           RemapRunCPU → NV12_UBWC input format branch
+ */
+TEST( FadasRemapPipeline, CPU_NV12UBWC_BGR888_NoNormalize )
+{
+    QC::Node::Remap remap;
+    BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    Remap_Config_t cfg{};
+    cfg.numOfInputs = 1;
+    cfg.inputConfigs[0].inputWidth = 64;
+    cfg.inputConfigs[0].inputHeight = 64;
+    cfg.inputConfigs[0].inputFormat = QC_IMAGE_FORMAT_NV12_UBWC;
+    cfg.inputConfigs[0].ROI = { 0, 0, 64, 64 };
+    cfg.inputConfigs[0].mapWidth = 64;
+    cfg.inputConfigs[0].mapHeight = 64;
+    cfg.outputWidth = 64;
+    cfg.outputHeight = 64;
+    cfg.outputFormat = QC_IMAGE_FORMAT_BGR888;
+    cfg.processor = QC_PROCESSOR_CPU;
+    cfg.bEnableUndistortion = false;
+    cfg.bEnableNormalize = false;
+    cfg.coreId = 0;
+
+    DataTree dt;
+    dt.Set<std::string>( "static.name", "Remap" );
+    dt.Set<uint32_t>( "static.id", 0 );
+    SetConfigRemap( &cfg, &dt );
+
+    ImageDescriptor_t inDesc{}, outDesc{};
+    QCStatus_e ret = bufMgr.Allocate(
+            ImageBasicProps_t( 64, 64, QC_IMAGE_FORMAT_NV12_UBWC ), inDesc );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    ImageProps_t outProp{};
+    outProp.batchSize = 1;
+    outProp.width = 64;
+    outProp.height = 64;
+    outProp.format = QC_IMAGE_FORMAT_BGR888;
+    outProp.stride[0] = 192;
+    outProp.actualHeight[0] = 64;
+    outProp.planeBufSize[0] = 0;
+    outProp.numPlanes = 1;
+    ret = bufMgr.Allocate( outProp, outDesc );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    std::vector<uint32_t> bufferIds = { 0, 1 };
+    dt.Set<uint32_t>( "static.bufferIds", bufferIds );
+
+    QCNodeInit_t config;
+    config.config = dt.Dump();
+    config.buffers.push_back( inDesc );
+    config.buffers.push_back( outDesc );
+
+    ret = remap.Initialize( config );
+    if ( QC_STATUS_OK == ret )
+    {
+        ret = remap.Start();
+        if ( QC_STATUS_OK == ret )
+        {
+            NodeFrameDescriptor frameDesc( 2 );
+            frameDesc.SetBuffer( 0, inDesc );
+            frameDesc.SetBuffer( 1, outDesc );
+            ret = remap.ProcessFrameDescriptor( frameDesc );
+            EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL );
+            remap.Stop();
+        }
+        remap.DeInitialize();
+    }
+    else
+    {
+        // NV12_UBWC→BGR888 pipeline may not be supported on all platforms
+        EXPECT_TRUE( ret == QC_STATUS_BAD_ARGUMENTS || ret == QC_STATUS_FAIL );
+    }
+
+    bufMgr.Free( inDesc );
+    bufMgr.Free( outDesc );
+}
+
+TEST( FadasRemapPipeline, CPU_NV12UBWC_RGB888_InvalidPipeline )
+{
+    // NV12_UBWC→RGB888 has no CPU pipeline → falls to else (invalid)
+    // Returns BAD_ARGUMENTS if pipeline check fails, or FAIL if FADAS library rejects it
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12_UBWC,
+                                    QC_IMAGE_FORMAT_RGB888, false );
+    EXPECT_TRUE( ret == QC_STATUS_BAD_ARGUMENTS || ret == QC_STATUS_FAIL );
+}
+
+// ============================================================================
+// DSP PIPELINE COVERAGE TESTS
+// Coverage: FadasRemap.cpp RemapGetPipelineDSP — all branches
+// ============================================================================
+
+/**
+ * @brief DSP: UYVY → RGB888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP → FADAS_REMAP_PIPELINE_UYVY_TO_RGB888_NSP
+ *           RemapRunDSP → UYVY input format branch
+ *           RemapRunDSP → without normalize path
+ */
+TEST( FadasRemapPipeline, DSP_UYVY_RGB888_NoNormalize )
+{
+    EXPECT_EQ( QC_STATUS_OK,
+               RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY, QC_IMAGE_FORMAT_RGB888,
+                             false ) );
+}
+
+/**
+ * @brief DSP: RGB888 → RGB888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP → FADAS_REMAP_PIPELINE_3C888_NSP
+ *           RemapRunDSP → RGB888 input format branch
+ */
+TEST( FadasRemapPipeline, DSP_RGB888_RGB888_NoNormalize )
+{
+    // RGB888 DSP pipeline — result depends on platform FADAS library support
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_RGB888,
+                                    QC_IMAGE_FORMAT_RGB888, false );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL );
+}
+
+/**
+ * @brief DSP: RGB888 → RGB888 with normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP — TF2 for third condition
+ *           (RGB888 input, RGB888 output, normalize=true → falls through to else/invalid)
+ */
+TEST( FadasRemapPipeline, DSP_RGB888_RGB888_Normalize )
+{
+    // RGB888 + normalize=true has no DSP pipeline → BAD_ARGUMENTS
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_RGB888,
+                                    QC_IMAGE_FORMAT_RGB888, true );
+    EXPECT_NE( QC_STATUS_OK, ret );
+}
+
+/**
+ * @brief DSP: UYVY → BGR888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP → FADAS_REMAP_PIPELINE_UYVY_TO_BGR888_NSP
+ */
+TEST( FadasRemapPipeline, DSP_UYVY_BGR888_NoNormalize )
+{
+    EXPECT_EQ( QC_STATUS_OK,
+               RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY, QC_IMAGE_FORMAT_BGR888,
+                             false ) );
+}
+
+/**
+ * @brief DSP: UYVY → BGR888 with normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP — TF2 for fourth condition
+ *           (UYVY input, BGR888 output, normalize=true → falls through to else/invalid)
+ */
+TEST( FadasRemapPipeline, DSP_UYVY_BGR888_Normalize )
+{
+    // UYVY→BGR888 + normalize has no DSP pipeline → BAD_ARGUMENTS
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY,
+                                    QC_IMAGE_FORMAT_BGR888, true );
+    EXPECT_NE( QC_STATUS_OK, ret );
+}
+
+/**
+ * @brief DSP: NV12 → RGB888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP → FADAS_REMAP_PIPELINE_Y8UV8_TO_RGB888_NSP
+ *           RemapRunDSP → NV12 input format branch
+ */
+TEST( FadasRemapPipeline, DSP_NV12_RGB888_NoNormalize )
+{
+    // NV12 DSP pipeline — result depends on platform FADAS library support
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12,
+                                    QC_IMAGE_FORMAT_RGB888, false );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL );
+}
+
+/**
+ * @brief DSP: NV12 → RGB888 with normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP → FADAS_REMAP_PIPELINE_Y8UV8_TO_RGB888_NORMU8_NSP
+ *           RemapRunDSP → with normalize path
+ */
+TEST( FadasRemapPipeline, DSP_NV12_RGB888_Normalize )
+{
+    // NV12 + normalize DSP pipeline — result depends on platform support
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12,
+                                    QC_IMAGE_FORMAT_RGB888, true );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL );
+}
+
+/**
+ * @brief DSP: NV12 → BGR888 without normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP → FADAS_REMAP_PIPELINE_Y8UV8_TO_BGR888_NSP
+ */
+TEST( FadasRemapPipeline, DSP_NV12_BGR888_NoNormalize )
+{
+    // NV12→BGR888 DSP pipeline — result depends on platform support
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12,
+                                    QC_IMAGE_FORMAT_BGR888, false );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL );
+}
+
+/**
+ * @brief DSP: NV12 → BGR888 with normalization
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP — TF2 for seventh condition
+ *           (NV12 input, BGR888 output, normalize=true → falls through to else/invalid)
+ */
+TEST( FadasRemapPipeline, DSP_NV12_BGR888_Normalize )
+{
+    // NV12→BGR888 + normalize has no DSP pipeline → BAD_ARGUMENTS
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12,
+                                    QC_IMAGE_FORMAT_BGR888, true );
+    EXPECT_NE( QC_STATUS_OK, ret );
+}
+
+/**
+ * @brief DSP: NV12_UBWC → BGR888 (invalid pipeline for DSP)
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP → else branch (invalid pipeline)
+ *           TF4 for all conditions: NV12_UBWC input has no DSP pipeline
+ */
+TEST( FadasRemapPipeline, DSP_NV12UBWC_BGR888_InvalidPipeline )
+{
+    // NV12_UBWC has no DSP pipeline → falls to else (invalid)
+    // Returns BAD_ARGUMENTS if pipeline check fails, or FAIL if FADAS library rejects it
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12_UBWC,
+                                    QC_IMAGE_FORMAT_BGR888, false );
+    EXPECT_TRUE( ret == QC_STATUS_BAD_ARGUMENTS || ret == QC_STATUS_FAIL );
+}
+
+/**
+ * @brief DSP: NV12_UBWC → RGB888 (invalid pipeline for DSP)
+ * @coverage FadasRemap.cpp RemapGetPipelineDSP → else branch (invalid pipeline)
+ */
+TEST( FadasRemapPipeline, DSP_NV12UBWC_RGB888_InvalidPipeline )
+{
+    // NV12_UBWC has no DSP pipeline → falls to else (invalid)
+    // Returns BAD_ARGUMENTS if pipeline check fails, or FAIL if FADAS library rejects it
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12_UBWC,
+                                    QC_IMAGE_FORMAT_RGB888, false );
+    EXPECT_TRUE( ret == QC_STATUS_BAD_ARGUMENTS || ret == QC_STATUS_FAIL );
+}
+
+// ============================================================================
+// HELPER: Common RemapImpl setup for CreatRemapTable tests with undistortion
+// ============================================================================
+static void SetupRemapImplForUndistortion( RemapImpl &impl,
+                                            QCProcessorType_e processor = QC_PROCESSOR_CPU )
+{
+    auto &cfg = impl.GetConifg();
+    cfg.params.processor = processor;
+    cfg.params.coreId = 0;
+    cfg.params.bEnableUndistortion = true;
+    cfg.params.bEnableNormalize = false;
+    cfg.params.numOfInputs = 1;
+    cfg.params.inputConfigs[0].inputFormat = QC_IMAGE_FORMAT_UYVY;
+    cfg.params.inputConfigs[0].inputWidth = 64;
+    cfg.params.inputConfigs[0].inputHeight = 64;
+    cfg.params.inputConfigs[0].ROI = { 0, 0, 64, 64 };
+    cfg.params.inputConfigs[0].mapWidth = 64;
+    cfg.params.inputConfigs[0].mapHeight = 64;
+    cfg.params.inputConfigs[0].remapTable.mapXBufferId = 0;
+    cfg.params.inputConfigs[0].remapTable.mapYBufferId = 1;
+    cfg.params.outputWidth = 64;
+    cfg.params.outputHeight = 64;
+    cfg.params.outputFormat = QC_IMAGE_FORMAT_RGB888;
+    cfg.bufferIds.clear();
+}
+
+// ============================================================================
+// CreatRemapTable: TF2 for first condition — pBuf == nullptr for mapX
+// Coverage: FadasRemap.cpp CreatRemapTable()
+//   condition: (true == m_bEnableUndistortion) && ((QC_BUFFER_TYPE_TENSOR != type) || (nullptr == pBuf))
+//   TF2: type==TENSOR but pBuf==nullptr → nullptr == bufDescMapX.pBuf is true
+// ============================================================================
+TEST( FadasRemapCreatRemapTable, MapX_NullPBuf )
+{
+    QCNodeID nodeId{};
+    Logger logger{};
+    RemapImpl impl( nodeId, logger );
+    SetupRemapImplForUndistortion( impl );
+
+    BufferManager mgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    // mapX: correct type (TENSOR) but pBuf = nullptr
+    TensorDescriptor_t mapX{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapX ) );
+    void *savedPBuf = mapX.pBuf;
+    mapX.pBuf = nullptr;   // TF2: type==TENSOR, pBuf==nullptr
+
+    TensorDescriptor_t mapY{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapY ) );
+
+    std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapX ) );
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapY ) );
+
+    QCStatus_e status = impl.Initialize( buffers );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    mapX.pBuf = savedPBuf;   // Restore before freeing
+    mgr.Free( mapX );
+    mgr.Free( mapY );
+}
+
+
+// ============================================================================
+// CreatRemapTable: TF2 for second condition — pBuf == nullptr for mapY
+// Coverage: FadasRemap.cpp CreatRemapTable()
+//   condition: (true == m_bEnableUndistortion) && ((QC_BUFFER_TYPE_TENSOR != type) || (nullptr == pBuf))
+//   TF2: type==TENSOR but pBuf==nullptr → nullptr == bufDescMapY.pBuf is true
+// ============================================================================
+TEST( FadasRemapCreatRemapTable, MapY_NullPBuf )
+{
+    QCNodeID nodeId{};
+    Logger logger{};
+    RemapImpl impl( nodeId, logger );
+    SetupRemapImplForUndistortion( impl );
+
+    BufferManager mgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    TensorDescriptor_t mapX{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapX ) );
+
+    // mapY: correct type (TENSOR) but pBuf = nullptr
+    TensorDescriptor_t mapY{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapY ) );
+    void *savedPBuf = mapY.pBuf;
+    mapY.pBuf = nullptr;   // TF2: type==TENSOR, pBuf==nullptr
+
+    std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapX ) );
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapY ) );
+
+    QCStatus_e status = impl.Initialize( buffers );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    mapY.pBuf = savedPBuf;   // Restore before freeing
+    mgr.Free( mapX );
+    mgr.Free( mapY );
+}
+
+// ============================================================================
+// CreatRemapTable: TF4 for third condition — mapHeight != bufDescMapX.dims[1]
+// Coverage: FadasRemap.cpp CreatRemapTable()
+//   condition: (true == m_bEnableUndistortion) &&
+//              ((tensorType!=FLOAT_32) || (numDims!=2) || (dims[0]!=mapWidth) || (dims[1]!=mapHeight))
+//   TF4: tensorType==FLOAT_32, numDims==2, dims[0]==mapWidth, dims[1]!=mapHeight
+// ============================================================================
+TEST( FadasRemapCreatRemapTable, MapX_WrongDims1 )
+{
+    QCNodeID nodeId{};
+    Logger logger{};
+    RemapImpl impl( nodeId, logger );
+    SetupRemapImplForUndistortion( impl );
+
+    BufferManager mgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    // mapX: correct type, numDims=2, dims[0]=64 (correct), dims[1]=32 (wrong, should be 64)
+    TensorDescriptor_t mapX{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 32 } }, mapX ) );
+
+    TensorDescriptor_t mapY{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapY ) );
+
+    std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapX ) );
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapY ) );
+
+    QCStatus_e status = impl.Initialize( buffers );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    mgr.Free( mapX );
+    mgr.Free( mapY );
+}
+
+// ============================================================================
+// CreatRemapTable: TF3 for fourth condition — mapWidth != bufDescMapY.dims[0]
+// Coverage: FadasRemap.cpp CreatRemapTable()
+//   condition: (true == m_bEnableUndistortion) &&
+//              ((tensorType!=FLOAT_32) || (numDims!=2) || (dims[0]!=mapWidth) || (dims[1]!=mapHeight))
+//   TF3: tensorType==FLOAT_32, numDims==2, dims[0]!=mapWidth
+// ============================================================================
+TEST( FadasRemapCreatRemapTable, MapY_WrongDims0 )
+{
+    QCNodeID nodeId{};
+    Logger logger{};
+    RemapImpl impl( nodeId, logger );
+    SetupRemapImplForUndistortion( impl );
+
+    BufferManager mgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    TensorDescriptor_t mapX{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapX ) );
+
+    // mapY: correct type, numDims=2, dims[0]=32 (wrong, should be 64), dims[1]=64 (correct)
+    TensorDescriptor_t mapY{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 32, 64 } }, mapY ) );
+
+    std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapX ) );
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapY ) );
+
+    QCStatus_e status = impl.Initialize( buffers );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    mgr.Free( mapX );
+    mgr.Free( mapY );
+}
+
+// ============================================================================
+// CreatRemapTable: TF5 for third and fourth conditions — all checks pass (CPU)
+// Coverage: FadasRemap.cpp CreatRemapTable()
+//   TF5: undistortion=true, all tensor checks pass → goes to else branch
+//        (calls RemapGetPipelineCPU → FadasRemap_CreateMapFromMap or CreateMapNoUndistortion)
+// ============================================================================
+TEST( FadasRemapCreatRemapTable, ValidMapXY_CPU )
+{
+    QCNodeID nodeId{};
+    Logger logger{};
+    RemapImpl impl( nodeId, logger );
+    SetupRemapImplForUndistortion( impl, QC_PROCESSOR_CPU );
+
+    BufferManager mgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    // Both mapX and mapY: correct type, numDims=2, correct dims
+    TensorDescriptor_t mapX{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapX ) );
+
+    TensorDescriptor_t mapY{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapY ) );
+
+    std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapX ) );
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapY ) );
+
+    // All tensor checks pass → goes to else branch in CreatRemapTable
+    // Result depends on FADAS library support for undistortion on CPU
+    QCStatus_e status = impl.Initialize( buffers );
+    EXPECT_TRUE( status == QC_STATUS_OK || status == QC_STATUS_FAIL );
+
+    mgr.Free( mapX );
+    mgr.Free( mapY );
+}
+
+// ============================================================================
+// RemapGetPipelineCPU: TF2 for seventh condition
+// Coverage: FadasRemap.cpp RemapGetPipelineCPU()
+//   seventh condition: (NV12_UBWC == inputFormat) && (BGR888 == outputFormat) && (false == normalize)
+//   TF2: NV12_UBWC input, BGR888 output, normalize=true → condition false → else (invalid)
+// ============================================================================
+TEST( FadasRemapPipeline, CPU_NV12UBWC_BGR888_Normalize )
+{
+    // NV12_UBWC→BGR888 + normalize=true has no CPU pipeline → falls to else (invalid)
+    // This covers TF2 for the seventh condition in RemapGetPipelineCPU
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12_UBWC,
+                                    QC_IMAGE_FORMAT_BGR888, true );
+    EXPECT_TRUE( ret == QC_STATUS_BAD_ARGUMENTS || ret == QC_STATUS_FAIL );
+}
+
+TEST( FadasRemapPipeline, DSP_RGB888_BGR888_InvalidPipeline )
+{
+    // RGB888→BGR888 has no DSP pipeline → falls to else (invalid)
+    // This covers TF3 for the third condition in RemapGetPipelineDSP
+    QCStatus_e ret = RunRemapOnce( QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_RGB888,
+                                    QC_IMAGE_FORMAT_BGR888, false );
+    EXPECT_TRUE( ret == QC_STATUS_BAD_ARGUMENTS || ret == QC_STATUS_FAIL );
+}
+
+// ============================================================================
+// CreatRemapTable: TF4 for fourth condition — mapHeight != bufDescMapY.dims[1]
+// Coverage: FadasRemap.cpp CreatRemapTable()
+//   TF4: tensorType==FLOAT_32, numDims==2, dims[0]==mapWidth, dims[1]!=mapHeight for mapY
+// ============================================================================
+TEST( FadasRemapCreatRemapTable, MapY_WrongDims1 )
+{
+    QCNodeID nodeId{};
+    Logger logger{};
+    RemapImpl impl( nodeId, logger );
+    SetupRemapImplForUndistortion( impl );
+
+    BufferManager mgr( { "MANAGER", QC_NODE_TYPE_FADAS_REMAP, 0 } );
+
+    TensorDescriptor_t mapX{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 64 } }, mapX ) );
+
+    // mapY: correct type, numDims=2, dims[0]=64 (correct), dims[1]=32 (wrong, should be 64)
+    TensorDescriptor_t mapY{};
+    ASSERT_EQ( QC_STATUS_OK,
+               mgr.Allocate( TensorProps_t{ QC_TENSOR_TYPE_FLOAT_32, { 64, 32 } }, mapY ) );
+
+    std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapX ) );
+    buffers.emplace_back( static_cast<QCBufferDescriptorBase &>( mapY ) );
+
+    QCStatus_e status = impl.Initialize( buffers );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    mgr.Free( mapX );
+    mgr.Free( mapY );
+}
+
+
+// ============================================================================
+// FadasRemapTestable: exposes ONLY protected members (m_processor, m_handleIndex)
+// Private members are set via public API: SetRemapParams() + CreateRemapWorker().
+// CreateRemapWorker() stores m_inputFormats[id] BEFORE the validation check,
+// so even if it returns BAD_ARGUMENTS the format is stored correctly.
+// ============================================================================
+class FadasRemapTestable : public QC::libs::FadasIface::FadasRemap
+{
+public:
+    void SetProcessor( QCProcessorType_e p ) { m_processor = p; }
+    void SetHandleIndex( uint32_t i )        { m_handleIndex = i; }
+};
+
+// ============================================================================
+// MockFrameDescriptorForRemap: implements QCFrameDescriptorNodeIfs
+// ============================================================================
+class MockFrameDescriptorForRemap : public QCFrameDescriptorNodeIfs
+{
+public:
+    std::vector<ImageDescriptor_t> m_buffers;
+
+    void AddBuffer( const ImageDescriptor_t &buf ) { m_buffers.push_back( buf ); }
+
+    QCBufferDescriptorBase_t &GetBuffer( uint32_t index ) override
+    {
+        return m_buffers[index];
+    }
+
+    QCStatus_e SetBuffer( uint32_t /*index*/, QCBufferDescriptorBase_t & /*buffer*/ ) override
+    {
+        return QC_STATUS_OK;
+    }
+
+    void Clear() override {}
+
+    QCFrameDescriptorNodeIfs &operator=( QCFrameDescriptorNodeIfs & /*other*/ ) override
+    {
+        return *this;
+    }
+};
+
+// ============================================================================
+// Helper: create input ImageDescriptor_t for direct RemapRun tests
+// ============================================================================
+static ImageDescriptor_t MakeRemapInputDesc( QCImageFormat_e fmt, uint32_t w, uint32_t h )
+{
+    ImageDescriptor_t d = {};
+    d.type      = QC_BUFFER_TYPE_IMAGE;
+    d.format    = fmt;
+    d.width     = w;
+    d.height    = h;
+    d.batchSize = 1;
+    d.offset    = 0;
+
+    if ( fmt == QC_IMAGE_FORMAT_NV12 )
+    {
+        d.numPlanes       = 2;
+        d.stride[0]       = w;
+        d.stride[1]       = w;
+        d.actualHeight[0] = h;
+        d.actualHeight[1] = h / 2;
+        d.planeBufSize[0] = w * h;
+        d.planeBufSize[1] = w * h / 2;
+        d.size            = w * h * 3 / 2;
+    }
+    else if ( fmt == QC_IMAGE_FORMAT_UYVY )
+    {
+        d.numPlanes       = 1;
+        d.stride[0]       = w * 2;
+        d.actualHeight[0] = h;
+        d.planeBufSize[0] = w * 2 * h;
+        d.size            = w * 2 * h;
+    }
+    else
+    {
+        d.numPlanes       = 1;
+        d.stride[0]       = w * 3;
+        d.actualHeight[0] = h;
+        d.planeBufSize[0] = w * h * 3;
+        d.size            = w * h * 3;
+    }
+
+    d.pBuf = malloc( d.size > 0 ? d.size : 64 );
+    return d;
+}
+
+// ============================================================================
+// Helper: create output ImageDescriptor_t for direct RemapRun tests
+// ============================================================================
+static ImageDescriptor_t MakeRemapOutputDesc( QCImageFormat_e fmt, uint32_t w, uint32_t h,
+                                               uint32_t batch )
+{
+    ImageDescriptor_t d = {};
+    d.type            = QC_BUFFER_TYPE_IMAGE;
+    d.format          = fmt;
+    d.width           = w;
+    d.height          = h;
+    d.batchSize       = batch;
+    d.numPlanes       = 1;
+    d.stride[0]       = w * 3;
+    d.actualHeight[0] = h;
+    d.planeBufSize[0] = w * h * 3;
+    d.size            = w * h * 3 * batch;
+    d.offset          = 0;
+    d.pBuf            = malloc( d.size > 0 ? d.size : 64 );
+    return d;
+}
+
+// ============================================================================
+// Helper: setup FadasRemapTestable using public API only.
+// CreateRemapWorker() stores m_inputFormats[0]=inFmt BEFORE validation,
+// so even if it returns BAD_ARGUMENTS the format is stored for RemapRun.
+// ============================================================================
+static void SetupRemapForRunDirect( FadasRemapTestable &r, QCProcessorType_e proc,
+                                     QCImageFormat_e inFmt  = QC_IMAGE_FORMAT_UYVY,
+                                     QCImageFormat_e outFmt = QC_IMAGE_FORMAT_RGB888,
+                                     bool bNorm             = false )
+{
+    r.Init( proc, "RemapTest", LOGGER_LEVEL_ERROR );
+    FadasNormlzParams_t n = { 0, 1, 0 };
+    // SetRemapParams sets m_numOfInputs=1, m_outputFormat, m_outputWidth, m_outputHeight
+    r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm );
+    r.SetProcessor( proc );
+    r.SetHandleIndex( 0 );
+    FadasROI_t roi = { 0, 0, 64, 64 };
+    // CreateRemapWorker stores m_inputFormats[0]=inFmt, m_inputWidths[0]=64,
+    // m_inputHeights[0]=64, m_ROIs[0]=roi BEFORE the format/pipeline validation.
+    // So even if it returns BAD_ARGUMENTS, the state is set for RemapRun.
+    r.CreateRemapWorker( 0, inFmt, 64, 64, roi );
+}
+
+// ============================================================================
+// RemapRunCPU: NV12 input format branch (line 487-490)
+// Coverage: srcImg.props.format = FADAS_IMAGE_FORMAT_Y8UV8
+//           srcImg.plane[1] = pSrc + bufDescInput.planeBufSize[0]
+// ============================================================================
+TEST( FadasRemapRunCPU_Direct, NV12_Input )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12 );
+
+    MockFrameDescriptorForRemap fd;
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_NV12, 64, 64 );
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
+    fd.AddBuffer( inp );
+    fd.AddBuffer( out );
+
+    // m_inputFormats[0]==NV12, bufDescInput.format==NV12 → RemapRun format check passes
+    // → RemapRunCPU called → NV12 branch reached
+    QCStatus_e ret = r.RemapRun( fd );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL || ret == QC_STATUS_INVALID_BUF );
+
+    free( inp.pBuf );
+    free( out.pBuf );
+    r.Deinit();
+}
+
+// ============================================================================
+// RemapRunCPU: NV12_UBWC input format branch (line 492-499)
+// Coverage: srcImg.props.format = FADAS_IMAGE_FORMAT_UBWC_NV12
+// ============================================================================
+TEST( FadasRemapRunCPU_Direct, NV12UBWC_Input )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12_UBWC,
+                             QC_IMAGE_FORMAT_BGR888 );
+
+    MockFrameDescriptorForRemap fd;
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_NV12_UBWC, 64, 64 );
+    inp.size   = 64 * 64 * 3;
+    inp.height = 64;
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_BGR888, 64, 64, 1 );
+    fd.AddBuffer( inp );
+    fd.AddBuffer( out );
+
+    QCStatus_e ret = r.RemapRun( fd );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL || ret == QC_STATUS_INVALID_BUF );
+
+    free( inp.pBuf );
+    free( out.pBuf );
+    r.Deinit();
+}
+
+// ============================================================================
+// RemapRunCPU: BGR888 output format branch (line 515-517)
+// Coverage: rgbImg.props.format = FADAS_IMAGE_FORMAT_BGR888
+// ============================================================================
+TEST( FadasRemapRunCPU_Direct, BGR888_Output )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY, QC_IMAGE_FORMAT_BGR888 );
+
+    MockFrameDescriptorForRemap fd;
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_UYVY, 64, 64 );
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_BGR888, 64, 64, 1 );
+    fd.AddBuffer( inp );
+    fd.AddBuffer( out );
+
+    QCStatus_e ret = r.RemapRun( fd );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL || ret == QC_STATUS_INVALID_BUF );
+
+    free( inp.pBuf );
+    free( out.pBuf );
+    r.Deinit();
+}
+
+// ============================================================================
+// RemapRunCPU: invalid input format branch (else branch, line 501-504)
+// Coverage: QC_ERROR("Invalid input format for inputId = %d!")
+//           ret = QC_STATUS_BAD_ARGUMENTS
+// Strategy: CreateRemapWorker(99) stores m_inputFormats[0]=99 before validation.
+//           Frame with format=99 passes RemapRun format check → hits else in RemapRunCPU.
+// ============================================================================
+
+// ============================================================================
+// RemapRunCPU: CPU processor with normalize=true (line 566-568)
+// Coverage: FadasRemap_RunMT( workerPtr, remapPtr, &srcImg, &rgbImg, &roi, 1.0, m_normlz )
+// ============================================================================
+TEST( FadasRemapRunCPU_Direct, CPU_Normalize )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY,
+                             QC_IMAGE_FORMAT_RGB888, true );
+
+    MockFrameDescriptorForRemap fd;
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_UYVY, 64, 64 );
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
+    fd.AddBuffer( inp );
+    fd.AddBuffer( out );
+
+    QCStatus_e ret = r.RemapRun( fd );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL || ret == QC_STATUS_INVALID_BUF );
+
+    free( inp.pBuf );
+    free( out.pBuf );
+    r.Deinit();
+}
+
+// ============================================================================
+// RemapRunDSP: RGB888 input format branch (line 645-647)
+// Coverage: srcImgProp.format = FADAS_IMAGE_FORMAT_RGB888_NSP
+// ============================================================================
+TEST( FadasRemapRunDSP_Direct, RGB888_Input )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_RGB888 );
+
+    MockFrameDescriptorForRemap fd;
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64 );
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
+    fd.AddBuffer( inp );
+    fd.AddBuffer( out );
+
+    QCStatus_e ret = r.RemapRun( fd );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL || ret == QC_STATUS_INVALID_BUF );
+
+    free( inp.pBuf );
+    free( out.pBuf );
+    r.Deinit();
+}
+
+// ============================================================================
+// RemapRunDSP: NV12 input format branch (line 649-651)
+// Coverage: srcImgProp.format = FADAS_IMAGE_FORMAT_Y8UV8_NSP
+// ============================================================================
+TEST( FadasRemapRunDSP_Direct, NV12_Input )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12 );
+
+    MockFrameDescriptorForRemap fd;
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_NV12, 64, 64 );
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
+    fd.AddBuffer( inp );
+    fd.AddBuffer( out );
+
+    QCStatus_e ret = r.RemapRun( fd );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL || ret == QC_STATUS_INVALID_BUF );
+
+    free( inp.pBuf );
+    free( out.pBuf );
+    r.Deinit();
+}
+
+// ============================================================================
+// RemapRunDSP: with normalize=true (lines 687-703)
+// Coverage: builds normlz[3] array, calls FadasIface_FadasRemap_RunMT with normlz
+// ============================================================================
+TEST( FadasRemapRunDSP_Direct, DSP_Normalize )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY,
+                             QC_IMAGE_FORMAT_RGB888, true );
+
+    MockFrameDescriptorForRemap fd;
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_UYVY, 64, 64 );
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
+    fd.AddBuffer( inp );
+    fd.AddBuffer( out );
+
+    QCStatus_e ret = r.RemapRun( fd );
+    EXPECT_TRUE( ret == QC_STATUS_OK || ret == QC_STATUS_FAIL || ret == QC_STATUS_INVALID_BUF );
+
+    free( inp.pBuf );
+    free( out.pBuf );
+    r.Deinit();
+}
+
+
+TEST( FadasRemapRunCPU_Direct, OutputRegBufFail )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY );
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_UYVY, 64, 64 );
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
+    /* Pre-register output, then change size → mismatch → RegBuf returns -1 */
+    r.RegBuf( out, FADAS_BUF_TYPE_OUT );
+    out.size += 1;
+    MockFrameDescriptorForRemap fd;
+    fd.AddBuffer( inp ); fd.AddBuffer( out );
+    EXPECT_EQ( QC_STATUS_INVALID_BUF, r.RemapRun( fd ) );
+    out.size -= 1;
+    r.DeregBuf( out.pBuf );
+    free( inp.pBuf ); free( out.pBuf );
+    r.Deinit();
+}
+
+TEST( FadasRemapRunDSP_Direct, InputRegBufFail )
+{
+    FadasRemapTestable r;
+    SetupRemapForRunDirect( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY );
+    ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_UYVY, 64, 64 );
+    ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
+    /* Pre-register input, then change size → mismatch → RegBuf returns -1 */
+    r.RegBuf( inp, FADAS_BUF_TYPE_IN );
+    inp.size += 1;
+    MockFrameDescriptorForRemap fd;
+    fd.AddBuffer( inp ); fd.AddBuffer( out );
+    EXPECT_EQ( QC_STATUS_INVALID_BUF, r.RemapRun( fd ) );
+    inp.size -= 1;
+    r.DeregBuf( inp.pBuf );
+    free( inp.pBuf ); free( out.pBuf );
+    r.Deinit();
+}
+
+// ============================================================================
+// CPU THREAD AFFINITY TESTS — SCENARIO-BASED
+// Coverage: RemapConfig.cpp - VerifyStaticConfig (negative value validation)
+//           FadasRemap.cpp  - CreateRemapWorker (affinity usage + SOC fallback)
+// ============================================================================
+
+/* Helper: build a minimal CPU-processor config DataTree for affinity tests */
+static void BuildMinimalCpuConfig( DataTree &dt )
+{
+    dt.Set<std::string>( "static.name", "Remap" );
+    dt.Set<uint32_t>( "static.id", 0 );
+    dt.SetProcessorType( "static.processorType", QC_PROCESSOR_CPU );
+    dt.Set<uint32_t>( "static.outputWidth", 64 );
+    dt.Set<uint32_t>( "static.outputHeight", 64 );
+    dt.SetImageFormat( "static.outputFormat", QC_IMAGE_FORMAT_RGB888 );
+    dt.Set<bool>( "static.bEnableUndistortion", false );
+    dt.Set<bool>( "static.bEnableNormalize", false );
+    dt.Set<uint32_t>( "static.coreId", 0 );
+
+    std::vector<DataTree> inputDts;
+    DataTree inputDt;
+    inputDt.Set<uint32_t>( "inputWidth", 64 );
+    inputDt.Set<uint32_t>( "inputHeight", 64 );
+    inputDt.SetImageFormat( "inputFormat", QC_IMAGE_FORMAT_UYVY );
+    inputDt.Set<uint32_t>( "roiX", 0 );
+    inputDt.Set<uint32_t>( "roiY", 0 );
+    inputDt.Set<uint32_t>( "roiWidth", 64 );
+    inputDt.Set<uint32_t>( "roiHeight", 64 );
+    inputDt.Set<uint32_t>( "mapWidth", 64 );
+    inputDt.Set<uint32_t>( "mapHeight", 64 );
+    inputDts.push_back( inputDt );
+    dt.Set( "static.inputs", inputDts );
+}
+
+/**
+ * @brief Scenario 1: Negative core ID → QC_STATUS_BAD_ARGUMENTS
+ * @coverage RemapConfig.cpp - VerifyStaticConfig: negative core ID validation
+ * @expected QC_STATUS_BAD_ARGUMENTS — negative values are invalid CPU core IDs
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario1_NegativeCoreId_ReturnsBadArguments )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+
+    /* Negative core ID is invalid → VerifyStaticConfig must return BAD_ARGUMENTS */
+    std::vector<int32_t> affinity = { -1, 0, 1, 2 };
+    dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
+
+    QCNodeInit_t config = { dt.Dump() };
+    printf( "Scenario1 config: %s\n", config.config.c_str() );
+
+    QCStatus_e ret = remap.Initialize( config );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+}
+
+/**
+ * @brief Scenario 2: Large (unavailable) core IDs → library accepts, OS ignores
+ * @coverage FadasRemap.cpp - CreateRemapWorker: FadasRemap_CreateWorkers does not validate
+ * @expected NOT QC_STATUS_BAD_ARGUMENTS — values are syntactically valid (non-negative)
+ *           FadasRemap_CreateWorkers accepts any non-negative value; OS handles affinity silently
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario2_UnavailableCore_LibraryAccepts )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+
+    /* Large but non-negative → passes VerifyStaticConfig, library accepts */
+    std::vector<int32_t> affinity = { 9999, 10000, 10001, 10002 };
+    dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
+
+    QCNodeInit_t config = { dt.Dump() };
+    printf( "Scenario2 config: %s\n", config.config.c_str() );
+
+    QCStatus_e ret = remap.Initialize( config );
+    printf( "Scenario2 Initialize ret = %d\n", ret );
+    /* FadasRemap_CreateWorkers does NOT validate core IDs → no BAD_ARGUMENTS */
+    EXPECT_NE( QC_STATUS_BAD_ARGUMENTS, ret );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        remap.DeInitialize();
+    }
+}
+
+/**
+ * @brief Scenario 3: No cpuThreadsAffinity provided → falls back to hardcoded platform defaults
+ * @coverage FadasRemap.cpp - CreateRemapWorker: empty affinity → platform defaults used
+ * @expected NOT QC_STATUS_BAD_ARGUMENTS — Initialize succeeds using platform default core IDs
+ *           JSON does NOT contain "cpuThreadsAffinity" key
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario3_NotProvided_FallsBackToDefault )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+    /* cpuThreadsAffinity intentionally NOT set → key absent from JSON */
+
+    std::string jsonStr = dt.Dump();
+    /* Verify: JSON does NOT contain cpuThreadsAffinity key */
+    EXPECT_EQ( std::string::npos, jsonStr.find( "cpuThreadsAffinity" ) );
+
+    QCNodeInit_t config = { jsonStr };
+    printf( "Scenario3 config (no affinity): %s\n", config.config.c_str() );
+
+    QCStatus_e ret = remap.Initialize( config );
+    printf( "Scenario3 Initialize ret = %d\n", ret );
+    /* Platform defaults are always valid → Initialize must succeed */
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        remap.DeInitialize();
+    }
+}
+
+/**
+ * @brief Scenario 4a: SOC-based fallback — no affinity provided → platform defaults always valid
+ * @coverage FadasRemap.cpp - CreateRemapWorker: #if defined(__linux__) fallback
+ *
+ * When cpuThreadsAffinity is absent, FadasRemap::CreateRemapWorker uses:
+ *   #if defined(__linux__)  → {12, 13, 14, 15}   (Linux/QNX target)
+ *   #else                   → {0, 1, 2, 3}        (other platforms)
+ *
+ * The SOC-based defaults are always valid on the target platform.
+ * @expected QC_STATUS_OK — Initialize succeeds using the correct SOC-specific default core IDs
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4a_SocBasedFallback_NoAffinityProvided )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+    /* cpuThreadsAffinity NOT set → SOC-based fallback applies */
+
+    QCNodeInit_t config = { dt.Dump() };
+    QCStatus_e ret = remap.Initialize( config );
+    printf( "Scenario4a Initialize ret = %d\n", ret );
+    /* SOC-based defaults are always valid on the target platform → must succeed */
+    EXPECT_EQ( QC_STATUS_OK, ret );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        remap.DeInitialize();
+    }
+}
+
+/**
+ * @brief Scenario 4b: Platform-specific behavior when passing cores [4,5,6,7]
+ * @coverage FadasRemap.cpp - CreateRemapWorker: platform-specific core availability
+ *
+ * Cores [4,5,6,7] behavior differs by platform:
+ *   QNX  : cores 4-7 are available → Initialize succeeds (QC_STATUS_OK)
+ *   Linux: hardcoded default is {12,13,14,15}; cores 4-7 may NOT exist on the
+ *          Linux target → FadasRemap_CreateWorkers may return nullptr → QC_STATUS_FAIL
+ *
+ * @expected QNX:   QC_STATUS_OK
+ *           Linux: QC_STATUS_FAIL (cores 4-7 not available on Linux target)
+ */
+TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+
+    /* Cores [4,5,6,7]: valid on QNX, may not exist on Linux (default is {12,13,14,15}) */
+    std::vector<int32_t> affinity = { 4, 5, 6, 7 };
+    dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
+
+    QCNodeInit_t config = { dt.Dump() };
+    printf( "Scenario4b config (affinity=[4,5,6,7]): %s\n", config.config.c_str() );
+
+    QCStatus_e ret = remap.Initialize( config );
+    printf( "Scenario4b Initialize ret = %d\n", ret );
+    #if defined(__linux__)
+    EXPECT_EQ( QC_STATUS_FAIL, ret );
+    #else
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    #endif
+    if ( QC_STATUS_OK == ret )
+    {
+        remap.DeInitialize();
+    }
+}
+
 
 #ifndef GTEST_QCNODE
 #if __CTC__

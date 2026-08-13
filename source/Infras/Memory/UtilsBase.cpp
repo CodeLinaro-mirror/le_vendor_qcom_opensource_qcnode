@@ -54,7 +54,9 @@ const uint32_t UtilsBase::s_qcTensorTypeToDataSize[QC_TENSOR_TYPE_MAX] = {
 
         1, /* QC_TENSOR_TYPE_UFIXED_POINT_8 */
         2, /* QC_TENSOR_TYPE_UFIXED_POINT_16 */
-        4  /* QC_TENSOR_TYPE_UFIXED_POINT_32 */
+        4, /* QC_TENSOR_TYPE_UFIXED_POINT_32 */
+
+        1 /* QC_TENSOR_TYPE_BOOL_8 */
 };
 
 const uint32_t UtilsBase::s_qcFormatToBytesPerPixel[QC_IMAGE_FORMAT_MAX] = {
@@ -153,7 +155,7 @@ QCStatus_e UtilsBase::SetTensorDescFromTensorProp( TensorProps_t &prop, TensorDe
         desc.numDims = prop.numDims;
         desc.tensorType = prop.tensorType;
         prop.size = size;
-        std::copy( prop.dims, prop.dims + prop.numDims, desc.dims );
+        (void) std::copy( &prop.dims[0], prop.dims + prop.numDims, &desc.dims[0] );
     }
 
     return status;
@@ -394,9 +396,11 @@ QCStatus_e UtilsBase::SetImageDescFromImageProp( ImageProps_t &prop, ImageDescri
         desc.width = prop.width;
         desc.height = prop.height;
         desc.numPlanes = prop.numPlanes;
-        std::copy( prop.stride, prop.stride + prop.numPlanes, desc.stride );
-        std::copy( prop.actualHeight, prop.actualHeight + prop.numPlanes, desc.actualHeight );
-        std::copy( prop.planeBufSize, prop.planeBufSize + prop.numPlanes, desc.planeBufSize );
+        (void) std::copy( &prop.stride[0], prop.stride + prop.numPlanes, &desc.stride[0] );
+        (void) std::copy( &prop.actualHeight[0], prop.actualHeight + prop.numPlanes,
+                          &desc.actualHeight[0] );
+        (void) std::copy( &prop.planeBufSize[0], prop.planeBufSize + prop.numPlanes,
+                          &desc.planeBufSize[0] );
         for ( i = 0; i < desc.numPlanes; i++ )
         {
             if ( 0 == desc.planeBufSize[i] )

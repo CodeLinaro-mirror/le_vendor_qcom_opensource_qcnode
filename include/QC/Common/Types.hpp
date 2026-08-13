@@ -80,6 +80,8 @@ typedef enum
     QC_TENSOR_TYPE_UFIXED_POINT_16, /**< 16-bit unsinged fixed point type */
     QC_TENSOR_TYPE_UFIXED_POINT_32, /**< 32-bit unsinged fixed point type */
 
+    QC_TENSOR_TYPE_BOOL_8, /**< 8-bit boolean type, 0 = false, any non-zero value = true */
+
     QC_TENSOR_TYPE_MAX,
 } QCTensorType_e;
 

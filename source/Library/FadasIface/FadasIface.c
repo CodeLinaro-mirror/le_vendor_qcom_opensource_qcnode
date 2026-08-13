@@ -615,7 +615,8 @@ extern "C"
     }
     static __inline int _stub_method_2( remote_handle64 _handle, uint32_t _mid )
     {
-        remote_arg *_pra = 0;
+        remote_arg _pra_dummy = {0};
+        remote_arg *_pra = &_pra_dummy;
         int _nErr = 0;
         _TRY_FARF( _nErr, __QAIC_REMOTE( remote_handle64_invoke )(
                                   _handle, REMOTE_SCALARS_MAKEX( 0, _mid, 0, 0, 0, 0 ), _pra ) );

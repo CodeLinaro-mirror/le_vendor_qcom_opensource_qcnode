@@ -61,7 +61,7 @@ public:
             // the below can reduce effectiveness of pool creations
             // in case of multiple creations
             std::lock_guard<std::mutex> lk( m_lock );
-            for ( auto _ = GetConfiguration().maxElements; _--; )
+            for ( auto _ = GetConfiguration().maxElements; _-- != 0; )
             {
                 QC_DEBUG( "Allocating %d out of %d elements", _, GetConfiguration().maxElements );
                 QCBufferDescriptorBase_t response;

@@ -11,7 +11,7 @@ namespace Node
 
 CL2DPipelineLetterboxMultiple::CL2DPipelineLetterboxMultiple() {}
 
-CL2DPipelineLetterboxMultiple::~CL2DPipelineLetterboxMultiple() {}
+CL2DPipelineLetterboxMultiple::~CL2DPipelineLetterboxMultiple() = default;
 
 QCStatus_e CL2DPipelineLetterboxMultiple::Init(
         uint32_t inputId, cl_kernel *pKernel, CL2DFlex_Config_t *pConfig, OpenclSrv *pOpenclSrvObj,

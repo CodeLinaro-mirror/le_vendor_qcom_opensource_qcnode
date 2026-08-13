@@ -265,8 +265,8 @@ QCStatus_e SampleTemporal::FillTensor( TensorDescriptor_t &tensorDesc, float sca
             break;
         }
         default:
-            QC_ERROR( "tensor with type %d is not supported", tensorDesc.tensorType );
-            ret = QC_STATUS_BAD_ARGUMENTS;
+            QC_WARN( "tensor with type %d is not supported, fill with 0", tensorDesc.tensorType );
+            memset( tensorDesc.GetDataPtr(), 0, tensorDesc.GetDataSize() );
             break;
     }
 

@@ -293,7 +293,7 @@ for inc in incList:
     print( "Copying header file: " + inc + " to: " + tcIncDir )
     copy_file( inc, tcIncDir)
 
-svSdkDir = inputDir  + "/qnx_ap/AMSS/multimedia/compute/sv"
+svSdkDir = inputDir  + "/qnx_ap/AMSS/multimedia"
 for x in ["svBlobDetector.h", "svBuffer.h", "svConfigMap.h", "svDescriptor.h",
           "svDescriptorMatch.h", "svFeature.h", "svFpx.h", "svLme.h", "svNcc.h",
           "svSession.h", "svSpatialStats.h", "svStereoDisparity.h", "svTypes.h",
@@ -354,7 +354,9 @@ libListXml = [ "libsafe_xml.so", "libxml2_no_sock.so", "libsafe_xml_c.so" ]
 libListPmem  = [ "libpmem_client.so", "libpmemext.so" , "libsmmu_client.so"]
 libListFastADAS = [ "libfadas.so", "libfastrpc.so", "libfastrpc_pmem.so", "libfastrpc_pmem.so.1" ]
 libListQcx = [ "libqcxclient.so", "libqcxosal.so", "libmemorylogger.so", "libcamera_metadata.a" ]
-libListSv = [ "libsvplatform.so", "libsvcl.so", "libdevioClient.so", "libsoftsku.so.1", "libpm_client.so" ]
+libListSv = [ "libsvplatform.so", "libsvcl.so", "libdevioClient.so", "libsoftsku.so.1", "libpm_client.so",
+              "libevaEpl.so", "libevaPlatform.so", "librsm_client.so", "libnpa_client.so", "libicb_client.so",
+              "libclock_client.so" ]
 libListFuSa = [ "libFuSa-CRC32.so" ]
 libListCompRes = [ "libcompressched.so", "libcompresmon.so", "libcompresmgr_client.so", "libcompute_osal.so",
                     "libprocinfo.so.1", "libfdt_procinfo.so.1", "libfdt_utils.so.1" ]

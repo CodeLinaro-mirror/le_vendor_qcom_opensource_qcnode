@@ -962,6 +962,8 @@ TEST( QNN, DataType )
     EXPECT_EQ( QNN_DATATYPE_UFIXED_POINT_32,
                qnn.SwitchToQnnDataType( QC_TENSOR_TYPE_UFIXED_POINT_32 ) );
 
+    EXPECT_EQ( QNN_DATATYPE_BOOL_8, qnn.SwitchToQnnDataType( QC_TENSOR_TYPE_BOOL_8 ) );
+
     EXPECT_EQ( QNN_DATATYPE_UNDEFINED, qnn.SwitchToQnnDataType( QC_TENSOR_TYPE_MAX ) );
 
     EXPECT_EQ( QC_TENSOR_TYPE_INT_8, qnn.SwitchFromQnnDataType( QNN_DATATYPE_INT_8 ) );
@@ -987,6 +989,7 @@ TEST( QNN, DataType )
                qnn.SwitchFromQnnDataType( QNN_DATATYPE_UFIXED_POINT_16 ) );
     EXPECT_EQ( QC_TENSOR_TYPE_UFIXED_POINT_32,
                qnn.SwitchFromQnnDataType( QNN_DATATYPE_UFIXED_POINT_32 ) );
+    EXPECT_EQ( QC_TENSOR_TYPE_BOOL_8, qnn.SwitchFromQnnDataType( QNN_DATATYPE_BOOL_8 ) );
 
     EXPECT_EQ( QC_TENSOR_TYPE_MAX, qnn.SwitchFromQnnDataType( QNN_DATATYPE_UNDEFINED ) );
 

@@ -19,6 +19,10 @@ using namespace QC::Memory;
 class QCFrameDescriptorNodeIfs
 {
 public:
+    QCFrameDescriptorNodeIfs() = default;
+    QCFrameDescriptorNodeIfs( const QCFrameDescriptorNodeIfs & ) = default;
+    virtual ~QCFrameDescriptorNodeIfs() = default;
+
     /**
      * @brief Get the buffer descriptor identified by globalBufferId.
      * @param[in] globalBufferId The global buffer index.

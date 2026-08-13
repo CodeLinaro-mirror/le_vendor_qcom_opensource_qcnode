@@ -99,7 +99,8 @@ int Usage( const char *program, int error )
 #endif
             "\n"
 #ifdef QC_ENABLE_HS
-            "  -c clientName       : Specify the client name for HeteroScheduler (enables orchestrator)\n"
+            "  -c clientName       : Specify the client name for HeteroScheduler (enables "
+            "orchestrator)\n"
 #endif
             "  -d                  : Enable debug logging\n"
             "  -T run_time_seconds : Run for specified seconds (default: run forever)\n"
@@ -137,6 +138,8 @@ int main( int argc, char *argv[] )
     std::string key;
 #ifdef QC_ENABLE_HS
     std::string clientName;
+    bool bEnableOrchestrator = false;
+    HeteroSchedulerWrapper hsClient;
 #endif
     int opt;
     while ( ( opt = getopt( argc, argv, "dn:t:k:v:c:hT:V" ) ) != -1 )
@@ -198,7 +201,7 @@ int main( int argc, char *argv[] )
 
 #ifdef QC_ENABLE_HS
     // Enable orchestrator if client name is provided
-    bool bEnableOrchestrator = !clientName.empty();
+    bEnableOrchestrator = !clientName.empty();
 
     if ( bEnableOrchestrator )
     {
@@ -239,8 +242,6 @@ int main( int argc, char *argv[] )
     // Initialize HeteroSchedulerWrapper only if orchestrator is enabled
     if ( bEnableOrchestrator )
     {
-        HeteroSchedulerWrapper &hsClient = HeteroSchedulerWrapper::getInstance();
-
         ret = hsClient.Initialize( clientName );
         if ( ret != QC_STATUS_OK )
         {
@@ -274,7 +275,17 @@ int main( int argc, char *argv[] )
 #ifdef QC_ENABLE_HS
     if ( bEnableOrchestrator )
     {
-        HeteroSchedulerWrapper &hsClient = HeteroSchedulerWrapper::getInstance();
+        for ( auto sample : samples )
+        {
+            ret = sample->WaitReady();
+            if ( ret != QC_STATUS_OK )
+            {
+                printf( "WaitReady %s failed: ret = %d\n", sample->GetName(), ret );
+                return -1;
+            }
+            printf( "WaitReady %s OK\n", sample->GetName() );
+        }
+
         ret = hsClient.Start();
         if ( ret != QC_STATUS_OK )
         {
@@ -308,7 +319,6 @@ int main( int argc, char *argv[] )
 #ifdef QC_ENABLE_HS
     if ( bEnableOrchestrator )
     {
-        HeteroSchedulerWrapper &hsClient = HeteroSchedulerWrapper::getInstance();
         ret = hsClient.Stop();
         if ( ret != QC_STATUS_OK )
         {
@@ -339,7 +349,6 @@ int main( int argc, char *argv[] )
     // Deinitialize orchestrator if it was enabled
     if ( bEnableOrchestrator )
     {
-        HeteroSchedulerWrapper &hsClient = HeteroSchedulerWrapper::getInstance();
         ret = hsClient.Deinit();
         if ( ret != QC_STATUS_OK )
         {

@@ -53,14 +53,17 @@ QCStatus_e SampleOpticalFlow::ParseConfig( SampleConfig_t &config )
     std::string direction = Get( config, "direction", "forward" );
     if ( direction == "forward" )
     {
+        m_motionDirection = MOTION_DIRECTION_FORWARD;
         m_config.Set<uint8_t>( "motionDirection", MOTION_DIRECTION_FORWARD );
     }
     else if ( direction == "backward" )
     {
+        m_motionDirection = MOTION_DIRECTION_BACKWARD;
         m_config.Set<uint8_t>( "motionDirection", MOTION_DIRECTION_BACKWARD );
     }
     else if ( direction == "bidirectional" )
     {
+        m_motionDirection = MOTION_DIRECTION_BIDIRECTIONAL;
         m_config.Set<uint8_t>( "motionDirection", MOTION_DIRECTION_BIDIRECTIONAL );
     }
     else
@@ -111,6 +114,8 @@ QCStatus_e SampleOpticalFlow::ParseConfig( SampleConfig_t &config )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
+    m_bLatest = Get( config, "latest", true );
+
     m_dataTree.Set( "static", m_config );
 
     return ret;
@@ -129,23 +134,43 @@ QCStatus_e SampleOpticalFlow::Init( std::string name, SampleConfig_t &config )
     uint32_t width = m_width;
     uint32_t height = m_height;
 
+    TensorProps_t mvMapTsProp( QC_TENSOR_TYPE_UINT_16,
+                               { 1, ALIGN_S( height, 8 ), ALIGN_S( width * 2, 128 ), 1 },
+                               QC_MEMORY_ALLOCATOR_DMA_EVA );
+    TensorProps_t mvConfTsProp( QC_TENSOR_TYPE_UINT_8,
+                                { 1, ALIGN_S( height, 8 ), ALIGN_S( width, 128 ), 1 },
+                                QC_MEMORY_ALLOCATOR_DMA_EVA );
+
+    /* Allocate forward pools for FORWARD and BIDIRECTIONAL directions */
     if ( QC_STATUS_OK == ret )
     {
-        TensorProps_t mvMapTsProp( QC_TENSOR_TYPE_UINT_16,
-                                   { 1, ALIGN_S( height, 8 ), ALIGN_S( width * 2, 128 ), 1 },
-                                   QC_MEMORY_ALLOCATOR_DMA_EVA );
-
-        ret = m_mvPool.Init( name + ".mv", m_nodeId, LOGGER_LEVEL_INFO, m_poolSize, mvMapTsProp );
+        if ( ( m_motionDirection == MOTION_DIRECTION_FORWARD ) or
+             ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) )
+        {
+            ret = m_mvFwdPool.Init( name + ".mvFwd", m_nodeId, LOGGER_LEVEL_INFO, m_poolSize,
+                                    mvMapTsProp );
+            if ( QC_STATUS_OK == ret )
+            {
+                ret = m_mvFwdConfPool.Init( name + ".mvFwdConf", m_nodeId, LOGGER_LEVEL_INFO,
+                                            m_poolSize, mvConfTsProp );
+            }
+        }
     }
 
+    /* Allocate backward pools for BACKWARD and BIDIRECTIONAL directions */
     if ( QC_STATUS_OK == ret )
     {
-        TensorProps_t mvConfTsProp( QC_TENSOR_TYPE_UINT_8,
-                                    { 1, ALIGN_S( height, 8 ), ALIGN_S( width, 128 ), 1 },
-                                    QC_MEMORY_ALLOCATOR_DMA_EVA );
-
-        ret = m_mvConfPool.Init( name + ".mvConf", m_nodeId, LOGGER_LEVEL_INFO, m_poolSize,
-                                 mvConfTsProp );
+        if ( ( m_motionDirection == MOTION_DIRECTION_BACKWARD ) or
+             ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) )
+        {
+            ret = m_mvBwdPool.Init( name + ".mvBwd", m_nodeId, LOGGER_LEVEL_INFO, m_poolSize,
+                                    mvMapTsProp );
+            if ( QC_STATUS_OK == ret )
+            {
+                ret = m_mvBwdConfPool.Init( name + ".mvBwdConf", m_nodeId, LOGGER_LEVEL_INFO,
+                                            m_poolSize, mvConfTsProp );
+            }
+        }
     }
 
 
@@ -160,7 +185,7 @@ QCStatus_e SampleOpticalFlow::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = m_sub.Init( name, m_inputTopicName );
+        ret = m_sub.Init( name, m_inputTopicName, 2, m_bLatest );
     }
 
     if ( QC_STATUS_OK == ret )
@@ -219,20 +244,45 @@ void SampleOpticalFlow::Execute()
             m_LastFrames = frames;
             return;
         }
-        std::shared_ptr<SharedBuffer_t> mv = m_mvPool.Get();
-        std::shared_ptr<SharedBuffer_t> mvConf = m_mvConfPool.Get();
-        if ( ( nullptr != mv ) && ( nullptr != mvConf ) )
-        {
+        /* Acquire buffers based on direction */
+        std::shared_ptr<SharedBuffer_t> mvFwd =
+                ( ( m_motionDirection == MOTION_DIRECTION_FORWARD ) or
+                  ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) )
+                        ? m_mvFwdPool.Get()
+                        : nullptr;
+        std::shared_ptr<SharedBuffer_t> mvFwdConf =
+                ( ( m_motionDirection == MOTION_DIRECTION_FORWARD ) or
+                  ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) )
+                        ? m_mvFwdConfPool.Get()
+                        : nullptr;
+        std::shared_ptr<SharedBuffer_t> mvBwd =
+                ( ( m_motionDirection == MOTION_DIRECTION_BACKWARD ) or
+                  ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) )
+                        ? m_mvBwdPool.Get()
+                        : nullptr;
+        std::shared_ptr<SharedBuffer_t> mvBwdConf =
+                ( ( m_motionDirection == MOTION_DIRECTION_BACKWARD ) or
+                  ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) )
+                        ? m_mvBwdConfPool.Get()
+                        : nullptr;
 
+        /* Check that all required buffers are available */
+        bool fwdReady = ( m_motionDirection == MOTION_DIRECTION_FORWARD ) or
+                        ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL )
+                                ? ( ( mvFwd != nullptr ) and ( mvFwdConf != nullptr ) )
+                                : true;
+        bool bwdReady = ( m_motionDirection == MOTION_DIRECTION_BACKWARD ) or
+                        ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL )
+                                ? ( ( mvBwd != nullptr ) and ( mvBwdConf != nullptr ) )
+                                : true;
+
+        if ( fwdReady and bwdReady )
+        {
             QCBufferDescriptorBase_t &buffRefImg = m_LastFrames.GetBuffer( 0 );
             QCBufferDescriptorBase_t &buffCurImg = frames.GetBuffer( 0 );
-            QCBufferDescriptorBase_t &buffMV = mv->buffer;
-            QCBufferDescriptorBase_t &buffConf = mvConf->buffer;
 
             ImageDescriptor_t &buffRefImgDesc = dynamic_cast<ImageDescriptor_t &>( buffRefImg );
             ImageDescriptor_t &buffCurImgDesc = dynamic_cast<ImageDescriptor_t &>( buffCurImg );
-            TensorDescriptor_t &buffMVDesc = dynamic_cast<TensorDescriptor_t &>( buffMV );
-            TensorDescriptor_t &buffConfDesc = dynamic_cast<TensorDescriptor_t &>( buffConf );
 
             QCStatus_e status = frameDescriptor.SetBuffer(
                     static_cast<uint32_t>( QC_NODE_OF_REFERENCE_IMAGE_BUFF_ID ), buffRefImgDesc );
@@ -240,45 +290,90 @@ void SampleOpticalFlow::Execute()
             {
                 status = frameDescriptor.SetBuffer(
                         static_cast<uint32_t>( QC_NODE_OF_CURRENT_IMAGE_BUFF_ID ), buffCurImgDesc );
+            }
+
+            /* Set FORWARD buffers for FORWARD and BIDIRECTIONAL */
+            if ( ( QC_STATUS_OK == status ) and
+                 ( ( m_motionDirection == MOTION_DIRECTION_FORWARD ) or
+                   ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) ) )
+            {
+                /* Obtain base references first (reference_wrapper → base ref → dynamic_cast) */
+                QCBufferDescriptorBase_t &mvFwdBase     = mvFwd->buffer;
+                QCBufferDescriptorBase_t &mvFwdConfBase = mvFwdConf->buffer;
+                TensorDescriptor_t &mvFwdDesc     = dynamic_cast<TensorDescriptor_t &>( mvFwdBase );
+                TensorDescriptor_t &mvFwdConfDesc = dynamic_cast<TensorDescriptor_t &>( mvFwdConfBase );
+                status = frameDescriptor.SetBuffer(
+                        static_cast<uint32_t>( QC_NODE_OF_FWD_MOTION_BUFF_ID ), mvFwdDesc );
                 if ( QC_STATUS_OK == status )
                 {
                     status = frameDescriptor.SetBuffer(
-                            static_cast<uint32_t>( QC_NODE_OF_FWD_MOTION_BUFF_ID ), buffMVDesc );
-                    if ( QC_STATUS_OK == status )
-                    {
-                        status = frameDescriptor.SetBuffer(
-                                static_cast<uint32_t>( QC_NODE_OF_FWD_CONF_BUFF_ID ),
-                                buffConfDesc );
-
-                        PROFILER_BEGIN();
-                        TRACE_BEGIN( frames.FrameId( 0 ) );
-                        ret = static_cast<QCStatus_e>(
-                                m_of.ProcessFrameDescriptor( frameDescriptor ) );
-                        if ( QC_STATUS_OK == ret )
-                        {
-                            PROFILER_END();
-                            TRACE_END( frames.FrameId( 0 ) );
-                            DataFrames_t outFrames;
-                            DataFrame_t frame;
-                            frame.buffer = mv;
-                            frame.frameId = frames.FrameId( 0 );
-                            frame.timestamp = frames.Timestamp( 0 );
-                            outFrames.Add( frame );
-                            frame.buffer = mvConf;
-                            outFrames.Add( frame );
-                            m_pub.Publish( outFrames );
-                        }
-                        else
-                        {
-                            QC_ERROR( "OpticalFlow failed for %" PRIu64 " : %d",
-                                      frames.FrameId( 0 ), ret );
-                        }
-                    }
+                            static_cast<uint32_t>( QC_NODE_OF_FWD_CONF_BUFF_ID ), mvFwdConfDesc );
                 }
             }
-            if ( QC_STATUS_OK != status )
+
+            /* Set BACKWARD buffers for BACKWARD and BIDIRECTIONAL */
+            if ( ( QC_STATUS_OK == status ) and
+                 ( ( m_motionDirection == MOTION_DIRECTION_BACKWARD ) or
+                   ( m_motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) ) )
             {
-                QC_ERROR( "OpticalFlow failed with error code %d", status );
+                /* Obtain base references first (reference_wrapper → base ref → dynamic_cast) */
+                QCBufferDescriptorBase_t &mvBwdBase     = mvBwd->buffer;
+                QCBufferDescriptorBase_t &mvBwdConfBase = mvBwdConf->buffer;
+                TensorDescriptor_t &mvBwdDesc     = dynamic_cast<TensorDescriptor_t &>( mvBwdBase );
+                TensorDescriptor_t &mvBwdConfDesc = dynamic_cast<TensorDescriptor_t &>( mvBwdConfBase );
+                status = frameDescriptor.SetBuffer(
+                        static_cast<uint32_t>( QC_NODE_OF_BWD_MOTION_BUFF_ID ), mvBwdDesc );
+                if ( QC_STATUS_OK == status )
+                {
+                    status = frameDescriptor.SetBuffer(
+                            static_cast<uint32_t>( QC_NODE_OF_BWD_CONF_BUFF_ID ), mvBwdConfDesc );
+                }
+            }
+
+            if ( QC_STATUS_OK == status )
+            {
+                PROFILER_BEGIN();
+                TRACE_BEGIN( frames.FrameId( 0 ) );
+                ret = static_cast<QCStatus_e>( m_of.ProcessFrameDescriptor( frameDescriptor ) );
+                if ( QC_STATUS_OK == ret )
+                {
+                    PROFILER_END();
+                    TRACE_END( frames.FrameId( 0 ) );
+                    DataFrames_t outFrames;
+                    DataFrame_t frame;
+                    frame.frameId = frames.FrameId( 0 );
+                    frame.timestamp = frames.Timestamp( 0 );
+                    if ( mvFwd )
+                    {
+                        frame.buffer = mvFwd;
+                        outFrames.Add( frame );
+                    }
+                    if ( mvFwdConf )
+                    {
+                        frame.buffer = mvFwdConf;
+                        outFrames.Add( frame );
+                    }
+                    if ( mvBwd )
+                    {
+                        frame.buffer = mvBwd;
+                        outFrames.Add( frame );
+                    }
+                    if ( mvBwdConf )
+                    {
+                        frame.buffer = mvBwdConf;
+                        outFrames.Add( frame );
+                    }
+                    m_pub.Publish( outFrames );
+                }
+                else
+                {
+                    QC_ERROR( "OpticalFlow failed for %" PRIu64 " : %d", frames.FrameId( 0 ),
+                              ret );
+                }
+            }
+            else
+            {
+                QC_ERROR( "OpticalFlow SetBuffer failed with error code %d", status );
             }
         }
 

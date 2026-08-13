@@ -14,7 +14,7 @@ namespace Node
 
 /** @brief The QCNode REMAP Version */
 #define QCNODE_REMAP_VERSION_MAJOR 2U
-#define QCNODE_REMAP_VERSION_MINOR 1U
+#define QCNODE_REMAP_VERSION_MINOR 2U
 #define QCNODE_REMAP_VERSION_PATCH 0U
 
 #define QCNODE_REMAP_VERSION                                                                       \
@@ -65,6 +65,10 @@ typedef struct
     FadasNormlzParams_t normlzB;                     /**<normalize parameter for B channel*/
     bool bEnableUndistortion;                        /**<enable undistortion or not*/
     bool bEnableNormalize;                           /**<enable normalization or not*/
+    std::vector<int32_t> cpuThreadsAffinity;         /**<CPU thread affinity list, used for CPU
+                                                         processor only. If empty, platform default
+                                                         values are used: {12,13,14,15} on Linux,
+                                                         {0,1,2,3} otherwise*/
 } Remap_Config_t;
 
 /**

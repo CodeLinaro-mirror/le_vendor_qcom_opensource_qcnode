@@ -21,7 +21,7 @@ DMABUFFAllocator::DMABUFFAllocator( const QCMemoryAllocatorConfigInit_t &config,
 
 DMABUFFAllocator::~DMABUFFAllocator()
 {
-    dmabufheap_release( m_dmaBufDevFdCached );
+    (void) dmabufheap_release( m_dmaBufDevFdCached );
     m_dmaBufDevFdCached = DMABUF_HEAP_ALLOCATOR_DEFAULT_FD_CACHED;
     (void) QC_LOGGER_DEINIT();
 }
@@ -73,7 +73,7 @@ QCStatus_e DMABUFFAllocator::Allocate( const QCBufferPropBase_t &request,
 
     if ( QC_STATUS_OK == status )
     {
-        void *pAddr = mmap( NULL, request.size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0 );
+        void *pAddr = mmap( NULL, request.size, static_cast<int>( static_cast<uint32_t>( PROT_READ ) | static_cast<uint32_t>( PROT_WRITE ) ), MAP_SHARED, fd, 0 );
         if ( ( nullptr != pAddr ) && ( MAP_FAILED != pAddr ) )
         {
             response.pBuf = pAddr;

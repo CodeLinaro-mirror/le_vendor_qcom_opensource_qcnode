@@ -147,6 +147,7 @@ TEST( NodeBase, Sanity_DataTree )
                 { QC_TENSOR_TYPE_UFIXED_POINT_8, "ufixed_point8" },
                 { QC_TENSOR_TYPE_UFIXED_POINT_16, "ufixed_point16" },
                 { QC_TENSOR_TYPE_UFIXED_POINT_32, "ufixed_point32" },
+                { QC_TENSOR_TYPE_BOOL_8, "bool8" },
                 { QC_TENSOR_TYPE_MAX, "unknown" },
         };
         for ( auto &kv : tensorTypeMap )

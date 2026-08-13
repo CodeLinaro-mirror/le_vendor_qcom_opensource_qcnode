@@ -51,12 +51,8 @@ public:
      * @return None.
      */
     NodeBase() = default;
-
-    /**
-     * @brief NodeBase Destructor
-     * @return None
-     */
-    ~NodeBase() = default;
+    NodeBase( const NodeBase & ) = default;
+    NodeBase& operator=( const NodeBase& ) = default;
 
     /**
      * @brief Initializes Node.
@@ -111,6 +107,12 @@ public:
 
 protected:
     /**
+     * @brief NodeBase Destructor (protected; not polymorphically deleted as NodeBase).
+     * @return None
+     */
+    ~NodeBase() = default;
+
+    /**
      * @brief Initialize the Node
      * @param[in] nodeId the Node unique ID
      * @param[in] level the logger message level
@@ -164,9 +166,9 @@ void RegisterNode( QCNodeType_e type, Node_CreateFunction_t createFnc );
     class Register##class_name                                                                     \
     {                                                                                              \
     public:                                                                                        \
-        Register##class_name()                                                                     \
+        Register##class_name() noexcept                                                            \
         {                                                                                          \
-            RegisterNode( type, CreateNode##class_name );                                          \
+            RegisterNode( (type), CreateNode##class_name );                                        \
         }                                                                                          \
     };                                                                                             \
     const Register##class_name g_register##class_name;
