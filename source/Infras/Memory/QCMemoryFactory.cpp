@@ -140,9 +140,10 @@ QCStatus_e QCMemoryFactory::CreateMemoryManager( QCMemoryManagerType_e type,
 // DMA variants are included only on platforms where a DMA allocator is
 // compiled in; they fall to QC_STATUS_UNSUPPORTED on all other platforms.
 // ---------------------------------------------------------------------------
-const std::vector<QCMemoryAllocator_e> &QCMemoryFactory::GetSupportedAllocatorTypes()
+QCStatus_e
+QCMemoryFactory::GetSupportedAllocatorTypes( std::vector<QCMemoryAllocator_e> &outTypes )
 {
-    static const std::vector<QCMemoryAllocator_e> kTypes = {
+    outTypes = {
             QC_MEMORY_ALLOCATOR_HEAP,
 #if defined( __linux__ ) || defined( __QNX__ )
             QC_MEMORY_ALLOCATOR_DMA,     QC_MEMORY_ALLOCATOR_DMA_CAMERA,
@@ -150,11 +151,11 @@ const std::vector<QCMemoryAllocator_e> &QCMemoryFactory::GetSupportedAllocatorTy
             QC_MEMORY_ALLOCATOR_DMA_EVA, QC_MEMORY_ALLOCATOR_DMA_HTP,
 #endif
     };
-    return kTypes;
+    return QC_STATUS_OK;
 }
 
 // Returns JSON object of supported allocator types as key-value pairs (name: integer value)
-std::string QCMemoryFactory::GetSupportedAllocatorTypesJson()
+QCStatus_e QCMemoryFactory::GetSupportedAllocatorTypesJson( std::string &outJson )
 {
     static const std::pair<QCMemoryAllocator_e, const char *> kNames[] = {
             { QC_MEMORY_ALLOCATOR_HEAP, "QC_MEMORY_ALLOCATOR_HEAP" },
@@ -166,47 +167,55 @@ std::string QCMemoryFactory::GetSupportedAllocatorTypesJson()
             { QC_MEMORY_ALLOCATOR_DMA_HTP, "QC_MEMORY_ALLOCATOR_DMA_HTP" },
     };
 
-    std::string json = "{";
-    bool first = true;
-    for ( const QCMemoryAllocator_e type : GetSupportedAllocatorTypes() )
+    std::vector<QCMemoryAllocator_e> types;
+    QCStatus_e status = GetSupportedAllocatorTypes( types );
+    if ( status == QC_STATUS_OK )
     {
-        for ( const auto &[enumVal, name] : kNames )
+        std::string json = "{";
+        bool first = true;
+        for ( const QCMemoryAllocator_e type : types )
         {
-            if ( enumVal == type )
+            for ( const auto &[enumVal, name] : kNames )
             {
-                if ( !first )
+                if ( enumVal == type )
                 {
-                    json += ',';
+                    if ( !first )
+                    {
+                        json += ',';
+                    }
+                    json += '"';
+                    json += name;
+                    json += "\":";
+                    json += std::to_string( static_cast<int>( type ) );
+                    first = false;
+                    break;
                 }
-                json += '"';
-                json += name;
-                json += "\":";
-                json += std::to_string( static_cast<int>( type ) );
-                first = false;
-                break;
             }
         }
+        json += '}';
+        outJson = json;
     }
-    json += '}';
-    return json;
+
+    return status;
 }
 
 // ---------------------------------------------------------------------------
 // GetSupportedBufferDescriptorTypes
 // ---------------------------------------------------------------------------
-const std::vector<QCBufferType_e> &QCMemoryFactory::GetSupportedBufferDescriptorTypes()
+QCStatus_e
+QCMemoryFactory::GetSupportedBufferDescriptorTypes( std::vector<QCBufferType_e> &outTypes )
 {
-    static const std::vector<QCBufferType_e> kTypes = {
+    outTypes = {
             QC_BUFFER_TYPE_TXT,
             QC_BUFFER_TYPE_RAW,
             QC_BUFFER_TYPE_IMAGE,
             QC_BUFFER_TYPE_TENSOR,
     };
-    return kTypes;
+    return QC_STATUS_OK;
 }
 
 // Returns JSON object of supported buffer descriptor types as key-value pairs (name: integer value)
-std::string QCMemoryFactory::GetSupportedBufferDescriptorTypesJson()
+QCStatus_e QCMemoryFactory::GetSupportedBufferDescriptorTypesJson( std::string &outJson )
 {
     static const std::pair<QCBufferType_e, const char *> kNames[] = {
             { QC_BUFFER_TYPE_TXT, "QC_BUFFER_TYPE_TXT" },
@@ -220,29 +229,36 @@ std::string QCMemoryFactory::GetSupportedBufferDescriptorTypesJson()
             { QC_BUFFER_TYPE_CUSTOM_4, "QC_BUFFER_TYPE_CUSTOM_4" },
     };
 
-    std::string json = "{";
-    bool first = true;
-    for ( const QCBufferType_e type : GetSupportedBufferDescriptorTypes() )
+    std::vector<QCBufferType_e> types;
+    QCStatus_e status = GetSupportedBufferDescriptorTypes( types );
+    if ( status == QC_STATUS_OK )
     {
-        for ( const auto &[enumVal, name] : kNames )
+        std::string json = "{";
+        bool first = true;
+        for ( const QCBufferType_e type : types )
         {
-            if ( enumVal == type )
+            for ( const auto &[enumVal, name] : kNames )
             {
-                if ( !first )
+                if ( enumVal == type )
                 {
-                    json += ',';
+                    if ( !first )
+                    {
+                        json += ',';
+                    }
+                    json += '"';
+                    json += name;
+                    json += "\":";
+                    json += std::to_string( static_cast<int>( type ) );
+                    first = false;
+                    break;
                 }
-                json += '"';
-                json += name;
-                json += "\":";
-                json += std::to_string( static_cast<int>( type ) );
-                first = false;
-                break;
             }
         }
+        json += '}';
+        outJson = json;
     }
-    json += '}';
-    return json;
+
+    return status;
 }
 
 // ---------------------------------------------------------------------------
@@ -251,44 +267,52 @@ std::string QCMemoryFactory::GetSupportedBufferDescriptorTypesJson()
 // Currently only the local (in-process) manager is available.
 // Extend this list when remote or other manager variants are introduced.
 // ---------------------------------------------------------------------------
-const std::vector<QCMemoryManagerType_e> &QCMemoryFactory::GetSupportedMemoryManagerTypes()
+QCStatus_e
+QCMemoryFactory::GetSupportedMemoryManagerTypes( std::vector<QCMemoryManagerType_e> &outTypes )
 {
-    static const std::vector<QCMemoryManagerType_e> kTypes = {
+    outTypes = {
             QC_MEMORY_MANAGER_LOCAL,
     };
-    return kTypes;
+    return QC_STATUS_OK;
 }
 
 // Returns JSON object of supported memory manager types as key-value pairs (name: integer value)
-std::string QCMemoryFactory::GetSupportedMemoryManagerTypesJson()
+QCStatus_e QCMemoryFactory::GetSupportedMemoryManagerTypesJson( std::string &outJson )
 {
     static const std::pair<QCMemoryManagerType_e, const char *> kNames[] = {
             { QC_MEMORY_MANAGER_LOCAL, "QC_MEMORY_MANAGER_LOCAL" },
     };
 
-    std::string json = "{";
-    bool first = true;
-    for ( const QCMemoryManagerType_e type : GetSupportedMemoryManagerTypes() )
+    std::vector<QCMemoryManagerType_e> types;
+    QCStatus_e status = GetSupportedMemoryManagerTypes( types );
+    if ( status == QC_STATUS_OK )
     {
-        for ( const auto &[enumVal, name] : kNames )
+        std::string json = "{";
+        bool first = true;
+        for ( const QCMemoryManagerType_e type : types )
         {
-            if ( enumVal == type )
+            for ( const auto &[enumVal, name] : kNames )
             {
-                if ( !first )
+                if ( enumVal == type )
                 {
-                    json += ',';
+                    if ( !first )
+                    {
+                        json += ',';
+                    }
+                    json += '"';
+                    json += name;
+                    json += "\":";
+                    json += std::to_string( static_cast<int>( type ) );
+                    first = false;
+                    break;
                 }
-                json += '"';
-                json += name;
-                json += "\":";
-                json += std::to_string( static_cast<int>( type ) );
-                first = false;
-                break;
             }
         }
+        json += '}';
+        outJson = json;
     }
-    json += '}';
-    return json;
+
+    return status;
 }
 
 }   // namespace Memory

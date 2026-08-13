@@ -56,24 +56,30 @@ public:
 
     // Returns the allocator types constructible via CreateAllocator() on the
     // current platform. DMA variants are excluded on unsupported platforms.
-    static const std::vector<QCMemoryAllocator_e> &GetSupportedAllocatorTypes();
+    // outTypes receives the list; returns QC_STATUS_OK on success.
+    static QCStatus_e GetSupportedAllocatorTypes( std::vector<QCMemoryAllocator_e> &outTypes );
 
     // Returns the buffer types constructible via CreateBufferDescriptor().
-    static const std::vector<QCBufferType_e> &GetSupportedBufferDescriptorTypes();
+    // outTypes receives the list; returns QC_STATUS_OK on success.
+    static QCStatus_e GetSupportedBufferDescriptorTypes( std::vector<QCBufferType_e> &outTypes );
 
     // Returns the memory manager types constructible via CreateMemoryManager().
     // Currently only QC_MEMORY_MANAGER_LOCAL is available; extend when remote
     // or other manager variants are introduced.
-    static const std::vector<QCMemoryManagerType_e> &GetSupportedMemoryManagerTypes();
+    // outTypes receives the list; returns QC_STATUS_OK on success.
+    static QCStatus_e
+    GetSupportedMemoryManagerTypes( std::vector<QCMemoryManagerType_e> &outTypes );
 
-    // Returns the allocator types json
-    static std::string GetSupportedAllocatorTypesJson();
+    // Returns the allocator types json in outJson; returns QC_STATUS_OK on success.
+    static QCStatus_e GetSupportedAllocatorTypesJson( std::string &outJson );
 
-    // Returns the supported buffer descriptor types json
-    static std::string GetSupportedBufferDescriptorTypesJson();
+    // Returns the supported buffer descriptor types json in outJson;
+    // returns QC_STATUS_OK on success.
+    static QCStatus_e GetSupportedBufferDescriptorTypesJson( std::string &outJson );
 
-    // Returns the supported memory manager types json
-    static std::string GetSupportedMemoryManagerTypesJson();
+    // Returns the supported memory manager types json in outJson;
+    // returns QC_STATUS_OK on success.
+    static QCStatus_e GetSupportedMemoryManagerTypesJson( std::string &outJson );
 
 private:
     QCMemoryFactory() = delete;
