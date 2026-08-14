@@ -35,10 +35,48 @@ QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae
             ret = QC_STATUS_FAIL;
         }
 
+        /*
+         * The Adreno runtime exposes a single logical CL device per VM, so
+         * CL_DEVICE_TYPE_GPU only returns one device. Selecting the second
+         * GPU requires the Qualcomm CL_DEVICE_TYPE_SECOND_QCOM extension
+         * (cl_ext_qcom.h).
+         *   deviceId == 0 -> primary GPU (CL_DEVICE_TYPE_GPU)
+         *   deviceId == 1 -> second GPU  (CL_DEVICE_TYPE_SECOND_QCOM)
+         * The second GPU is only available on the SA8797 (Nordy) platform;
+         * on all other SOCs only the primary GPU (deviceId == 0) is supported.
+         */
+        cl_device_type deviceType = CL_DEVICE_TYPE_GPU;
+        if ( QC_STATUS_OK == ret )
+        {
+            if ( 0 == deviceId )
+            {
+                deviceType = CL_DEVICE_TYPE_GPU;
+            }
+#if ( defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 ) )
+            else if ( 1 == deviceId )
+            {
+                deviceType = CL_DEVICE_TYPE_SECOND_QCOM;
+            }
+            else
+            {
+                QC_ERROR( "Invalid device ID = %d, only 0 and 1 are supported on SA8797",
+                          deviceId );
+                ret = QC_STATUS_BAD_ARGUMENTS;
+            }
+#else
+            else
+            {
+                QC_ERROR( "Invalid device ID = %d, only 0 is supported on this platform",
+                          deviceId );
+                ret = QC_STATUS_BAD_ARGUMENTS;
+            }
+#endif
+        }
+
         if ( QC_STATUS_OK == ret )
         {
             cl_uint numDevices;
-            retCL = clGetDeviceIDs( m_platformID, CL_DEVICE_TYPE_GPU, 0, NULL, &numDevices );
+            retCL = clGetDeviceIDs( m_platformID, deviceType, 0, NULL, &numDevices );
             if ( CL_SUCCESS != retCL )
             {
                 QC_ERROR( "Unable to get number of devices, retCL = %d", retCL );
@@ -48,8 +86,8 @@ QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae
             {
                 std::vector<cl_device_id> deviceIDs( numDevices );
 
-                retCL = clGetDeviceIDs( m_platformID, CL_DEVICE_TYPE_GPU, numDevices,
-                                        deviceIDs.data(), NULL );
+                retCL = clGetDeviceIDs( m_platformID, deviceType, numDevices, deviceIDs.data(),
+                                        NULL );
                 if ( CL_SUCCESS == retCL )
                 {
                     for ( uint32_t i = 0; i < numDevices; i++ )
@@ -57,13 +95,17 @@ QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae
                         QC_INFO( "device ID[%d] = %d\n", i, deviceIDs[i] );
                     }
 
-                    if ( deviceId < numDevices )
+                    if ( numDevices > 0 )
                     {
-                        m_deviceID = deviceIDs[deviceId];
+                        /*
+                         * The runtime returns a single logical device per
+                         * requested type, so always select the first entry.
+                         */
+                        m_deviceID = deviceIDs[0];
                     }
                     else
                     {
-                        QC_ERROR( "Invalid device ID = %d", deviceId );
+                        QC_ERROR( "No device found for device ID = %d", deviceId );
                         ret = QC_STATUS_BAD_ARGUMENTS;
                     }
                 }
