@@ -202,7 +202,7 @@ public:
     QnnImpl( QCNodeID_t &nodeId, Logger &logger )
         : m_nodeId( nodeId ),
           m_logger( logger ),
-          m_state( QC_OBJECT_STATE_INITIAL ) {};
+          m_state( QC_OBJECT_STATE_INITIAL ){};
     QnnImplConfig_t &GetConfig() { return m_config; }
     QnnImplMonitorConfig_t &GetMonitorConfig() { return m_monitorConfig; }
 
@@ -343,6 +343,18 @@ private:
 
     void RemoteDeRegisterBuf( void *pData, size_t size );
     QCStatus_e DeRegisterAllBuffers();
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+    /**
+     * @brief Resolve the FastRPC domain id for the configured processor and the given core.
+     *        Domains are enumerated dynamically via remote_system_request(FASTRPC_GET_DOMAINS)
+     *        rather than assumed from a fixed CDSP_DOMAIN_ID.
+     * @param[in]  coreId   Core index used to select the NSP domain for HTP0.
+     * @param[out] domainId On success, the enumerated FastRPC domain id to pass to
+     *                      get_extended_domains_id(); left untouched on failure.
+     * @return QC_STATUS_OK on success, QC_STATUS_FAIL if the domain could not be resolved.
+     */
+    QCStatus_e GetFastRpcDomainId( uint32_t coreId, int &domainId );
+#endif
     QCStatus_e Destroy();
 
     QCStatus_e GetQnnFunctionPointers( std::string backendPath, std::string modelPath,
@@ -385,6 +397,9 @@ private:
     static std::mutex s_lock[QNN_PROCESSOR_MAX];
     static std::map<void *, int> s_dmaMemRefMap[QNN_PROCESSOR_MAX];
     static std::map<Qnn_ProcessorType_e, std::string> s_Backends;
+    // Extended FastRPC domain id resolved once during Initialize() (from the first configured
+    // core) and reused for every remote_register_buf_v2() register/deregister call.
+    int m_extDomainId = -1;
 
     static constexpr size_t CONTEXT_CONFIG_SIZE = 3;
 

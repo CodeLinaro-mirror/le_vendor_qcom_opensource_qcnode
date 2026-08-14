@@ -9,12 +9,18 @@ set( HEADERS_DIR ${PROJECT_SOURCE_DIR}/include
                  ${PROJECT_SOURCE_DIR}/source/Node/QNN
 )
 
-add_library( QnnSdkLibForTest STATIC
+set( QNN_SDK_LIB_FOR_TEST_SOURCE
     ${PROJECT_SOURCE_DIR}/source/Node/QNN/QNN.cpp
     ${PROJECT_SOURCE_DIR}/source/Node/QNN/QnnConfig.cpp
     ${PROJECT_SOURCE_DIR}/source/Node/QNN/QnnMonitor.cpp
     ${PROJECT_SOURCE_DIR}/source/Node/QNN/QnnImpl.cpp
 )
+
+if( QC_TARGET_SOC STREQUAL "8797" )
+list( APPEND QNN_SDK_LIB_FOR_TEST_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/Mock/QnnFastrpcStubs.cpp )
+endif()
+
+add_library( QnnSdkLibForTest STATIC ${QNN_SDK_LIB_FOR_TEST_SOURCE} )
 
 add_executable( gtest_NodeQnn gtest_NodeQnn.cpp )
 
