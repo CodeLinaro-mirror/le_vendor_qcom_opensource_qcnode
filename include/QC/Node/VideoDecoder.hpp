@@ -31,7 +31,7 @@ namespace QC::Node
 /** @brief The QCNode VideoDecoder Version */
 #define QCNODE_VIDEODECODER_VERSION_MAJOR 2U
 #define QCNODE_VIDEODECODER_VERSION_MINOR 1U
-#define QCNODE_VIDEODECODER_VERSION_PATCH 0U
+#define QCNODE_VIDEODECODER_VERSION_PATCH 1U
 
 #define QCNODE_VIDEODECODER_VERSION                                                                \
     ( ( QCNODE_VIDEODECODER_VERSION_MAJOR << 16U ) | ( QCNODE_VIDEODECODER_VERSION_MINOR << 8U ) | \
@@ -62,11 +62,9 @@ public:
     /**
      * @brief VideoDecoderConfigIfs Constructor
      * @param[in] logger A reference to the logger to be shared and used by VideoDecoderConfigIfs.
-     * @param[in] vide A reference to the RideHal Video Decoder component to be used by
-     * VideoDecoderConfigIfs. VideoDecoderConfigIfs.
      * @return None
      */
-    VideoDecoderConfigIfs( Logger &logger ) : VidcNodeBaseConfigIfs( logger ) {}
+    VideoDecoderConfigIfs( Logger &logger ) : VidcNodeBaseConfigIfs( m_config, logger ) {}
 
     /**
      * @brief VideoDecoderConfigIfs Destructor

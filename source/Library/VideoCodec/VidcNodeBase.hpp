@@ -35,56 +35,63 @@ typedef struct VidcNodeBase_Config : public QCNodeConfigBase_t
     Logger_Level_e logLevel{ LOGGER_LEVEL_ERROR };
 } VidcNodeBase_Config_t;
 
-class VidcNodeBaseConfigIfs : public NodeConfigIfs
+class VidcNodeBaseConfigIfs : public NodeConfigBase
 {
 public:
     /**
-     * @brief VideoDecoderConfigIfs Constructor
-     * @param[in] logger A reference to the logger to be shared and used by VideoDecoderConfigIfs.
-     * @param[in] vide A reference to the RideHal Video Decoder component to be used by
-     * VideoDecoderConfigIfs. VideoDecoderConfigIfs.
+     * @brief VidcNodeBaseConfigIfs Constructor
+     * @param[in] config A reference to the configuration structure that VerifyAndSet() will
+     *                   populate and that Get() returns. Owned by the derived class; the
+     *                   reference must outlive this object.
+     * @param[in] logger A reference to the logger to be shared and used by VidcNodeBaseConfigIfs.
      * @return None
      */
-    VidcNodeBaseConfigIfs( Logger &logger ) : NodeConfigIfs( logger ) {}
+    VidcNodeBaseConfigIfs( VidcNodeBase_Config_t &config, Logger &logger )
+        : NodeConfigBase( logger ),
+          m_config( config )
+    {}
 
     /**
-     * @brief VideoDecoderConfigIfs Destructor
+     * @brief VidcNodeBaseConfigIfs Destructor
      * @return None
      */
     virtual ~VidcNodeBaseConfigIfs() = default;
 
     /**
-     * @brief Verify and Load the json string
+     * @brief Verify and Load the json string, populating the bound configuration structure.
      *
-     * @param[in] config the json configuration string
+     * @param[in] cfg the json configuration string
      * @param[out] errors the error string to be used to return readable error information
      *
      * @return QC_STATUS_OK on success, others on failure
      *
+     * @note Overrides NodeConfigBase::VerifyAndSet. The parsed common video-codec fields are
+     * written into the configuration structure bound at construction (see the ctor @p config).
      * @note This API will also initialize the logger only once.
      * And this API can be called multiple times to apply dynamic parameter settings during runtime
      * after initialization.
      */
-    QCStatus_e VerifyAndSet( const std::string cfg, std::string &errors,
-                             VidcNodeBase_Config_t &config );
+    QCStatus_e VerifyAndSet( const std::string cfg, std::string &errors ) override;
 
     /**
      * @brief Get Configuration Options
-     * @return QC_STATUS_OK on success (options populated); an error code on failure.
-     * @note
-     * TODO: Provide a more detailed introduction about the JSON configuration options.
+     * @param[out] options The JSON configuration options string. Unused; left unchanged.
+     * @return QC_STATUS_UNSUPPORTED — the base video-codec config exposes no options.
      */
-    QCStatus_e GetOptions( std::string &options ) override = 0;
+    QCStatus_e GetOptions( std::string &options ) override { return QC_STATUS_UNSUPPORTED; }
 
     /**
      * @brief Get the Configuration Structure.
-     * @return A reference to the Configuration Structure.
+     * @return A reference to the configuration structure bound at construction.
      */
-    const QCNodeConfigBase_t &Get() override = 0;
+    const QCNodeConfigBase_t &Get() override { return m_config; };
 
 protected:
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors,
                                   VidcNodeBase_Config_t &config );
+
+private:
+    VidcNodeBase_Config_t &m_config;
 };
 
 /** @brief base class for video codec component */

@@ -928,7 +928,7 @@ QCStatus_e VideoEncoderConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
 
 QCStatus_e VideoEncoderConfigIfs::VerifyAndSet( const std::string config, std::string &errors )
 {
-    QCStatus_e status = VidcNodeBaseConfigIfs::VerifyAndSet( config, errors, m_config );
+    QCStatus_e status = VidcNodeBaseConfigIfs::VerifyAndSet( config, errors );
 
     if ( QC_STATUS_OK == status )
     {
@@ -969,8 +969,7 @@ void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc, void 
     }
 }
 
-void VideoEncoder::EventCallback( VideoCodec_EventType_e eventId, void *pEvent,
-                                  void *pPrivData )
+void VideoEncoder::EventCallback( VideoCodec_EventType_e eventId, void *pEvent, void *pPrivData )
 {
     VideoEncoder *pNve = static_cast<VideoEncoder *>( pPrivData );
     if ( pNve != nullptr )
