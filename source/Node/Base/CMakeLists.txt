@@ -19,14 +19,8 @@ set( NODEBASE_SOURCES
     QCNodeFactory.cpp
 )
 
-# Set libraries based on build type
-if(ENABLE_SIMNODE)
-    # For simulation build, only include QCNodeCommon
-    set( TARGET_LIBRARIES QCNodeCommon )
-else()
-    # For on-target build, include QCNodeCommon and QCNodeVideoCodec
-    set( TARGET_LIBRARIES QCNodeCommon QCNodeVideoCodec )
-endif()
+# For on-target build, include QCNodeCommon and QCNodeVideoCodec
+set( TARGET_LIBRARIES QCNodeCommon QCNodeVideoCodec )
 
 if ( ENABLE_TRACE )
     list( APPEND TARGET_LIBRARIES QCNodeTrace )
