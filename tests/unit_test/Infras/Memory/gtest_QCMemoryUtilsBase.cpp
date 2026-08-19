@@ -274,3 +274,355 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     status = Ifs.MemoryUnMap( buff );
     ASSERT_EQ( QC_STATUS_UNSUPPORTED, status );
 }
+
+// ---------------------------------------------------------------------------
+// Helpers for transition tests
+// ---------------------------------------------------------------------------
+
+static ImageDescriptor_t MakeSinglePlaneImage( void *buf, size_t bufSize, uint32_t width,
+                                               uint32_t height, QCImageFormat_e fmt,
+                                               uint32_t bytesPerPixel )
+{
+    ImageDescriptor_t img;
+    img.pBuf = buf;
+    img.size = bufSize;
+    img.validSize = bufSize;
+    img.type = QC_BUFFER_TYPE_IMAGE;
+    img.format = fmt;
+    img.width = width;
+    img.height = height;
+    img.batchSize = 1;
+    img.numPlanes = 1;
+    img.stride[0] = width * bytesPerPixel;
+    img.actualHeight[0] = height;
+    img.planeBufSize[0] = width * bytesPerPixel * height;
+    return img;
+}
+
+static ImageDescriptor_t MakeDualPlaneImage( void *buf, size_t bufSize, uint32_t width,
+                                             uint32_t height, QCImageFormat_e fmt,
+                                             uint32_t bytesPerPixel )
+{
+    ImageDescriptor_t img;
+    img.pBuf = buf;
+    img.size = bufSize;
+    img.validSize = bufSize;
+    img.type = QC_BUFFER_TYPE_IMAGE;
+    img.format = fmt;
+    img.width = width;
+    img.height = height;
+    img.batchSize = 1;
+    img.numPlanes = 2;
+    img.stride[0] = width * bytesPerPixel;
+    img.actualHeight[0] = height;
+    img.planeBufSize[0] = width * bytesPerPixel * height;
+    img.stride[1] = width * bytesPerPixel;
+    img.actualHeight[1] = height / 2;
+    img.planeBufSize[1] = width * bytesPerPixel * ( height / 2 );
+    return img;
+}
+
+// ---------------------------------------------------------------------------
+// Test GetSupportedTransitionTypes
+// ---------------------------------------------------------------------------
+TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_NotEmpty )
+{
+    UtilsBase utils;
+    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    ASSERT_FALSE( types.empty() );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_ContainsAllExpectedTypes )
+{
+    UtilsBase utils;
+    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+
+    auto contains = [&]( QCMemoryTransition_e t ) {
+        return std::find( types.begin(), types.end(), t ) != types.end();
+    };
+
+    ASSERT_TRUE( contains( QC_MEMORY_TRANSITION_RGB_TO_TENSOR ) );
+    ASSERT_TRUE( contains( QC_MEMORY_TRANSITION_BGR_TO_TENSOR ) );
+    ASSERT_TRUE( contains( QC_MEMORY_TRANSITION_UYVY_TO_TENSOR ) );
+    ASSERT_TRUE( contains( QC_MEMORY_TRANSITION_NV12_TO_GRAY ) );
+    ASSERT_TRUE( contains( QC_MEMORY_TRANSITION_P010_TO_GRAY ) );
+    ASSERT_TRUE( contains( QC_MEMORY_TRANSITION_NV12_TO_CHROMA ) );
+    ASSERT_TRUE( contains( QC_MEMORY_TRANSITION_P010_TO_CHROMA ) );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_DoesNotContainLast )
+{
+    UtilsBase utils;
+    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    auto it = std::find( types.begin(), types.end(), QC_MEMORY_TRANSITION_LAST );
+    ASSERT_EQ( types.end(), it );
+}
+
+// ---------------------------------------------------------------------------
+// Test CreateTransition — creation only
+// ---------------------------------------------------------------------------
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_UnsupportedType_Last )
+{
+    UtilsBase utils;
+    QCMemoryTransitionFn_t fn;
+    QCStatus_e status = utils.CreateTransition( QC_MEMORY_TRANSITION_LAST, fn );
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, status );
+    ASSERT_EQ( nullptr, fn );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_UnsupportedType_Invalid )
+{
+    UtilsBase utils;
+    QCMemoryTransitionFn_t fn;
+    QCStatus_e status = utils.CreateTransition( static_cast<QCMemoryTransition_e>( -1 ), fn );
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, status );
+    ASSERT_EQ( nullptr, fn );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_AllSupportedTypes_ReturnOkAndNonNullFn )
+{
+    UtilsBase utils;
+    for ( QCMemoryTransition_e type : utils.GetSupportedTransitionTypes() )
+    {
+        QCMemoryTransitionFn_t fn;
+        QCStatus_e status = utils.CreateTransition( type, fn );
+        ASSERT_EQ( QC_STATUS_OK, status ) << "type=" << static_cast<int>( type );
+        ASSERT_NE( nullptr, fn ) << "type=" << static_cast<int>( type );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Test transition callables — single-plane formats
+// ---------------------------------------------------------------------------
+static void VerifySinglePlaneTensor( QCMemoryTransition_e transitionType, QCImageFormat_e imgFmt,
+                                     uint32_t bpp )
+{
+    constexpr uint32_t W = 4, H = 4;
+    uint8_t buf[W * H * 4] = {};
+
+    ImageDescriptor_t img = MakeSinglePlaneImage( buf, W * H * bpp, W, H, imgFmt, bpp );
+
+    UtilsBase utils;
+    QCMemoryTransitionFn_t fn;
+    ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( transitionType, fn ) );
+
+    TensorDescriptor_t tensor;
+    QCStatus_e status = fn( img, tensor );
+
+    ASSERT_EQ( QC_STATUS_OK, status );
+    ASSERT_EQ( QC_BUFFER_TYPE_TENSOR, tensor.type );
+    ASSERT_EQ( 4u, tensor.numDims );
+    ASSERT_EQ( 1u, tensor.dims[0] );      // batchSize
+    ASSERT_EQ( H, tensor.dims[1] );       // height
+    ASSERT_EQ( W, tensor.dims[2] );       // width
+    ASSERT_EQ( bpp, tensor.dims[3] );     // channels
+    ASSERT_EQ( img.pBuf, tensor.pBuf );   // zero-copy
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_RGB_ToTensor_ValidInput )
+{
+    VerifySinglePlaneTensor( QC_MEMORY_TRANSITION_RGB_TO_TENSOR, QC_IMAGE_FORMAT_RGB888, 3u );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_BGR_ToTensor_ValidInput )
+{
+    VerifySinglePlaneTensor( QC_MEMORY_TRANSITION_BGR_TO_TENSOR, QC_IMAGE_FORMAT_BGR888, 3u );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_UYVY_ToTensor_ValidInput )
+{
+    VerifySinglePlaneTensor( QC_MEMORY_TRANSITION_UYVY_TO_TENSOR, QC_IMAGE_FORMAT_UYVY, 2u );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_RGB_ToTensor_WrongFormat )
+{
+    constexpr uint32_t W = 4, H = 4;
+    uint8_t buf[W * H * 3] = {};
+
+    ImageDescriptor_t img =
+            MakeSinglePlaneImage( buf, sizeof( buf ), W, H, QC_IMAGE_FORMAT_BGR888, 3u );
+
+    UtilsBase utils;
+    QCMemoryTransitionFn_t fn;
+    ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( QC_MEMORY_TRANSITION_RGB_TO_TENSOR, fn ) );
+
+    TensorDescriptor_t tensor;
+    ASSERT_NE( QC_STATUS_OK, fn( img, tensor ) );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_RGB_ToTensor_WrongSrcType )
+{
+    UtilsBase utils;
+    QCMemoryTransitionFn_t fn;
+    ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( QC_MEMORY_TRANSITION_RGB_TO_TENSOR, fn ) );
+
+    QCBufferDescriptorBase_t src;
+    TensorDescriptor_t tensor;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, fn( src, tensor ) );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_RGB_ToTensor_WrongDstType )
+{
+    constexpr uint32_t W = 4, H = 4;
+    uint8_t buf[W * H * 3] = {};
+
+    ImageDescriptor_t img =
+            MakeSinglePlaneImage( buf, sizeof( buf ), W, H, QC_IMAGE_FORMAT_RGB888, 3u );
+
+    UtilsBase utils;
+    QCMemoryTransitionFn_t fn;
+    ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( QC_MEMORY_TRANSITION_RGB_TO_TENSOR, fn ) );
+
+    QCBufferDescriptorBase_t dst;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, fn( img, dst ) );
+}
+
+// ---------------------------------------------------------------------------
+// Test transition callables — dual-plane formats (NV12 / P010)
+// ---------------------------------------------------------------------------
+static void VerifyDualPlaneTensors( QCMemoryTransition_e grayType, QCMemoryTransition_e chromaType,
+                                    QCImageFormat_e imgFmt, uint32_t bpp )
+{
+    constexpr uint32_t W = 4, H = 4;
+    const size_t lumaSz = W * H * bpp;
+    const size_t chromaSz = W * ( H / 2 ) * bpp;
+    std::vector<uint8_t> buf( lumaSz + chromaSz, 0 );
+
+    ImageDescriptor_t img = MakeDualPlaneImage( buf.data(), buf.size(), W, H, imgFmt, bpp );
+
+    UtilsBase utils;
+
+    // luma
+    {
+        QCMemoryTransitionFn_t fn;
+        ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( grayType, fn ) );
+        TensorDescriptor_t tensor;
+        ASSERT_EQ( QC_STATUS_OK, fn( img, tensor ) );
+        ASSERT_EQ( QC_BUFFER_TYPE_TENSOR, tensor.type );
+        ASSERT_EQ( 4u, tensor.numDims );
+        ASSERT_EQ( 1u, tensor.dims[0] );
+        ASSERT_EQ( H, tensor.dims[1] );
+        ASSERT_EQ( W, tensor.dims[2] );
+        ASSERT_EQ( 1u, tensor.dims[3] );
+        ASSERT_EQ( img.pBuf, tensor.pBuf );
+        ASSERT_EQ( 0u, tensor.offset );
+    }
+
+    // chroma
+    {
+        QCMemoryTransitionFn_t fn;
+        ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( chromaType, fn ) );
+        TensorDescriptor_t tensor;
+        ASSERT_EQ( QC_STATUS_OK, fn( img, tensor ) );
+        ASSERT_EQ( QC_BUFFER_TYPE_TENSOR, tensor.type );
+        ASSERT_EQ( 4u, tensor.numDims );
+        ASSERT_EQ( 1u, tensor.dims[0] );
+        ASSERT_EQ( H / 2, tensor.dims[1] );
+        ASSERT_EQ( W / 2, tensor.dims[2] );
+        ASSERT_EQ( 2u, tensor.dims[3] );
+        ASSERT_EQ( img.pBuf, tensor.pBuf );
+        ASSERT_EQ( lumaSz, tensor.offset );
+    }
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_NV12_ToGrayAndChroma_ValidInput )
+{
+    VerifyDualPlaneTensors( QC_MEMORY_TRANSITION_NV12_TO_GRAY, QC_MEMORY_TRANSITION_NV12_TO_CHROMA,
+                            QC_IMAGE_FORMAT_NV12, 1u );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_P010_ToGrayAndChroma_ValidInput )
+{
+    VerifyDualPlaneTensors( QC_MEMORY_TRANSITION_P010_TO_GRAY, QC_MEMORY_TRANSITION_P010_TO_CHROMA,
+                            QC_IMAGE_FORMAT_P010, 2u );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_NV12_ToGray_WrongFormat )
+{
+    constexpr uint32_t W = 4, H = 4;
+    std::vector<uint8_t> buf( W * H * 2 + W * H, 0 );
+
+    ImageDescriptor_t img =
+            MakeDualPlaneImage( buf.data(), buf.size(), W, H, QC_IMAGE_FORMAT_P010, 2u );
+
+    UtilsBase utils;
+    QCMemoryTransitionFn_t fn;
+    ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( QC_MEMORY_TRANSITION_NV12_TO_GRAY, fn ) );
+
+    TensorDescriptor_t tensor;
+    ASSERT_NE( QC_STATUS_OK, fn( img, tensor ) );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_P010_ToChroma_WrongFormat )
+{
+    constexpr uint32_t W = 4, H = 4;
+    std::vector<uint8_t> buf( W * H + W * H / 2, 0 );
+
+    ImageDescriptor_t img =
+            MakeDualPlaneImage( buf.data(), buf.size(), W, H, QC_IMAGE_FORMAT_NV12, 1u );
+
+    UtilsBase utils;
+    QCMemoryTransitionFn_t fn;
+    ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( QC_MEMORY_TRANSITION_P010_TO_CHROMA, fn ) );
+
+    TensorDescriptor_t tensor;
+    ASSERT_NE( QC_STATUS_OK, fn( img, tensor ) );
+}
+
+// ---------------------------------------------------------------------------
+// Test GetSupportedBufferTransitionTypesJson
+// ---------------------------------------------------------------------------
+TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_NotEmpty )
+{
+    UtilsBase utils;
+    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    ASSERT_FALSE( json.empty() );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ValidFormat )
+{
+    UtilsBase utils;
+    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    ASSERT_EQ( '{', json.front() );
+    ASSERT_EQ( '}', json.back() );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ContainsAllExpectedKeys )
+{
+    UtilsBase utils;
+    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+
+    ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_RGB_TO_TENSOR" ) );
+    ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_BGR_TO_TENSOR" ) );
+    ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_UYVY_TO_TENSOR" ) );
+    ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_NV12_TO_GRAY" ) );
+    ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_P010_TO_GRAY" ) );
+    ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_NV12_TO_CHROMA" ) );
+    ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_P010_TO_CHROMA" ) );
+}
+
+TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_MatchesVector )
+{
+    UtilsBase utils;
+    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+
+    size_t commaCount = static_cast<size_t>( std::count( json.begin(), json.end(), ',' ) );
+    ASSERT_EQ( types.size() - 1, commaCount );
+}
+
+// ---------------------------------------------------------------------------
+// Consistency: every supported type can be created successfully
+// ---------------------------------------------------------------------------
+TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_Consistency )
+{
+    UtilsBase utils;
+    for ( QCMemoryTransition_e type : utils.GetSupportedTransitionTypes() )
+    {
+        QCMemoryTransitionFn_t fn;
+        QCStatus_e status = utils.CreateTransition( type, fn );
+        ASSERT_EQ( QC_STATUS_OK, status )
+                << "Failed to create transition for type: " << static_cast<int>( type );
+        ASSERT_NE( nullptr, fn ) << "Null callable for type: " << static_cast<int>( type );
+    }
+}

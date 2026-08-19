@@ -81,6 +81,41 @@ public:
      */
     virtual QCStatus_e SetImageDescFromImageProp( ImageProps_t &prop, ImageDescriptor_t &desc );
 
+    // ------------------------------------------------------------------
+    // Memory transition APIs
+    // ------------------------------------------------------------------
+
+    /**
+     * @brief Returns all transition types supported by this implementation.
+     *
+     * All returned types are guaranteed to succeed when passed to CreateTransition().
+     * @return Const reference to a static vector of supported QCMemoryTransition_e values.
+     */
+    virtual const std::vector<QCMemoryTransition_e> &GetSupportedTransitionTypes() override;
+
+    /**
+     * @brief Returns a transition callable for the given type.
+     *
+     * The callable performs a zero-copy transition from an ImageDescriptor_t to a
+     * TensorDescriptor_t, reusing the underlying DMA buffer without any data copy.
+     *
+     * @param type   The desired transition type.
+     * @param outFn  On success, receives the transition callable.
+     *               Set to nullptr on failure.
+     * @return QC_STATUS_OK on success.
+     *         QC_STATUS_UNSUPPORTED if @p type is not in GetSupportedTransitionTypes().
+     */
+    virtual QCStatus_e CreateTransition( QCMemoryTransition_e type,
+                                         QCMemoryTransitionFn_t &outFn ) override;
+
+    /**
+     * @brief Returns the supported transition types as a JSON object.
+     *
+     * Keys are enumerator name strings; values are the corresponding integer values.
+     * @return JSON string of supported transition types.
+     */
+    virtual std::string GetSupportedBufferTransitionTypesJson() override;
+
 private:
     /**
      * @var s_qcFormatToString
