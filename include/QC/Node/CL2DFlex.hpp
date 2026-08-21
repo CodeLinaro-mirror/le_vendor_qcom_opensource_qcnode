@@ -21,6 +21,18 @@ namespace Node
     ( ( QCNODE_CL2DFLEX_VERSION_MAJOR << 16U ) | ( QCNODE_CL2DFLEX_VERSION_MINOR << 8U ) |         \
       QCNODE_CL2DFLEX_VERSION_PATCH )
 
+/** @brief Maximum supported OpenCL device ID.
+ *   deviceId == 0 -> primary GPU (CL_DEVICE_TYPE_GPU)
+ *   deviceId == 1 -> second GPU  (CL_DEVICE_TYPE_SECOND_QCOM)
+ * The second GPU is only available on the SA8797 (Nordy) platform; on all
+ * other SOCs only the primary GPU (deviceId == 0) is supported.
+ */
+#if ( defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 ) )
+#define QC_CL2DFLEX_DEVICE_ID_MAX 1U
+#else
+#define QC_CL2DFLEX_DEVICE_ID_MAX 0U
+#endif
+
 using namespace QC::libs::OpenclIface;
 
 /*=================================================================================================

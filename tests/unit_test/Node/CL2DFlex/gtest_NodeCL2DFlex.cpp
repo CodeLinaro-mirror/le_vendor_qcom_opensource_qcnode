@@ -1280,7 +1280,7 @@ void Coverage1()
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex15 )->~CL2DFlex();
 
-    // invalid device id
+    // invalid device id (out of range, rejected during config verification)
     QCNodeIfs *pCL2DFlex16 = new QC::Node::CL2DFlex();
     DataTree dt16;
     dt16.Set<std::string>( "static.name", "CL2D" );
@@ -1289,7 +1289,7 @@ void Coverage1()
     SetConfigCL2D( &CL2DFlexConfig, &dt16 );
     QCNodeInit_t config16 = { dt16.Dump() };
     ret = pCL2DFlex16->Initialize( config16 );
-    EXPECT_EQ( QC_STATUS_FAIL, ret );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
     reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex16 )->~CL2DFlex();
 
     // deregister all buffers when stop
