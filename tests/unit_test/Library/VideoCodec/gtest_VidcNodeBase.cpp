@@ -193,7 +193,7 @@ struct TestableVidcNodeConfig : public VidcNodeBase_Config_t
 class TestableVidcNodeConfigIfs : public VidcNodeBaseConfigIfs
 {
 public:
-    TestableVidcNodeConfigIfs( Logger &logger ) : VidcNodeBaseConfigIfs( logger ) {}
+    TestableVidcNodeConfigIfs( Logger &logger ) : VidcNodeBaseConfigIfs( m_config, logger ) {}
 
     ~TestableVidcNodeConfigIfs() {}
 
@@ -202,7 +202,8 @@ public:
     {
         DataTree old_dataTree = m_dataTree;
         m_dataTree = dt;
-        QCStatus_e status = VidcNodeBaseConfigIfs::VerifyAndSet( cfg, errors, config );
+        QCStatus_e status = VidcNodeBaseConfigIfs::VerifyAndSet( cfg, errors );
+        config = m_config;
         m_dataTree = old_dataTree;
         return status;
     }
@@ -213,7 +214,7 @@ public:
         return QC_STATUS_OK;
     }
 
-    const QCNodeConfigBase_t &Get() { return m_config; }
+    const QCNodeConfigBase_t &Get() override { return m_config; }
 
 private:
     VidcNodeBase_Config_t m_config{};

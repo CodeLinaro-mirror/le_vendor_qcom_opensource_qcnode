@@ -46,10 +46,9 @@ QCStatus_e VidcNodeBase::Init( const VidcNodeBase_Config_t &config )
     return status;
 }
 
-QCStatus_e VidcNodeBaseConfigIfs::VerifyAndSet( const std::string cfg, std::string &errors,
-                                                VidcNodeBase_Config_t &config )
+QCStatus_e VidcNodeBaseConfigIfs::VerifyAndSet( const std::string cfg, std::string &errors )
 {
-    QCStatus_e status = NodeConfigIfs::VerifyAndSet( cfg, errors );
+    QCStatus_e status = NodeConfigBase::VerifyAndSet( cfg, errors );
 
     if ( QC_STATUS_OK == status )
     {
@@ -57,21 +56,21 @@ QCStatus_e VidcNodeBaseConfigIfs::VerifyAndSet( const std::string cfg, std::stri
         status = m_dataTree.Get( "static", dt );
         if ( QC_STATUS_OK == status )
         {
-            status = ParseStaticConfig( dt, errors, config );
+            status = ParseStaticConfig( dt, errors, m_config );
         }
     }
 
     if ( QC_STATUS_OK == status )
     {
-        QC_DEBUG( "FrameWidth = %" PRIu32, config.width );
-        QC_DEBUG( "FrameHeight = %" PRIu32, config.height );
-        QC_DEBUG( "frameRate = %" PRIu32, config.frameRate );
-        QC_DEBUG( "bInputDynamicMode = %d", config.bInputDynamicMode ? 1 : 0 );
-        QC_DEBUG( "bOutputDynamicMode = %d", config.bOutputDynamicMode ? 1 : 0 );
-        QC_DEBUG( "numInputBufferReq = %" PRIu32 " ", config.numInputBufferReq );
-        QC_DEBUG( "numOutputBufferReq = %" PRIu32 " ", config.numOutputBufferReq );
-        QC_DEBUG( "inFormat = %d", config.inFormat );
-        QC_DEBUG( "outFormat = %d", config.outFormat );
+        QC_DEBUG( "FrameWidth = %" PRIu32, m_config.width );
+        QC_DEBUG( "FrameHeight = %" PRIu32, m_config.height );
+        QC_DEBUG( "frameRate = %" PRIu32, m_config.frameRate );
+        QC_DEBUG( "bInputDynamicMode = %d", m_config.bInputDynamicMode ? 1 : 0 );
+        QC_DEBUG( "bOutputDynamicMode = %d", m_config.bOutputDynamicMode ? 1 : 0 );
+        QC_DEBUG( "numInputBufferReq = %" PRIu32 " ", m_config.numInputBufferReq );
+        QC_DEBUG( "numOutputBufferReq = %" PRIu32 " ", m_config.numOutputBufferReq );
+        QC_DEBUG( "inFormat = %d", m_config.inFormat );
+        QC_DEBUG( "outFormat = %d", m_config.outFormat );
     }
 
     return status;
