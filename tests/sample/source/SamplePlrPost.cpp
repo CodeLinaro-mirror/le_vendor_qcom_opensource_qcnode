@@ -43,7 +43,9 @@ QCStatus_e SamplePlrPost::ParseConfig( SampleConfig_t &config )
     m_config.coreId = coreId;
     m_coreIds = { coreId };
 
-    m_rsmPriority = Get( config, "rsm_priority", 0 );
+    m_rsmPriority = Get( config, "rsm_priority", SampleIF::kDefaultRsmPriority );
+    m_rsmTimeoutUs = Get( config, "rsm_timeout", SampleIF::kDefaultRsmTimeoutUs );
+    m_rsmDurationUs = Get( config, "rsm_duration", SampleIF::kDefaultRsmDurationUs );
 
     m_config.pillarXSize = Get( config, "pillar_size_x", 0.16f );
     m_config.pillarYSize = Get( config, "pillar_size_y", 0.16f );
@@ -128,7 +130,7 @@ QCStatus_e SamplePlrPost::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_config.processor, m_rsmPriority, m_coreIds );
+        ret = SampleIF::Init( m_config.processor, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )
