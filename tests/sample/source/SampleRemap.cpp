@@ -547,8 +547,8 @@ void SampleRemap::Execute()
             {
                 QC_ERROR( "Remap execute failed for %" PRIu64 " : %d", frames.FrameId( 0 ), ret );
             }
+            (void) SampleIF::Unlock();
         }
-        (void) SampleIF::Unlock();
     }
 #ifdef QC_ENABLE_HS
     else if ( m_bOrchestratorEnabled )
