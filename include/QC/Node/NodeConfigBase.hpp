@@ -75,11 +75,7 @@ protected:
     bool m_bLoggerInit = false;
     DataTree m_dataTree;
     Logger &m_logger;
-    static const std::string s_QC_STATUS_UNSUPPORTED;   //= "QC_STATUS_UNSUPPORTED";
 };
-
-// @deprecated TO BE removed after phase 2 dev done
-using NodeConfigIfs = NodeConfigBase;
 
 }   // namespace Node
 }   // namespace QC

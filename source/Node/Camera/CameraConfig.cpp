@@ -651,7 +651,7 @@ QCStatus_e CameraConfig::VerifyAndSet( const std::string config, std::string &er
     QCStatus_e status = QC_STATUS_OK;
     DataTree dt;
 
-    status = NodeConfigIfs::VerifyAndSet( config, errors );
+    status = NodeConfigBase::VerifyAndSet( config, errors );
     if ( QC_STATUS_OK == status )
     {
 

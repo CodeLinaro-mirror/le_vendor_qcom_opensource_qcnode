@@ -149,7 +149,7 @@ public:
 } DepthFromStereo_Config_t;
 
 
-class DepthFromStereoConfigIfs : public NodeConfigIfs
+class DepthFromStereoConfigIfs : public NodeConfigBase
 {
 public:
     /**
@@ -158,7 +158,7 @@ public:
      * NodeDepthFromStereoConfigIfs.
      * @return None
      */
-    DepthFromStereoConfigIfs( Logger &logger ) : NodeConfigIfs( logger ) {}
+    DepthFromStereoConfigIfs( Logger &logger ) : NodeConfigBase( logger ) {}
 
     /**
      * @brief NodeDepthFromStereoConfigIfs Destructor

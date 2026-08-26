@@ -121,7 +121,7 @@ typedef struct
  */
 class CL2DFlexImpl;
 
-class CL2DFlexConfig : public NodeConfigIfs
+class CL2DFlexConfig : public NodeConfigBase
 {
 public:
     /**
@@ -131,7 +131,7 @@ public:
      * @return None
      */
     CL2DFlexConfig( Logger &logger, CL2DFlexImpl *pCL2DFlexImpl )
-        : NodeConfigIfs( logger ),
+        : NodeConfigBase( logger ),
           m_pCL2DFlexImpl( pCL2DFlexImpl )
     {}
 

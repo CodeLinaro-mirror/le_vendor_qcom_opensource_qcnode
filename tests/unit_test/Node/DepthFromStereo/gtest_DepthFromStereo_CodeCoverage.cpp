@@ -336,7 +336,7 @@ TEST_F( DepthFromStereoCodeCoverageTest, VerifyAndSet_MissingStaticBlock_TakesDy
     // Coverage target: DepthFromStereoConfigIfs::VerifyAndSet() else branch (DepthFromStereo.cpp
     // ~414).
     //
-    // Reality check: NodeConfigIfs::VerifyAndSet() appears to require a "static" object to exist,
+    // Reality check: NodeConfigBase::VerifyAndSet() appears to require a "static" object to exist,
     // so the call may fail before DepthFromStereoConfigIfs gets to the "m_dataTree.Get(\"static\",
     // ...)" check. Keep the test, but only assert "not OK" to avoid failing the suite in
     // environments where the base class enforces presence of "static".

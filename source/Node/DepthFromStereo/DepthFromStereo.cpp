@@ -403,7 +403,7 @@ QCStatus_e DepthFromStereoConfigIfs::ApplyDynamicConfig( DataTree &dt, std::stri
 
 QCStatus_e DepthFromStereoConfigIfs::VerifyAndSet( const std::string config, std::string &errors )
 {
-    QCStatus_e status = NodeConfigIfs::VerifyAndSet( config, errors );
+    QCStatus_e status = NodeConfigBase::VerifyAndSet( config, errors );
 
     if ( QC_STATUS_OK == status )
     {

@@ -40,20 +40,20 @@ class CameraImpl;
  * @brief Interface for Node Camera Configuration.
  *
  * This class provides an interface for configuring camera nodes. It extends the
- * NodeConfigIfs class and includes additional functionality specific to camera
+ * NodeConfigBase class and includes additional functionality specific to camera
  * configuration.
  */
-class CameraConfig : public NodeConfigIfs
+class CameraConfig : public NodeConfigBase
 {
 public:
     /**
      * @brief Constructor for CameraConfig.
      * Initializes the CameraConfig with a logger and a CameraImpl object.
-     * @param[in] logger A reference to the logger to be shared and used by CameraConfig.  
+     * @param[in] logger A reference to the logger to be shared and used by CameraConfig.
      * @param[in] pCamImpl A pointer to the CameraImpl object to be used by CameraConfig.
      */
     CameraConfig( Logger &logger, CameraImpl *pCamImpl )
-        : NodeConfigIfs( logger ),
+        : NodeConfigBase( logger ),
           m_pCamImpl( pCamImpl )
     {}
 

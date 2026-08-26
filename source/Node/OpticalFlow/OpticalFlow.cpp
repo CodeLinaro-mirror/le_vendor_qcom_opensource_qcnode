@@ -361,7 +361,7 @@ QCStatus_e OpticalFlowConfigIfs::ApplyDynamicConfig( DataTree &dt, std::string &
 QCStatus_e OpticalFlowConfigIfs::VerifyAndSet( const std::string config, std::string &errors )
 {
 
-    QCStatus_e status = NodeConfigIfs::VerifyAndSet( config, errors );
+    QCStatus_e status = NodeConfigBase::VerifyAndSet( config, errors );
 
     if ( QC_STATUS_OK == status )
     {

@@ -8,8 +8,6 @@ namespace QC
 namespace Node
 {
 
-const std::string NodeConfigBase::s_QC_STATUS_UNSUPPORTED = "QC_STATUS_UNSUPPORTED";
-
 QCStatus_e NodeConfigBase::VerifyAndSet( const std::string config, std::string &errors )
 {
     QCStatus_e status = QC_STATUS_OK;

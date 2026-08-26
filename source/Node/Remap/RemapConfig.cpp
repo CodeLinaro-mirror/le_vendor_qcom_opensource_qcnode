@@ -209,7 +209,7 @@ QCStatus_e RemapConfig::VerifyAndSet( const std::string config, std::string &err
 {
     QCStatus_e status = QC_STATUS_OK;
 
-    status = NodeConfigIfs::VerifyAndSet( config, errors );
+    status = NodeConfigBase::VerifyAndSet( config, errors );
     if ( QC_STATUS_OK == status )
     {
         DataTree dt;

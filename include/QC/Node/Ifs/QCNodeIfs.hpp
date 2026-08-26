@@ -9,6 +9,7 @@
 #include "QC/Node/Ifs/QCNodeDefs.hpp"
 #include "QC/Node/Ifs/QCNodeMonitoringIfs.hpp"
 #include <functional>
+#include <vector>
 
 namespace QC
 {
@@ -42,6 +43,7 @@ class QCNodeIfs
 {
 
 public:
+    virtual ~QCNodeIfs() = default;
     virtual QCStatus_e Initialize( QCNodeInit_t &config ) = 0;
     virtual QCStatus_e DeInitialize() = 0;
     virtual QCStatus_e Start() = 0;

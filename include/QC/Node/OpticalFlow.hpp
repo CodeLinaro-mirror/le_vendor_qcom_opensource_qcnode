@@ -166,7 +166,7 @@ public:
 
 } OpticalFlow_Config_t;
 
-class OpticalFlowConfigIfs : public NodeConfigIfs
+class OpticalFlowConfigIfs : public NodeConfigBase
 {
 public:
     /**
@@ -175,7 +175,7 @@ public:
      * OpticalFlowConfigIfs.
      * @return None
      */
-    OpticalFlowConfigIfs( Logger &logger ) : NodeConfigIfs( logger ) {}
+    OpticalFlowConfigIfs( Logger &logger ) : NodeConfigBase( logger ) {}
 
     /**
      * @brief OpticalFlowConfigIfs Destructor
