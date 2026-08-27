@@ -768,6 +768,16 @@ public:
      */
     QCObjectState_e GetState() const noexcept { return m_state; }
 
+    /**
+     * @brief Returns the type-level configuration schema for this memory manager type.
+     *
+     * Override in each concrete manager to return a real JSON schema.
+     *
+     * @param[out] options JSON schema string.
+     * @return QCStatus_e indicating success or failure.
+     */
+    virtual QCStatus_e GetOptions( std::string &options ) { options = "{}"; return QC_STATUS_UNSUPPORTED; }
+
 protected:
     /**
      * @brief Protected constructor to prevent direct instantiation.

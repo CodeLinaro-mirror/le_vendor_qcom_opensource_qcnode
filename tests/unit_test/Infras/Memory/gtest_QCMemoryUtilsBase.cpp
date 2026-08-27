@@ -328,14 +328,16 @@ static ImageDescriptor_t MakeDualPlaneImage( void *buf, size_t bufSize, uint32_t
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_NotEmpty )
 {
     UtilsBase utils;
-    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    std::vector<QCMemoryTransition_e> types;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( types ), QC_STATUS_OK );
     ASSERT_FALSE( types.empty() );
 }
 
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_ContainsAllExpectedTypes )
 {
     UtilsBase utils;
-    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    std::vector<QCMemoryTransition_e> types;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( types ), QC_STATUS_OK );
 
     auto contains = [&]( QCMemoryTransition_e t ) {
         return std::find( types.begin(), types.end(), t ) != types.end();
@@ -353,7 +355,8 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_ContainsAllExpectedT
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_DoesNotContainLast )
 {
     UtilsBase utils;
-    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    std::vector<QCMemoryTransition_e> types;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( types ), QC_STATUS_OK );
     auto it = std::find( types.begin(), types.end(), QC_MEMORY_TRANSITION_LAST );
     ASSERT_EQ( types.end(), it );
 }
@@ -382,7 +385,9 @@ TEST_F( Test_QCMemoryUtilsBase, CreateTransition_UnsupportedType_Invalid )
 TEST_F( Test_QCMemoryUtilsBase, CreateTransition_AllSupportedTypes_ReturnOkAndNonNullFn )
 {
     UtilsBase utils;
-    for ( QCMemoryTransition_e type : utils.GetSupportedTransitionTypes() )
+    std::vector<QCMemoryTransition_e> supported;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( supported ), QC_STATUS_OK );
+    for ( QCMemoryTransition_e type : supported )
     {
         QCMemoryTransitionFn_t fn;
         QCStatus_e status = utils.CreateTransition( type, fn );
@@ -570,19 +575,21 @@ TEST_F( Test_QCMemoryUtilsBase, CreateTransition_P010_ToChroma_WrongFormat )
 }
 
 // ---------------------------------------------------------------------------
-// Test GetSupportedBufferTransitionTypesJson
+// Test GetSupportedTransitionTypesJson
 // ---------------------------------------------------------------------------
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_NotEmpty )
 {
     UtilsBase utils;
-    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    std::string json;
+    ASSERT_EQ( utils.GetSupportedBufferTransitionTypesJson( json ), QC_STATUS_OK );
     ASSERT_FALSE( json.empty() );
 }
 
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ValidFormat )
 {
     UtilsBase utils;
-    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    std::string json;
+    ASSERT_EQ( utils.GetSupportedBufferTransitionTypesJson( json ), QC_STATUS_OK );
     ASSERT_EQ( '{', json.front() );
     ASSERT_EQ( '}', json.back() );
 }
@@ -590,7 +597,8 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ValidForma
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ContainsAllExpectedKeys )
 {
     UtilsBase utils;
-    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    std::string json;
+    ASSERT_EQ( utils.GetSupportedBufferTransitionTypesJson( json ), QC_STATUS_OK );
 
     ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_RGB_TO_TENSOR" ) );
     ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_BGR_TO_TENSOR" ) );
@@ -604,10 +612,12 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ContainsAl
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_MatchesVector )
 {
     UtilsBase utils;
-    std::string json = utils.GetSupportedBufferTransitionTypesJson();
-    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    std::string json;
+    ASSERT_EQ( utils.GetSupportedBufferTransitionTypesJson( json ), QC_STATUS_OK );
+    std::vector<QCMemoryTransition_e> types;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( types ), QC_STATUS_OK );
 
-    size_t commaCount = static_cast<size_t>( std::count( json.begin(), json.end(), ',' ) );
+    size_t commaCount = std::count( json.begin(), json.end(), ',' );
     ASSERT_EQ( types.size() - 1, commaCount );
 }
 
@@ -617,7 +627,9 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_MatchesVec
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_Consistency )
 {
     UtilsBase utils;
-    for ( QCMemoryTransition_e type : utils.GetSupportedTransitionTypes() )
+    std::vector<QCMemoryTransition_e> supported;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( supported ), QC_STATUS_OK );
+    for ( QCMemoryTransition_e type : supported )
     {
         QCMemoryTransitionFn_t fn;
         QCStatus_e status = utils.CreateTransition( type, fn );

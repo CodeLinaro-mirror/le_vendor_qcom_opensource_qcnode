@@ -176,6 +176,18 @@ public:
      */
     virtual size_t GetDataSize() const { return size; }
 
+    /**
+     * @brief Returns the type-level configuration schema for this buffer type.
+     *
+     * Describes valid constraints for this buffer type (size ranges, alignment requirements,
+     * cache attributes). Returns static type-level data, not runtime instance state.
+     * Override in each concrete descriptor type; base returns "{}" as a safe default.
+     *
+     * @param[out] options JSON schema string.
+     * @return QCStatus_e indicating success or failure.
+     */
+    virtual QCStatus_e GetOptions( std::string &options ) { options = "{}"; return QC_STATUS_UNSUPPORTED; }
+
 } QCBufferDescriptorBase_t;
 
 }   // namespace Memory
