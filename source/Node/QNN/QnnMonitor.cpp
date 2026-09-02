@@ -15,10 +15,9 @@ QCStatus_e QnnMonitor::VerifyAndSet( const std::string config, std::string &erro
     return QC_STATUS_UNSUPPORTED;
 }
 
-const std::string &QnnMonitor::GetOptions()
+QCStatus_e QnnMonitor::GetOptions( std::string &options )
 {
-    m_options = "{}";
-    return m_options;
+    return QC_STATUS_UNSUPPORTED;
 }
 
 const QCNodeMonitoringBase_t &QnnMonitor::Get()

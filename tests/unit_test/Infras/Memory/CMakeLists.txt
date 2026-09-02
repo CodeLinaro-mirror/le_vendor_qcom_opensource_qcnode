@@ -1,5 +1,5 @@
 
-if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64" )
+if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
     add_executable( gtest_Memory 
         gtest_Memory.cpp 
         gtest_QCMemoryManager.cpp 
@@ -17,7 +17,7 @@ else()
         gtest_QCMemoryUtilsBase.cpp)
 endif()
 
-target_link_libraries( gtest_Memory gtest QCNodeCommon QCNodeMemory BufferManager )
+target_link_libraries( gtest_Memory gtest QCNodeCommon QCNodeMemory QCNodeTestMockCLib BufferManager )
 install(TARGETS gtest_Memory DESTINATION bin)
 
 add_executable( gtest_QCMemoryFactory gtest_QCMemoryFactory.cpp)

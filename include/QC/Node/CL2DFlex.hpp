@@ -14,12 +14,24 @@ namespace Node
 
 /** @brief The QCNode CL2DFLEX Version */
 #define QCNODE_CL2DFLEX_VERSION_MAJOR 2U
-#define QCNODE_CL2DFLEX_VERSION_MINOR 1U
-#define QCNODE_CL2DFLEX_VERSION_PATCH 2U
+#define QCNODE_CL2DFLEX_VERSION_MINOR 2U
+#define QCNODE_CL2DFLEX_VERSION_PATCH 1U
 
 #define QCNODE_CL2DFLEX_VERSION                                                                    \
     ( ( QCNODE_CL2DFLEX_VERSION_MAJOR << 16U ) | ( QCNODE_CL2DFLEX_VERSION_MINOR << 8U ) |         \
       QCNODE_CL2DFLEX_VERSION_PATCH )
+
+/** @brief Maximum supported OpenCL device ID.
+ *   deviceId == 0 -> primary GPU (CL_DEVICE_TYPE_GPU)
+ *   deviceId == 1 -> second GPU  (CL_DEVICE_TYPE_SECOND_QCOM)
+ * The second GPU is only available on the SA8797 (Nordy) platform; on all
+ * other SOCs only the primary GPU (deviceId == 0) is supported.
+ */
+#if ( defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 ) )
+#define QC_CL2DFLEX_DEVICE_ID_MAX 1U
+#else
+#define QC_CL2DFLEX_DEVICE_ID_MAX 0U
+#endif
 
 using namespace QC::libs::OpenclIface;
 
@@ -195,7 +207,7 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the Configuration Structure.
@@ -240,7 +252,7 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    virtual const std::string &GetOptions() { return m_options; }
+    virtual QCStatus_e GetOptions( std::string &options ) { return QC_STATUS_UNSUPPORTED; }
 
     virtual const QCNodeMonitoringBase_t &Get() { return m_monitorConfig; }
 

@@ -893,13 +893,9 @@ TEST( NodeVideoEncoder, SANITY_VideoEncoder_Dynamic )
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
 
     QCNodeConfigIfs &cfgIfs = pNodeVide->GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, cfgIfs.GetOptions( options ) );
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
-    printf( "options: %s\n", options.c_str() );
-
-    DataTree optionsDt;
-    ret = optionsDt.Load( options, errors );
-    ASSERT_EQ( QC_STATUS_OK, ret );
 
     uint32_t width = dt.Get( "width", 0 );
     uint32_t height = dt.Get( "height", 0 );
@@ -1078,9 +1074,9 @@ TEST( NodeVideoEncoder, SANITY_VideoEncoder_NonDynamic )
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
 
     QCNodeConfigIfs &cfgIfs = pNodeVide->GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, cfgIfs.GetOptions( options ) );
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
-    printf( "options: %s\n", options.c_str() );
 
     ret = pNodeVide->Start();
     ASSERT_EQ( QC_STATUS_OK, ret );
@@ -2098,8 +2094,8 @@ TEST( NodeVideoEncoder_CheckBuffer, DynamicOutput_SizeTooSmallTriggersInvalidBuf
 TEST( NodeVideoEncoder_Validate, HeightBelowMin_Fails )
 {
     Mockup_Cfg_Reset();
-    auto cfg = BuildConfig( 60, 256, 64, 30, 2000000, true, true, 4, 4, "nv12", "h264",
-                            "H264_MAIN", "CBR_CFR" );
+    auto cfg = BuildConfig( 60, 256, 64, 30, 2000000, true, true, 4, 4, "nv12", "h264", "H264_MAIN",
+                            "CBR_CFR" );
     EXPECT_NE( QC_STATUS_OK, ( new QC::Node::VideoEncoder() )->Initialize( cfg ) );
     Mockup_Cfg_Reset();
 }

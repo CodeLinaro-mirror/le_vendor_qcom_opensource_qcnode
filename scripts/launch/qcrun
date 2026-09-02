@@ -25,8 +25,14 @@ export HPASS0_LIBRARY_PATH=$hpass0skeldir
 export HPASS1_LIBRARY_PATH=$hpass1skeldir
 export HPASS2_LIBRARY_PATH=$hpass2skeldir
 
+if [ -f /usr/bin/lsb_release ] ; then
+echo run on ubuntu
+export SDL_VIDEODRIVER=x11
+export SDL_RENDER_DRIVER=software
+else
 # unset DISPLAY to avoid SDL from using X11
 unset DISPLAY
+fi
 
 if [ -f /usr/lib/libEGL_adreno.so ] ; then
 echo setup env for Linux SDL

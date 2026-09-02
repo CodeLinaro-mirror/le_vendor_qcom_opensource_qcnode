@@ -26,11 +26,11 @@ public:
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors ) = 0;
 
     // Get details of parameters and ranges needed for essential functionality in run time
-    // The returned is std:string to be able to work with different textual encoding (json, yaml,
+    // options is std:string to be able to work with different textual encoding (json, yaml,
     // custom) Convey the monitoring options supported by the node (including the common base
-    // options
-    // )
-    virtual const std::string &GetOptions() = 0;
+    // options)
+    // Returns QC_STATUS_OK with options populated; an error code on failure (options set to "{}").
+    virtual QCStatus_e GetOptions( std::string &options ) = 0;
 
     // Get configuration structure reference
     virtual const QCNodeMonitoringBase_t &Get() = 0;
@@ -49,7 +49,7 @@ public:
 protected:
     QCNodeMonitoringIfs() = default;
     QCNodeMonitoringIfs( const QCNodeMonitoringIfs & ) = default;
-    QCNodeMonitoringIfs& operator=( const QCNodeMonitoringIfs& ) = default;
+    QCNodeMonitoringIfs &operator=( const QCNodeMonitoringIfs & ) = default;
     ~QCNodeMonitoringIfs() = default;
     // In implementation a data member will be placed here from a type
     // which inherits "QCNodeMonitoringBase_t" as base

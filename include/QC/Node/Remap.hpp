@@ -14,7 +14,7 @@ namespace Node
 
 /** @brief The QCNode REMAP Version */
 #define QCNODE_REMAP_VERSION_MAJOR 2U
-#define QCNODE_REMAP_VERSION_MINOR 2U
+#define QCNODE_REMAP_VERSION_MINOR 3U
 #define QCNODE_REMAP_VERSION_PATCH 0U
 
 #define QCNODE_REMAP_VERSION                                                                       \
@@ -175,7 +175,7 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the Configuration Structure.
@@ -219,7 +219,7 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    virtual const std::string &GetOptions() { return m_options; }
+    virtual QCStatus_e GetOptions( std::string &options ) { return QC_STATUS_UNSUPPORTED; }
 
     virtual const QCNodeMonitoringBase_t &Get() { return m_monitorConfig; }
 

@@ -247,27 +247,38 @@ private:
     // This step was optional as generally this was known by
     // default when the QNN model was compiled.
     QCNodeConfigIfs &cfgIfs = m_qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    status = cfgIfs.GetOptions( options );
+    if ( QC_STATUS_OK != status )
+    {
+        QC_ERROR( "GetOptions failed: %d", status );
+    }
 
     // Allocate input buffers, for high efficiency pipeline,
     // should allocate a set of buffers.
     // Here this was demo code, just use 1 buffer.
-    status = bufMgr.Allocate( TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 800, 1152, 3 } ), m_inputDesc );
-    status = m_frameDesc.SetBuffer( 0, m_inputDesc );
+    if ( QC_STATUS_OK == status )
+    {
+        status = bufMgr.Allocate( TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 800, 1152, 3 } ), m_inputDesc );
+        status = m_frameDesc.SetBuffer( 0, m_inputDesc );
+    }
 
     // Allocate output buffers.
-    status = bufMgr.Allocate(
-        TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 80 } ),
-        m_output0Desc );
-    status = m_frameDesc.SetBuffer( 1, m_output0Desc );
-    status = bufMgr.Allocate(
-        TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 2 } ),
-        m_output1Desc );
-    status = m_frameDesc.SetBuffer( 2, m_output1Desc );
-    status = bufMgr.Allocate(
-        TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 2 } ),
-        m_output2Desc );
-    status = m_frameDesc.SetBuffer( 3, m_output2Desc );
+    if ( QC_STATUS_OK == status )
+    {
+        status = bufMgr.Allocate(
+            TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 80 } ),
+            m_output0Desc );
+        status = m_frameDesc.SetBuffer( 1, m_output0Desc );
+        status = bufMgr.Allocate(
+            TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 2 } ),
+            m_output1Desc );
+        status = m_frameDesc.SetBuffer( 2, m_output1Desc );
+        status = bufMgr.Allocate(
+            TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 2 } ),
+            m_output2Desc );
+        status = m_frameDesc.SetBuffer( 3, m_output2Desc );
+    }
 
     // Start the QNN node.
     status = qnn.Start();
@@ -280,6 +291,7 @@ private:
     // The output will be ready when here in
     // m_output0Desc/m_output1Desc/m_output2Desc buffer.
   }
+
 
   void Deinit() {
     // Stop the QNN node.
@@ -339,27 +351,38 @@ private:
     // This step was optional as generally this was known by
     // default when the QNN model was compiled.
     QCNodeConfigIfs &cfgIfs = m_qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    status = cfgIfs.GetOptions( options );
+    if ( QC_STATUS_OK != status )
+    {
+        QC_ERROR( "GetOptions failed: %d", status );
+    }
 
     // Allocate input buffers, for high efficiency pipeline,
     // should allocate a set of buffers.
     // Here this was demo code, just use 1 buffer.
-    status = bufMgr.Allocate( TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 800, 1152, 3 } ), m_inputDesc );
-    status = m_frameDesc.SetBuffer( 0, m_inputDesc );
+    if ( QC_STATUS_OK == status )
+    {
+        status = bufMgr.Allocate( TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 800, 1152, 3 } ), m_inputDesc );
+        status = m_frameDesc.SetBuffer( 0, m_inputDesc );
+    }
 
     // Allocate output buffers.
-    status = bufMgr.Allocate(
-        TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 80 } ),
-        m_output0Desc );
-    status = m_frameDesc.SetBuffer( 1, m_output0Desc );
-    status = bufMgr.Allocate(
-        TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 2 } ),
-        m_output1Desc );
-    status = m_frameDesc.SetBuffer( 2, m_output1Desc );
-    status = bufMgr.Allocate(
-        TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 2 } ),
-        m_output2Desc );
-    status = m_frameDesc.SetBuffer( 3, m_output2Desc );
+    if ( QC_STATUS_OK == status )
+    {
+        status = bufMgr.Allocate(
+            TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 80 } ),
+            m_output0Desc );
+        status = m_frameDesc.SetBuffer( 1, m_output0Desc );
+        status = bufMgr.Allocate(
+            TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 2 } ),
+            m_output1Desc );
+        status = m_frameDesc.SetBuffer( 2, m_output1Desc );
+        status = bufMgr.Allocate(
+            TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 200, 288, 2 } ),
+            m_output2Desc );
+        status = m_frameDesc.SetBuffer( 3, m_output2Desc );
+    }
 
     // Start the QNN node.
     status = qnn.Start();

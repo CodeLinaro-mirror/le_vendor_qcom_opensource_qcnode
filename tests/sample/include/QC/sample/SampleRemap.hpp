@@ -70,6 +70,7 @@ private:
     std::string m_inputTopicName;
     std::string m_outputTopicName;
     bool m_bLatest = true;
+    uint32_t m_queueDepth = 2;
 
     std::thread m_thread;
     SharedBufferPool m_imagePool;

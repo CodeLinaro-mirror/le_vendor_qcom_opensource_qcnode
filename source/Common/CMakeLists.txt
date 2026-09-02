@@ -8,16 +8,12 @@ set( COMMON_SOURCES
 
 set( TARGET_LIBRARIES )
 
-if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64" )
+if( "${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" )
     list( APPEND COMMON_SOURCES Logger_Linux.cpp )
     list( APPEND TARGET_LIBRARIES pthread dl systemd )
 else()
     list( APPEND COMMON_SOURCES Logger_QNX.cpp )
-    if(ENABLE_SIMNODE)
-        list( APPEND TARGET_LIBRARIES slog2 )
-    else()
-        list( APPEND TARGET_LIBRARIES libstd slog2 )
-    endif()
+    list( APPEND TARGET_LIBRARIES libstd slog2 )
 endif()
 
 add_library( QCNodeCommon OBJECT ${COMMON_SOURCES} )

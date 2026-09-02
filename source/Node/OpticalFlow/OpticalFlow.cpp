@@ -384,13 +384,14 @@ QCStatus_e OpticalFlowConfigIfs::VerifyAndSet( const std::string config, std::st
     return status;
 }
 
-const std::string &OpticalFlowConfigIfs::GetOptions()
+QCStatus_e OpticalFlowConfigIfs::GetOptions( std::string &options )
 {
     DataTree dt;
     dt.Set<uint32_t>( "version", QCNODE_OFL_VERSION );
     m_options = dt.Dump();
 
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 

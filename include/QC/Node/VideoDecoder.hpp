@@ -18,11 +18,11 @@
 #include <cstring>
 #include <vidc_client.h>
 #endif
-#include "VidcDrvClient.hpp"
 #include "QC/Common/Types.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/VideoFrameDescriptor.hpp"
 #include "QC/Node/NodeBase.hpp"
+#include "VidcDrvClient.hpp"
 #include "VidcNodeBase.hpp"
 
 namespace QC::Node
@@ -30,7 +30,7 @@ namespace QC::Node
 
 /** @brief The QCNode VideoDecoder Version */
 #define QCNODE_VIDEODECODER_VERSION_MAJOR 2U
-#define QCNODE_VIDEODECODER_VERSION_MINOR 0U
+#define QCNODE_VIDEODECODER_VERSION_MINOR 1U
 #define QCNODE_VIDEODECODER_VERSION_PATCH 1U
 
 #define QCNODE_VIDEODECODER_VERSION                                                                \
@@ -62,13 +62,9 @@ public:
     /**
      * @brief VideoDecoderConfigIfs Constructor
      * @param[in] logger A reference to the logger to be shared and used by VideoDecoderConfigIfs.
-     * @param[in] vide A reference to the RideHal Video Decoder component to be used by VideoDecoderConfigIfs.
-     * VideoDecoderConfigIfs.
      * @return None
      */
-    VideoDecoderConfigIfs( Logger &logger )
-        : VidcNodeBaseConfigIfs( logger )
-    {}
+    VideoDecoderConfigIfs( Logger &logger ) : VidcNodeBaseConfigIfs( m_config, logger ) {}
 
     /**
      * @brief VideoDecoderConfigIfs Destructor
@@ -113,19 +109,13 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    const virtual std::string& GetOptions( )
-    {
-        return m_options;
-    }
+    QCStatus_e GetOptions( std::string &options ) override { return QC_STATUS_UNSUPPORTED; }
 
     /**
      * @brief Get the Configuration Structure.
      * @return A reference to the Configuration Structure.
      */
-    const virtual QCNodeConfigBase_t& Get( )
-    {
-        return m_config;
-    }
+    const virtual QCNodeConfigBase_t &Get() { return m_config; }
 
 private:
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors );
@@ -142,11 +132,10 @@ typedef struct VideoDecoderMonitorConfig : public QCNodeMonitoringBase_t
 class VideoDecoderMonitoringIfs : public QCNodeMonitoringIfs
 {
 public:
-    VideoDecoderMonitoringIfs( Logger &logger )
-        : m_logger( logger )
+    VideoDecoderMonitoringIfs( Logger &logger ) : m_logger( logger ) {}
+    VideoDecoderMonitoringIfs( const VideoDecoderMonitoringIfs &other ) : m_logger( other.m_logger )
     {}
-    VideoDecoderMonitoringIfs( const VideoDecoderMonitoringIfs &other ) : m_logger( other.m_logger ) {}
-    VideoDecoderMonitoringIfs& operator=( const VideoDecoderMonitoringIfs& ) = default;
+    VideoDecoderMonitoringIfs &operator=( const VideoDecoderMonitoringIfs & ) = default;
     virtual ~VideoDecoderMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
@@ -154,16 +143,9 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    const virtual std::string& GetOptions( )
-    {
-        return m_options;
-    }
+    QCStatus_e GetOptions( std::string &options ) override { return QC_STATUS_UNSUPPORTED; }
 
-    const virtual QCNodeMonitoringBase_t& Get( )
-    {
-        return m_config;
-    }
-    ;
+    const virtual QCNodeMonitoringBase_t &Get() { return m_config; };
 
     virtual inline uint32_t GetMaximalSize() { return UINT32_MAX; }
     virtual inline uint32_t GetCurrentSize() { return UINT32_MAX; }
@@ -192,8 +174,7 @@ public:
      * @brief VideoDecoder Constructor
      * @return None
      */
-    VideoDecoder()
-        : m_configIfs( m_logger ), m_monitorIfs( m_logger )
+    VideoDecoder() : m_configIfs( m_logger ), m_monitorIfs( m_logger )
     {
         m_state = QC_OBJECT_STATE_INITIAL;
     }
@@ -268,7 +249,7 @@ protected:
      */
     QCStatus_e SubmitOutputFrame( VideoFrameDescriptor_t &outFrameDesc );
 
-    QCStatus_e ValidateConfig( );
+    QCStatus_e ValidateConfig();
     QCStatus_e HandleOutputReconfig();
     QCStatus_e FinishOutputReconfig();
     QCStatus_e InitDrvProperty();
@@ -288,7 +269,7 @@ private:
 
     bool m_OutputStarted = false;
     bool m_OutputReconfigInprogress = false;
-    std::mutex m_reconfigMutex;  // Mutex for reconfig state
+    std::mutex m_reconfigMutex;   // Mutex for reconfig state
 
     static void InFrameCallback( VideoFrameDescriptor_t &inFrameDesc, void *pPrivData );
     static void OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc, void *pPrivData );

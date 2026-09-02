@@ -171,7 +171,11 @@ QCStatus_e FadasPlrPostProc::CreatePostProc()
         QC_ERROR( "Parameter not set!" );
         ret = QC_STATUS_BAD_STATE;
     }
-    else if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+    else if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+              || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+    )
     {
         m_handle64 = GetRemoteHandle64();
         ret = CreatePostProcDSP();
@@ -233,7 +237,11 @@ QCStatus_e FadasPlrPostProc::DestroyPostProc()
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+    if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+         || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+    )
     {
         ret = DestroyPostProcDSP();
     }
@@ -532,7 +540,7 @@ QCStatus_e FadasPlrPostProc::ExtractBBoxRunDSP(
                 (uint32_t) pBBoxList->offset, (uint32_t) pLabels->offset,
                 (uint32_t) pScores->offset,   (uint32_t) pMetadata->offset };
         uint32_t sizes[PLRPOST_NUM_INPUTS] = {
-                (uint32_t) ( numPtsIn * m_numInFeatureDim * (uint32_t) sizeof( float ) ),
+                ( uint32_t )( numPtsIn * m_numInFeatureDim * (uint32_t) sizeof( float ) ),
                 (uint32_t) pHeatmap->size,
                 (uint32_t) pXY->size,
                 (uint32_t) pZ->size,
@@ -574,7 +582,11 @@ QCStatus_e FadasPlrPostProc::ExtractBBoxRun(
     {
         ret = QC_STATUS_INVALID_BUF;
     }
-    else if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor ) )
+    else if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+              || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
+#endif
+    )
     {
         ret = ExtractBBoxRunDSP( pHeatmap, pXY, pZ, pSize, pTheta, pInPts, pBBoxList, pLabels,
                                  pScores, pMetadata, pNumDetOut );

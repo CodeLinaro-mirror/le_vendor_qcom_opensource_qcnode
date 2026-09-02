@@ -14,10 +14,9 @@ QCStatus_e VoxelizationMonitor::VerifyAndSet( const std::string config, std::str
     return QC_STATUS_UNSUPPORTED;
 }
 
-const std::string &VoxelizationMonitor::GetOptions()
+QCStatus_e VoxelizationMonitor::GetOptions( std::string &options )
 {
-    m_options = "{}";
-    return m_options;
+    return QC_STATUS_UNSUPPORTED;
 }
 
 const QCNodeMonitoringBase_t &VoxelizationMonitor::Get()

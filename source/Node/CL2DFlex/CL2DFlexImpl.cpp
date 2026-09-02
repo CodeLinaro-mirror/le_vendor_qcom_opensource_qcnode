@@ -12,6 +12,7 @@
 #include "pipeline/CL2DPipelineRemap.hpp"
 #include "pipeline/CL2DPipelineResize.hpp"
 #include "pipeline/CL2DPipelineResizeMultiple.hpp"
+#include <new>
 
 namespace QC
 {
@@ -115,31 +116,31 @@ CL2DFlexImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorB
 
                 if ( CL2DFLEX_WORK_MODE_CONVERT == workMode )
                 {
-                    m_pCL2DPipeline[inputId] = new CL2DPipelineConvert();
+                    m_pCL2DPipeline[inputId] = new ( std::nothrow ) CL2DPipelineConvert();
                 }
                 else if ( CL2DFLEX_WORK_MODE_RESIZE_NEAREST == workMode )
                 {
-                    m_pCL2DPipeline[inputId] = new CL2DPipelineResize();
+                    m_pCL2DPipeline[inputId] = new ( std::nothrow ) CL2DPipelineResize();
                 }
                 else if ( CL2DFLEX_WORK_MODE_LETTERBOX_NEAREST == workMode )
                 {
-                    m_pCL2DPipeline[inputId] = new CL2DPipelineLetterbox();
+                    m_pCL2DPipeline[inputId] = new ( std::nothrow ) CL2DPipelineLetterbox();
                 }
                 else if ( CL2DFLEX_WORK_MODE_CONVERT_UBWC == workMode )
                 {
-                    m_pCL2DPipeline[inputId] = new CL2DPipelineConvertUBWC();
+                    m_pCL2DPipeline[inputId] = new ( std::nothrow ) CL2DPipelineConvertUBWC();
                 }
                 else if ( CL2DFLEX_WORK_MODE_LETTERBOX_NEAREST_MULTIPLE == workMode )
                 {
-                    m_pCL2DPipeline[inputId] = new CL2DPipelineLetterboxMultiple();
+                    m_pCL2DPipeline[inputId] = new ( std::nothrow ) CL2DPipelineLetterboxMultiple();
                 }
                 else if ( CL2DFLEX_WORK_MODE_RESIZE_NEAREST_MULTIPLE == workMode )
                 {
-                    m_pCL2DPipeline[inputId] = new CL2DPipelineResizeMultiple();
+                    m_pCL2DPipeline[inputId] = new ( std::nothrow ) CL2DPipelineResizeMultiple();
                 }
                 else if ( CL2DFLEX_WORK_MODE_REMAP_NEAREST == workMode )
                 {
-                    m_pCL2DPipeline[inputId] = new CL2DPipelineRemap();
+                    m_pCL2DPipeline[inputId] = new ( std::nothrow ) CL2DPipelineRemap();
                 }
                 else
                 {
@@ -157,7 +158,13 @@ CL2DFlexImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorB
                 else
                 {
                     QC_ERROR( "CL2D pipeline create failed for inputId=%d!", inputId );
-                    status = QC_STATUS_BAD_ARGUMENTS;
+                    /* A matched work mode with a null pipeline means new(std::nothrow)
+                     * failed (out of memory); an unmatched work mode already set
+                     * QC_STATUS_BAD_ARGUMENTS above. */
+                    if ( QC_STATUS_OK == status )
+                    {
+                        status = QC_STATUS_NOMEM;
+                    }
                 }
 
                 if ( QC_STATUS_OK != status )

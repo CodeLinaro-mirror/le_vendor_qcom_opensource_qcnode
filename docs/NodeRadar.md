@@ -70,7 +70,7 @@ RadarConfigIfs provides the configuration interface for Node Radar, handling JSO
 
 **Key Methods:**
 - `VerifyAndSet()`: Parses and validates JSON configuration string with detailed error reporting
-- `GetOptions()`: Returns available configuration options (currently empty for Radar)
+- `GetOptions( std::string &options )`: Writes the available configuration options into `options` and returns `QCStatus_e` (currently empty for Radar)
 - `Get()`: Returns the parsed configuration structure
 
 **Configuration Validation:**
