@@ -149,7 +149,7 @@ QCStatus_e FadasPlrPreProc::CreatePreProc()
         ret = QC_STATUS_BAD_STATE;
     }
     else if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
               || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
     )
@@ -388,7 +388,7 @@ QCStatus_e FadasPlrPreProc::PointPillarRun( const QCBufferDescriptorBase_t &inpu
     QCStatus_e ret = QC_STATUS_OK;
 
     if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
          || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
     )
@@ -408,7 +408,7 @@ QCStatus_e FadasPlrPreProc::DestroyPreProc()
     QCStatus_e ret = QC_STATUS_OK;
 
     if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
          || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
     )

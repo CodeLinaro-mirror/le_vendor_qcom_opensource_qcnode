@@ -1084,7 +1084,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
     QnnHtpPerfInfrastructure_PowerConfig_t powerConfig;
     (void) memset( &powerConfig, 0, sizeof( powerConfig ) );
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
     QnnHtpPerfInfrastructure_PowerConfig_t powerHmxConfig;
     memset( &powerHmxConfig, 0, sizeof( powerHmxConfig ) );
 #endif
@@ -1142,7 +1142,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
         powerConfig.dcvsV3Config.sleepDisable = 0;
         powerConfig.dcvsV3Config.setSleepDisable = 0;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
         powerHmxConfig.option = QNN_HTP_PERF_INFRASTRUCTURE_POWER_CONFIGOPTION_HMX_V2;
         powerHmxConfig.hmxV2Config.hmxPickDefault = 0;
 #endif
@@ -1164,7 +1164,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerMax =
                         DCVS_VOLTAGE_VCORNER_MAX_VOLTAGE_CORNER;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_MAX;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_MAX;
@@ -1181,7 +1181,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_TURBO;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_TURBO;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_TUR;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_TUR;
@@ -1199,7 +1199,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_SVS;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_SVS;
@@ -1217,7 +1217,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS2;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS2;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1235,7 +1235,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS_PLUS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS_PLUS;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1253,7 +1253,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_CORNER_DISABLE;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_CORNER_DISABLE;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1269,7 +1269,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_NOM;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_NOM;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_NOM;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_NOM;
@@ -1285,7 +1285,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_NOM_PLUS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_NOM_PLUS;
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_NOM_L1;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_NOM_L1;
@@ -1306,11 +1306,11 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
         {
             powerConfig.dcvsV3Config.contextId = powerConfigId;
             const QnnHtpPerfInfrastructure_PowerConfig_t *powerConfigs[] = { &powerConfig,
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
                                                                              &powerHmxConfig,
 #endif
                                                                              nullptr };
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
             if ( QNN_PROCESSOR_HTP0 != m_config.processorType )
             { /* No HMX for HPASS */
                 powerConfigs[1] = nullptr;
@@ -1459,7 +1459,7 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
              ( m_config.processorType <= QNN_PROCESSOR_HTP3 ) )
         {
             int domain = CDSP_DOMAIN_ID;
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
             uint32_t coreId = 0U;
             if ( false == m_config.coreIds.empty() )
             {
@@ -1804,7 +1804,7 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
     return status;
 }
 
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
 QCStatus_e QnnImpl::GetFastRpcDomainId( uint32_t coreId, int &domainId )
 {
     QCStatus_e ret = QC_STATUS_OK;

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.15.0)
 
 project(qcnode LANGUAGES C CXX)
 
-# valid options: 8295 8620 8650 8775 8797, override it from the command as below:
+# valid options: 8295 8620 8650 8775 8787 8797, override it from the command as below:
 #  cmake -DQC_TARGET_SOC=8797 ...
 set(QC_TARGET_SOC "8797" CACHE STRING "QCNode Target SOC")
 
@@ -22,6 +22,9 @@ elseif(QC_TARGET_SOC STREQUAL "8775")
 elseif(QC_TARGET_SOC STREQUAL "8797")
     message(STATUS "Target SOC is 8797")
     add_compile_definitions(QC_TARGET_SOC=8797)
+elseif(QC_TARGET_SOC STREQUAL "8787")
+    message(STATUS "Target SOC is 8787")
+    add_compile_definitions(QC_TARGET_SOC=8787)
 elseif(QC_TARGET_SOC STREQUAL "x86")
     message(STATUS "Target SOC is x86 (native x86-linux build)")
     add_compile_definitions(QC_TARGET_SOC=0)

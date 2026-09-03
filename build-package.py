@@ -28,7 +28,7 @@ parser.add_argument(
     "--variant", type=str, default="linux", help="The build variant, [qnx, linux, ubuntu]", required=False
 )
 parser.add_argument(
-    "--socid", type=str, default="8797", help="The SOC ID, [8295, 8620, 8650, 8775, 8797]", required=False
+    "--socid", type=str, default="8797", help="The SOC ID, [8295, 8620, 8650, 8775, 8787, 8797]", required=False
 )
 parser.add_argument(
     "-d", "--docker", type=str, default="qcnode-toolchain-base:v1.0", help="The docker name", required=False

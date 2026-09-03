@@ -228,7 +228,7 @@ QCStatus_e FadasRemap::CreatRemapTable( uint32_t inputId, uint32_t mapWidth, uin
     else
     {
         if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
              || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
         )
@@ -376,7 +376,7 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
     else
     {
         if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
              || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
         )
@@ -802,7 +802,7 @@ QCStatus_e FadasRemap::RemapRun( QCFrameDescriptorNodeIfs &frameDesc )
     if ( QC_STATUS_OK == ret )
     {
         if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
              || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
         )
@@ -825,7 +825,7 @@ QCStatus_e FadasRemap::DestroyWorkers()
     for ( int i = 0; i < QC_MAX_INPUTS; i++ )
     {
         if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
              || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
         )
@@ -869,7 +869,7 @@ QCStatus_e FadasRemap::DestroyMap()
     for ( int i = 0; i < QC_MAX_INPUTS; i++ )
     {
         if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
              || ( QC_PROCESSOR_HTP2 == m_processor ) || ( QC_PROCESSOR_HTP3 == m_processor )
 #endif
         )

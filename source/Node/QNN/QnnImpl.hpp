@@ -357,7 +357,7 @@ private:
 
     void RemoteDeRegisterBuf( void *pData, size_t size );
     QCStatus_e DeRegisterAllBuffers();
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
     /**
      * @brief Resolve the FastRPC domain id for the configured processor and the given core.
      *        Domains are enumerated dynamically via remote_system_request(FASTRPC_GET_DOMAINS)

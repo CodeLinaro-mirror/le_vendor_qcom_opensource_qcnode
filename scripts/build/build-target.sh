@@ -40,7 +40,7 @@ if ! [[ -v QC_TARGET_SOC ]] ; then
 fi
 
 if ! [[ -v ENABLE_SDP8 ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_SDP8=ON
   else
     export ENABLE_SDP8=OFF
@@ -81,7 +81,7 @@ if ! [[ -v ENABLE_EVA ]] ; then
 fi
 
 if ! [[ -v ENABLE_EVA_AUTO ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_EVA_AUTO=OFF
   else
     export ENABLE_EVA_AUTO=ON
@@ -97,7 +97,7 @@ if ! [[ -v ENABLE_FADAS ]] ; then
 fi
 
 if ! [[ -v ENABLE_RSM_V2 ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_RSM_V2=OFF
   else
     export ENABLE_RSM_V2=ON
@@ -105,7 +105,7 @@ if ! [[ -v ENABLE_RSM_V2 ]] ; then
 fi
 
 if ! [[ -v ENABLE_C2C ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_C2C=OFF
   elif [[ "${target}" == "aarch64-qnx" ]]; then
     export ENABLE_C2C=ON
@@ -494,6 +494,8 @@ if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
   HEXAGON_VARIANT=hexagon-v81
 elif [[ "${QC_TARGET_SOC}" == "8620" ]] ; then
   HEXAGON_VARIANT=hexagon-v75
+elif [[ "${QC_TARGET_SOC}" == "8787" ]] ; then
+  HEXAGON_VARIANT=hexagon-v85
 else
   HEXAGON_VARIANT=hexagon-v73
 fi
@@ -604,4 +606,3 @@ tar -C $topdir --xform="s/run/pkg/" --exclude="*.a" \
     --exclude="*.la" --exclude="include" --exclude="share" \
     --exclude="cmake" \
     --use-compress-program=pigz -cf $pkgname run-$target
-
