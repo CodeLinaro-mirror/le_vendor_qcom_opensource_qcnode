@@ -120,7 +120,8 @@ QCStatus_e SampleIF::Init( std::string name, QCNodeType_e type )
     m_name = name;
     m_nodeId.name = name;
     m_nodeId.type = type;
-    ret = QC_LOGGER_INIT( name.c_str(), LOGGER_LEVEL_INFO );
+    const std::string loggerName = "SAMPLE_" + name;
+    ret = QC_LOGGER_INIT( loggerName.c_str(), LOGGER_LEVEL_INFO );
 
     m_profiler.Init( name );
     m_systrace.Init( name );

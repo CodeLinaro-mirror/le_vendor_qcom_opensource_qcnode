@@ -9,6 +9,8 @@
 #include "QC/Node/QNN.hpp"
 #include "QC/sample/SampleIF.hpp"
 
+#include <deque>
+
 namespace QC
 {
 namespace sample
@@ -94,7 +96,7 @@ private:
     std::vector<TensorInfo_t> m_inputsInfo;
     std::vector<TensorInfo_t> m_outputsInfo;
 
-    std::vector<SharedBufferPool> m_tensorPools;
+    std::deque<SharedBufferPool> m_tensorPools;
 
     DataSubscriber<DataFrames_t> m_sub;
     DataPublisher<DataFrames_t> m_pub;

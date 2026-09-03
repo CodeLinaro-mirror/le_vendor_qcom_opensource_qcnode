@@ -180,6 +180,10 @@ class SharedBufferPool
 {
 public:
     SharedBufferPool();
+    SharedBufferPool( const SharedBufferPool & ) = delete;
+    SharedBufferPool &operator=( const SharedBufferPool & ) = delete;
+    SharedBufferPool( SharedBufferPool && ) = delete;
+    SharedBufferPool &operator=( SharedBufferPool && ) = delete;
     ~SharedBufferPool();
 
     /**

@@ -20,7 +20,6 @@ add_executable( gtest_FadasIface
     ${PROJECT_SOURCE_DIR}/source/Library/FadasIface/FadasSrv.cpp
 )
 target_include_directories( gtest_FadasIface PUBLIC ${HEADERS_DIR} )
-target_link_libraries( gtest_FadasIface gtest QCNodeTestMockCLib QCNodeCommon)
+target_link_libraries( gtest_FadasIface gtest QCNodeTestMockCLib QCNodeLogger)
 target_link_options(gtest_FadasIface PRIVATE -Wl,--wrap=dlopen -Wl,--wrap=dlsym)
 install( TARGETS gtest_FadasIface DESTINATION bin )
-

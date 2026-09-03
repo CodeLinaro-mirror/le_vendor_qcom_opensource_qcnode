@@ -5,6 +5,7 @@
 #define QC_THREAD_SAFE_QUEUE_HPP
 
 #include <cstdint>
+#include <mutex>
 #include <shared_mutex>
 
 #include "QC/Common/QCDefs.hpp"

@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cstring>
+#include <deque>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -28,7 +29,7 @@ using namespace QC::sample;
 
 QC::Node::Camera *g_pCamera = nullptr;
 uint32_t g_frameIdx = 0;
-std::vector<SharedBufferPool> g_bufferPools;
+std::deque<SharedBufferPool> g_bufferPools;
 
 // A minimal callback for *MockCov tests that doesn't depend on g_pCamera being set.
 // target.
@@ -182,7 +183,6 @@ QCStatus_e AllocateFrameBuffers(
     uint32_t bufferId = 0;
     uint32_t streamNum = streamConfigs.size();
     uint32_t bufferNum = 0;
-    g_bufferPools.reserve( QCNODE_CAMERA_MAX_STREAM_NUM );
     g_bufferPools.resize( streamNum );
 
     for ( uint32_t i = 0; i < streamNum; i++ )
@@ -268,7 +268,6 @@ QCStatus_e AllocateMetaDataBuffers(
     const uint32_t MAX_METADATA_TAG_DATA = 65536;
     camera_metadata_t *pMetaData = nullptr;
     uint32_t basePool = g_bufferPools.size();
-    g_bufferPools.reserve( QCNODE_CAMERA_MAX_STREAM_NUM );
     g_bufferPools.resize( basePool + metaDataNum );
 
     for ( uint32_t i = 0; i < metaDataNum; i++ )
@@ -2328,7 +2327,6 @@ static QCStatus_e AllocateGenericBuffers(
     bufProp.cache = QC_CACHEABLE;
 
     uint32_t basePool = g_bufferPools.size();
-    g_bufferPools.reserve( QCNODE_CAMERA_MAX_STREAM_NUM );
     g_bufferPools.resize( basePool + 1 );
 
     QCStatus_e ret = g_bufferPools[basePool].Init( name + "_pool", nodeId, LOGGER_LEVEL_ERROR,

@@ -16,23 +16,30 @@ QCStatus_e SharedBufferPool::Init( std::string name, QCNodeID_t nodeId, Logger_L
 {
     QCStatus_e ret = QC_STATUS_OK;
 
-    (void) QC_LOGGER_INIT( name.c_str(), level );
+    const std::string loggerName = "BUF_POOL_" + name;
+    ret = QC_LOGGER_INIT( loggerName.c_str(), level );
 
-    m_name = name;
-    m_queue.resize( number );
-    QC_DEBUG( "Pool %s inited with queue size %u", m_name.c_str(), number );
-    for ( uint32_t idx = 0; idx < number; idx++ )
+    if ( QC_STATUS_OK == ret )
     {
-        m_queue[idx].sharedBuffer.pubHandle = idx;
-        m_queue[idx].dirty = false;
+        m_name = name;
+        m_queue.resize( number );
+        QC_DEBUG( "Pool %s inited with queue size %u", m_name.c_str(), number );
+        for ( uint32_t idx = 0; idx < number; idx++ )
+        {
+            m_queue[idx].sharedBuffer.pubHandle = idx;
+            m_queue[idx].dirty = false;
+        }
     }
 
-    m_pBufMgr = BufferManager::Get( nodeId, level );
-    if ( nullptr == m_pBufMgr )
+    if ( QC_STATUS_OK == ret )
     {
-        QC_ERROR( "Failed to get buffer manager for %s %d: %s!", nodeId.name.c_str(), nodeId.id,
-                  name.c_str() );
-        ret = QC_STATUS_FAIL;
+        m_pBufMgr = BufferManager::Get( nodeId, level );
+        if ( nullptr == m_pBufMgr )
+        {
+            QC_ERROR( "Failed to get buffer manager for %s %d: %s!", nodeId.name.c_str(), nodeId.id,
+                      name.c_str() );
+            ret = QC_STATUS_FAIL;
+        }
     }
 
 

@@ -37,7 +37,7 @@ set(MEMORY_SOURCES
 )
 
 # Set full libraries for on-target build
-set(TARGET_LIBRARIES QCNodeCommon apdf aosal)
+set(TARGET_LIBRARIES QCNodeLogger apdf aosal)
 
 if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     list(APPEND MEMORY_HEADERS
