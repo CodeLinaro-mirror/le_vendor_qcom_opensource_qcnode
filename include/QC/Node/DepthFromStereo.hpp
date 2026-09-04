@@ -5,9 +5,9 @@
 #ifndef QC_NODE_DEPTH_FROM_STEREO_HPP
 #define QC_NODE_DEPTH_FROM_STEREO_HPP
 
+#include "QC/Node/NodeBase.hpp"
 #include "svStereoDisparity.h"
 #include "svUtils.h"
-#include "QC/Node/NodeBase.hpp"
 
 namespace QC
 {
@@ -18,8 +18,8 @@ using namespace SV;
 
 /** @brief The QCNode Depth from Stereo Version */
 #define QCNODE_DFS_VERSION_MAJOR 2U
-#define QCNODE_DFS_VERSION_MINOR 0U
-#define QCNODE_DFS_VERSION_PATCH 1U
+#define QCNODE_DFS_VERSION_MINOR 1U
+#define QCNODE_DFS_VERSION_PATCH 0U
 
 #define QCNODE_DFS_VERSION                                                                         \
     ( ( QCNODE_DFS_VERSION_MAJOR << 16U ) | ( QCNODE_DFS_VERSION_MINOR << 8U ) |                   \
@@ -179,45 +179,48 @@ public:
      *        "width": "The width in pixels of the I/O frame, type: uint32_t, default: 0",
      *        "height": "The height in pixels of the I/O frame, type: uint32_t, default: 0",
      *        "frameRate": "Input frames per second, type: uint32_t, default: 30",
-     *        "format": "Input image format (e.g., NV12, NV12_UBWC, P010), type: uint32_t, default:nv12",
-     *        "confidenceOutputEn": "Enable confidence output, type: bool, default: false",
-     *        "processingMode": "Processing mode selector, type: ProcessingMode_e, default: PROCESSING_MODE_AUTO",
-     *        "noiseOffsetPrimary": "Primary noise offset, type: float32_t, default: 0.0f",
-     *        "noiseOffsetAux": "Auxiliary noise offset, type: float32_t, default: 0.0f",
-     *        "modelType": "Model type used for disparity computation (0-4), type: uint8_t, default:1",
-     *        "modelSwitchFrameCount": "Minimum frames before model switch, type: uint8_t, default:10",
-     *        "prevDisparityFactor": "Previous disparity factor for smoothing, type: float32_t, default: 1.0f",
-     *        "disparityMapPrecision": "Precision level for disparity map, type: DispMapPrecision_e, default: DISP_MAP_PRECISION_FRAC_6BIT",
-     *        "refinementLevel": "Refinement level applied during disparity estimation, type: RefinementLevel_e, default: REFINEMENT_LEVEL_REFINED_L2",
-     *        "occlusionOutputEn": "Enable occlusion output, type: bool, default: false",
-     *        "disparityStatsEn": "Enable disparity statistics tracking, type: bool, default: false",
-     *        "rectificationErrorStatsEn": "Enable rectification error statistics, type: bool, default: false",
-     *        "chromaProcEN": "Enable chrominance processing, type: bool, default: false",
-     *        "maskLowTextureEn": "Enable masking of low-texture regions, type: bool, default: false",
-     *        "confidenceThreshold": "Minimum confidence threshold, type: uint32_t, default: 210",
+     *        "format": "Input image format (e.g., NV12, NV12_UBWC, P010), type: uint32_t,
+     * default:nv12", "confidenceOutputEn": "Enable confidence output, type: bool, default: false",
+     *        "processingMode": "Processing mode selector, type: ProcessingMode_e, default:
+     * PROCESSING_MODE_AUTO", "noiseOffsetPrimary": "Primary noise offset, type: float32_t, default:
+     * 0.0f", "noiseOffsetAux": "Auxiliary noise offset, type: float32_t, default: 0.0f",
+     *        "modelType": "Model type used for disparity computation (0-4), type: uint8_t,
+     * default:1", "modelSwitchFrameCount": "Minimum frames before model switch, type: uint8_t,
+     * default:10", "prevDisparityFactor": "Previous disparity factor for smoothing, type:
+     * float32_t, default: 1.0f", "disparityMapPrecision": "Precision level for disparity map, type:
+     * DispMapPrecision_e, default: DISP_MAP_PRECISION_FRAC_6BIT", "refinementLevel": "Refinement
+     * level applied during disparity estimation, type: RefinementLevel_e, default:
+     * REFINEMENT_LEVEL_REFINED_L2", "occlusionOutputEn": "Enable occlusion output, type: bool,
+     * default: false", "disparityStatsEn": "Enable disparity statistics tracking, type: bool,
+     * default: false", "rectificationErrorStatsEn": "Enable rectification error statistics, type:
+     * bool, default: false", "chromaProcEN": "Enable chrominance processing, type: bool, default:
+     * false", "maskLowTextureEn": "Enable masking of low-texture regions, type: bool, default:
+     * false", "confidenceThreshold": "Minimum confidence threshold, type: uint32_t, default: 210",
      *        "disparityThreshold": "Maximum disparity threshold, type: uint32_t, default: 64",
      *        "noiseScalePri": "Primary noise scaling factor, type: float32_t, default: 1.0f",
      *        "noiseScaleAux": "Auxiliary noise scaling factor, type: float32_t, default: 1.0f",
-     *        "rectificationErrTolerance": "Rectification error tolerance, type: float32_t, default: 0.29",
-     *        "segmentationThreshold": "Segmentation threshold for region detection, type: float32_t, default: 0.5f",
-     *        "textureThreshold": "Texture threshold for feature detection, type: float32_t, default: 0.167f",
-     *        "searchDirection": "Search direction for stereo matching (0=L2R, 1=R2L), type: SearchDirection_e, default: SEARCH_DIRECTION_L2R",
-     *        "edgePenalty": "Penalty applied to edges during matching, type: float32_t, default: 0.0f",
-     *        "initialPenalty": "Initial penalty for disparity propagation, type: float32_t, default: 0.0f",
-     *        "neighborPenalty": "Penalty based on neighboring disparities, type: float32_t, default: 0.0f",
-     *        "smoothnessPenalty": "Smoothness constraint penalty, type: float32_t, default: 0.0f",
-     *        "imageSharpnessThreshold": "Threshold for image sharpness checks, type: float32_t, default: 0.4f",
-     *        "farAwayDisparityLimit": "Maximum disparity allowed for distant objects, type: float32_t, default: 0.0f",
-     *        "disparityEdgeThreshold": "Threshold for disparity edge detection, type: float32_t, default: 0.43f",
-     *        "matchingCostMetric": "Cost metric used in matching algorithm, type: uint32_t, default: 100",
-     *        "textureMetric": "Texture-based cost metric, type: uint32_t, default: 100",
-     *        "edgeAlignMetric": "Edge alignment metric used in SGM, type: uint32_t, default: 100",
-     *        "disparityVarianceMetric": "Variance metric used for disparity consistency, type: uint32_t, default: 100",
-     *        "occlusionMetric": "Occlusion detection metric, type: uint32_t, default: 100",
-     *        "disparityVarianceTolerance": "Tolerance for disparity variance checks, type: float32_t, default: 0.36f",
-     *        "occlusionTolerance": "Tolerance for occlusion detection, type: float32_t, default: 0.5f",
-     *        "refinementThreshold": "Threshold for refinement steps, type: float32_t, default: 0.75f",
-     *        "maxDisparityRange": "Maximum disparity range supported, type: uint32_t, default: 64" 
+     *        "rectificationErrTolerance": "Rectification error tolerance, type: float32_t, default:
+     * 0.29", "segmentationThreshold": "Segmentation threshold for region detection, type:
+     * float32_t, default: 0.5f", "textureThreshold": "Texture threshold for feature detection,
+     * type: float32_t, default: 0.167f", "searchDirection": "Search direction for stereo matching
+     * (0=L2R, 1=R2L), type: SearchDirection_e, default: SEARCH_DIRECTION_L2R", "edgePenalty":
+     * "Penalty applied to edges during matching, type: float32_t, default: 0.0f", "initialPenalty":
+     * "Initial penalty for disparity propagation, type: float32_t, default: 0.0f",
+     *        "neighborPenalty": "Penalty based on neighboring disparities, type: float32_t,
+     * default: 0.0f", "smoothnessPenalty": "Smoothness constraint penalty, type: float32_t,
+     * default: 0.0f", "imageSharpnessThreshold": "Threshold for image sharpness checks, type:
+     * float32_t, default: 0.4f", "farAwayDisparityLimit": "Maximum disparity allowed for distant
+     * objects, type: float32_t, default: 0.0f", "disparityEdgeThreshold": "Threshold for disparity
+     * edge detection, type: float32_t, default: 0.43f", "matchingCostMetric": "Cost metric used in
+     * matching algorithm, type: uint32_t, default: 100", "textureMetric": "Texture-based cost
+     * metric, type: uint32_t, default: 100", "edgeAlignMetric": "Edge alignment metric used in SGM,
+     * type: uint32_t, default: 100", "disparityVarianceMetric": "Variance metric used for disparity
+     * consistency, type: uint32_t, default: 100", "occlusionMetric": "Occlusion detection metric,
+     * type: uint32_t, default: 100", "disparityVarianceTolerance": "Tolerance for disparity
+     * variance checks, type: float32_t, default: 0.36f", "occlusionTolerance": "Tolerance for
+     * occlusion detection, type: float32_t, default: 0.5f", "refinementThreshold": "Threshold for
+     * refinement steps, type: float32_t, default: 0.75f", "maxDisparityRange": "Maximum disparity
+     * range supported, type: uint32_t, default: 64"
      *     }
      *   }
      * @return QC_STATUS_OK on success, other values on failure.
@@ -231,7 +234,7 @@ public:
      * @note
      * TODO: Provide a more detailed introduction about the JSON configuration options.
      */
-    virtual const std::string &GetOptions();
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the Configuration Structure.
@@ -261,7 +264,7 @@ class DepthFromStereoMonitoringIfs : public QCNodeMonitoringIfs
 public:
     DepthFromStereoMonitoringIfs() = default;
     DepthFromStereoMonitoringIfs( const DepthFromStereoMonitoringIfs & ) = default;
-    DepthFromStereoMonitoringIfs& operator=( const DepthFromStereoMonitoringIfs& ) = default;
+    DepthFromStereoMonitoringIfs &operator=( const DepthFromStereoMonitoringIfs & ) = default;
     ~DepthFromStereoMonitoringIfs() = default;
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
@@ -269,7 +272,7 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    virtual const std::string &GetOptions() { return m_options; }
+    virtual QCStatus_e GetOptions( std::string &options ) { return QC_STATUS_UNSUPPORTED; }
 
     virtual const QCNodeMonitoringBase_t &Get() { return m_config; };
 

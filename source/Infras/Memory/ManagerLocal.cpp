@@ -5,6 +5,7 @@
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/Pool.hpp"
 #include <cstdlib>
+#include <new>
 #include <random>
 #include <unistd.h>
 
@@ -383,7 +384,7 @@ QCStatus_e ManagerLocal::CreatePool( const QCMemoryHandle_t &handle,
                 config.name = poolCfg.name;
 
                 // Create pool
-                QCMemoryPoolIfs *pool = new Pool( config );
+                QCMemoryPoolIfs *pool = new ( std::nothrow ) Pool( config );
                 // Initialize pool
                 if ( nullptr != pool )
                 {
@@ -408,6 +409,11 @@ QCStatus_e ManagerLocal::CreatePool( const QCMemoryHandle_t &handle,
                         QC_ERROR( "Pool Creation & Initialization or Inseretion to DB failed - "
                                   "destroying" );
                     }
+                }
+                else
+                {
+                    status = QC_STATUS_NOMEM;
+                    QC_ERROR( "Failed to allocate Pool (out of memory)" );
                 }
             }
         }

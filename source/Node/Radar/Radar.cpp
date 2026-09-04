@@ -165,10 +165,11 @@ QCStatus_e RadarConfigIfs::VerifyAndSet( const std::string config, std::string &
     return status;
 }
 
-const std::string &RadarConfigIfs::GetOptions()
+QCStatus_e RadarConfigIfs::GetOptions( std::string &options )
 {
     // Return empty options for now
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 QCStatus_e Radar::SetupGlobalBufferIdMap( const RadarConfig_t &cfg )

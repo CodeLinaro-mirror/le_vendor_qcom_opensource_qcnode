@@ -787,7 +787,8 @@ TEST_P( SimulationNodeParamTest, SimulationNodeTests )
 
         case TestCaseType::CONFIG_OPTIONS:
         {
-            const std::string &options = m_pSimulationNode->GetConfigurationIfs().GetOptions();
+            std::string options;
+            ASSERT_EQ( QC_STATUS_OK, m_pSimulationNode->GetConfigurationIfs().GetOptions( options ) );
             EXPECT_FALSE( options.empty() );
             EXPECT_NE( options.find( "version" ), std::string::npos );
             EXPECT_NE( options.find( "processingMode" ), std::string::npos );

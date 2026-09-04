@@ -28,6 +28,20 @@ QCStatus_e CL2DFlexConfig::VerifyStaticConfig( DataTree &dt, std::string &errors
         status = QC_STATUS_BAD_ARGUMENTS;
     }
 
+    /*
+     * The OpenCL interface supports the primary GPU (deviceId == 0) on all
+     * platforms and the second GPU (deviceId == 1) only on SA8797 (Nordy).
+     * QC_CL2DFLEX_DEVICE_ID_MAX reflects the maximum valid deviceId for the
+     * current target SOC. Reject any deviceId beyond it early.
+     */
+    uint32_t deviceId = dt.Get<uint32_t>( "deviceId", 0 );
+    if ( QC_CL2DFLEX_DEVICE_ID_MAX < deviceId )
+    {
+        errors += "the deviceId is invalid, max supported deviceId is " +
+                  std::to_string( QC_CL2DFLEX_DEVICE_ID_MAX ) + ", ";
+        status = QC_STATUS_BAD_ARGUMENTS;
+    }
+
     if ( dt.Exists( "bufferIds" ) )
     {
         std::vector<uint32_t> bufferIds = dt.Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
@@ -268,13 +282,14 @@ QCStatus_e CL2DFlexConfig::VerifyAndSet( const std::string config, std::string &
     return status;
 }
 
-const std::string &CL2DFlexConfig::GetOptions()
+QCStatus_e CL2DFlexConfig::GetOptions( std::string &options )
 {
     DataTree dt;
     dt.Set<uint32_t>( "version", QCNODE_CL2DFLEX_VERSION );
     m_options = dt.Dump();
 
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 const QCNodeConfigBase_t &CL2DFlexConfig::Get()

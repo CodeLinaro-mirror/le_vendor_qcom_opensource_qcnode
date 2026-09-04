@@ -1,15 +1,16 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-#include "QC/sample/BufferManager.hpp"
 #include "OpenCLMock.h"
-#include <CL/cl.h>
+#include "QC/sample/BufferManager.hpp"
 #include "gtest/gtest.h"
+#include <CL/cl.h>
 
 // Define friend class macros BEFORE including headers
-//#define VOXELIZATIONCONFIG_FRIEND_CLASS() friend class VoxelizationConfigTest
+// #define VOXELIZATIONCONFIG_FRIEND_CLASS() friend class VoxelizationConfigTest
 #define VOXELIZATIONIMPL_FRIEND_CLASS() friend class VoxelizationImplTest
 
+#include "MockCLib.hpp"
 #include "QC/Node/Voxelization.hpp"
 #include "VoxelizationImpl.hpp"
 
@@ -265,7 +266,7 @@ static void SANITY_Voxelization( std::string jsonStr, std::string processorType,
         plrPointsTensorProp.numDims = 1;
 
         coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-        coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+        coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
         coordToPlrIdxTensorProp.dims[1] = 0;
         coordToPlrIdxTensorProp.numDims = 1;
     }
@@ -476,6 +477,41 @@ TEST( FadasPlr, SANITY_VoxelizationHTP1_XYZR )
 #endif
 
 // ============================================================================
+// HTP1 TESTS — enabled when HPASS-02 is active (all SOCs that expose htp1)
+// ============================================================================
+
+TEST( FadasPlr, SANITY_VoxelizationHTP1_XYZR_HPASS02 )
+{
+    std::string processorType = "htp1";
+    std::string inputMode = "xyzr";
+    const char *pcdFile = "./data/test/voxelization/pointcloud.bin";
+    SANITY_Voxelization( g_Config_XYZR, processorType, inputMode, pcdFile );
+}
+
+// ============================================================================
+// HTP2 TESTS — enabled when HPASS-02 is active (SOC 8797 exposes htp2/htp3)
+// ============================================================================
+
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+TEST( FadasPlr, SANITY_VoxelizationHTP2_XYZR )
+{
+    std::string processorType = "htp2";
+    std::string inputMode = "xyzr";
+    const char *pcdFile = "./data/test/voxelization/pointcloud.bin";
+    SANITY_Voxelization( g_Config_XYZR, processorType, inputMode, pcdFile );
+}
+
+TEST( FadasPlr, SANITY_VoxelizationHTP3_XYZR )
+{
+    std::string processorType = "htp3";
+    std::string inputMode = "xyzr";
+    const char *pcdFile = "./data/test/voxelization/pointcloud.bin";
+    SANITY_Voxelization( g_Config_XYZR, processorType, inputMode, pcdFile );
+}
+
+#endif   // QC_TARGET_SOC == 8797
+
+// ============================================================================
 // EXTENDED TESTS FOR 100% COVERAGE
 // ============================================================================
 
@@ -488,8 +524,8 @@ TEST( VoxelizationMonitor, GetOptions_ReturnsEmptyJSON )
     QC::Node::Voxelization voxel;
 
     // GetOptions from Monitor interface should return "{}"
-    const std::string &options = voxel.GetMonitoringIfs().GetOptions();
-    EXPECT_EQ( "{}", options );
+    std::string options;
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, voxel.GetMonitoringIfs().GetOptions( options ) );
 }
 
 TEST( VoxelizationMonitor, VerifyAndSet_ReturnsUnsupported )
@@ -510,7 +546,8 @@ TEST( VoxelizationConfig, GetOptions_ReturnsEmptyString )
     QC::Node::Voxelization voxel;
 
     // GetOptions from Config interface should return empty string
-    const std::string &options = voxel.GetConfigurationIfs().GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, voxel.GetConfigurationIfs().GetOptions( options ) );
     EXPECT_EQ( "", options );
 }
 
@@ -2091,7 +2128,7 @@ TEST( VoxelizationImpl, Initialize_GPU_OpenCLInitFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2130,7 +2167,7 @@ TEST( VoxelizationImpl, Initialize_GPU_OpenCLInitFailure )
     // Initialize should fail due to OpenCL init failure (covers lines 84-85)
     QC::Node::Voxelization voxel;
     ret = voxel.Initialize( config );
-    
+
     // Should fail with OpenCL initialization error
     EXPECT_NE( QC_STATUS_OK, ret );
 
@@ -2209,7 +2246,7 @@ TEST( VoxelizationImpl, Initialize_GPU_KernelSourceLoadFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2243,12 +2280,13 @@ TEST( VoxelizationImpl, Initialize_GPU_KernelSourceLoadFailure )
 
     // Inject kernel source loading failure
     cl_int failStatus = CL_BUILD_PROGRAM_FAILURE;
-    MockApi_CL_Control( MOCK_API_CL_CREATE_PROGRAM_WITH_SOURCE, MOCK_CONTROL_CL_RETURN, &failStatus );
+    MockApi_CL_Control( MOCK_API_CL_CREATE_PROGRAM_WITH_SOURCE, MOCK_CONTROL_CL_RETURN,
+                        &failStatus );
 
     // Initialize should fail due to kernel source load failure (covers lines 94-95)
     QC::Node::Voxelization voxel;
     ret = voxel.Initialize( config );
-    
+
     // Should fail with kernel source loading error
     EXPECT_NE( QC_STATUS_OK, ret );
 
@@ -2328,7 +2366,7 @@ TEST( VoxelizationImpl, Initialize_GPU_XYZR_ClusterKernelCreationFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2367,7 +2405,7 @@ TEST( VoxelizationImpl, Initialize_GPU_XYZR_ClusterKernelCreationFailure )
     // Initialize should fail due to cluster kernel creation failure (covers line 108)
     QC::Node::Voxelization voxel;
     ret = voxel.Initialize( config );
-    
+
     // Should fail with kernel creation error
     EXPECT_NE( QC_STATUS_OK, ret );
 
@@ -2377,7 +2415,7 @@ TEST( VoxelizationImpl, Initialize_GPU_XYZR_ClusterKernelCreationFailure )
 
     // Initialize should fail due to cluster kernel creation failure (covers line 108)
     ret = voxel.Initialize( config );
-    
+
     // Should fail with kernel creation error
     EXPECT_NE( QC_STATUS_OK, ret );
 
@@ -2457,7 +2495,7 @@ TEST( VoxelizationImpl, Initialize_GPU_XYZRT_ClusterKernelCreationFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2497,7 +2535,7 @@ TEST( VoxelizationImpl, Initialize_GPU_XYZRT_ClusterKernelCreationFailure )
     // Initialize should fail due to cluster kernel creation failure (covers line 108)
     QC::Node::Voxelization voxel;
     ret = voxel.Initialize( config );
-    
+
     // Should fail with kernel creation error
     EXPECT_NE( QC_STATUS_OK, ret );
 
@@ -2507,7 +2545,7 @@ TEST( VoxelizationImpl, Initialize_GPU_XYZRT_ClusterKernelCreationFailure )
 
     // Initialize should fail due to cluster kernel creation failure (covers line 108)
     ret = voxel.Initialize( config );
-    
+
     // Should fail with kernel creation error
     EXPECT_NE( QC_STATUS_OK, ret );
 
@@ -2537,9 +2575,9 @@ class NonTensorDescriptorBuffer : public QCBufferDescriptorBase_t
 public:
     NonTensorDescriptorBuffer()
     {
-        type      = QC_BUFFER_TYPE_TENSOR;
-        pBuf      = reinterpret_cast<void *>( 0x1 );
-        size      = 1024;
+        type = QC_BUFFER_TYPE_TENSOR;
+        pBuf = reinterpret_cast<void *>( 0x1 );
+        size = 1024;
         dmaHandle = 99999ULL;
     }
     virtual ~NonTensorDescriptorBuffer() = default;
@@ -2686,7 +2724,7 @@ TEST( VoxelizationImplTest, Initialize_CalledTwice_ReturnsBadState_Lines63_67 )
     // FIRST Initialize call - should succeed
     ret = voxel.Initialize( config );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    
+
     // Verify state changed from INITIAL to READY
     QCObjectState_e stateAfterInit = voxel.GetState();
     EXPECT_NE( QC_OBJECT_STATE_INITIAL, stateAfterInit );
@@ -2703,7 +2741,7 @@ TEST( VoxelizationImplTest, Initialize_CalledTwice_ReturnsBadState_Lines63_67 )
     /* Cleanup
     ret = voxel.DeInitialize();
     EXPECT_EQ( QC_STATUS_OK, ret );
-    
+
     for ( uint32_t i = 0; i < 4; i++ )
     {
         ret = bufMgr.Free( outputPlrTensors[i] );
@@ -2789,7 +2827,7 @@ TEST( VoxelizationImplTest, Initialize_GPU_InvalidMode_MismatchedDimensions )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -2860,7 +2898,7 @@ TEST( VoxelizationImplTest, Initialize_GPU_XYZR_With5Dimensions_MCDC_Lines121_12
     // Setup configuration with GPU processor
     VoxelizationImplConfig_t &cfg = voxelTest.GetConfig();
     cfg.voxelConfig.processor = QC_PROCESSOR_GPU;
-    cfg.voxelConfig.inputMode = VOXELIZATION_INPUT_MODE_MAX;  // FALSE for condition 1
+    cfg.voxelConfig.inputMode = VOXELIZATION_INPUT_MODE_MAX;   // FALSE for condition 1
     cfg.voxelConfig.numInFeatureDim = 5;   // TRUE for condition 2 (WRONG! Should be 4 for XYZR)
     cfg.voxelConfig.numOutFeatureDim = 10;
     cfg.voxelConfig.maxNumInPts = 300000;
@@ -2919,7 +2957,7 @@ TEST( VoxelizationImplTest, Initialize_GPU_XYZR_With5Dimensions_MCDC_Lines121_12
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -3136,7 +3174,7 @@ TEST( VoxelizationImpl, DeRegisterAllBuffers_GPU_WithRegisteredBuffers )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -3516,7 +3554,7 @@ TEST( VoxelizationImpl, DeRegisterAllBuffers_GPU_WithMockFailure_ErrorAccumulati
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -3560,7 +3598,8 @@ TEST( VoxelizationImpl, DeRegisterAllBuffers_GPU_WithMockFailure_ErrorAccumulati
     // DeInitialize will call DeRegisterAllBuffers()
     // This will trigger error accumulation at lines 856-859
     ret = voxel.DeInitialize();
-    std::cout << "DeRegisterAllBuffers_GPU_WithMockFailure_ErrorAccumulation ret = " << ret << std::endl;
+    std::cout << "DeRegisterAllBuffers_GPU_WithMockFailure_ErrorAccumulation ret = " << ret
+              << std::endl;
     // Should return error status due to mock failure
     EXPECT_EQ( QC_STATUS_OK, ret );
 
@@ -3916,7 +3955,7 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBufferId_OutOfRange )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -3978,45 +4017,45 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBuffer_CastFailure )
 
     // Setup configuration with GPU processor
     VoxelizationImplConfig_t &cfg = voxelTest.GetConfig();
-    cfg.voxelConfig.processor       = QC_PROCESSOR_GPU;
-    cfg.voxelConfig.inputMode       = VOXELIZATION_INPUT_MODE_XYZR;
+    cfg.voxelConfig.processor = QC_PROCESSOR_GPU;
+    cfg.voxelConfig.inputMode = VOXELIZATION_INPUT_MODE_XYZR;
     cfg.voxelConfig.numInFeatureDim = 4;
     cfg.voxelConfig.numOutFeatureDim = 10;
-    cfg.voxelConfig.maxNumInPts     = 300000;
-    cfg.voxelConfig.maxNumPlrs      = 12000;
+    cfg.voxelConfig.maxNumInPts = 300000;
+    cfg.voxelConfig.maxNumPlrs = 12000;
     cfg.voxelConfig.maxNumPtsPerPlr = 32;
-    cfg.voxelConfig.pillarXSize     = 0.16f;
-    cfg.voxelConfig.pillarYSize     = 0.16f;
-    cfg.voxelConfig.pillarZSize     = 4.0f;
-    cfg.voxelConfig.minXRange       = 0.0f;
-    cfg.voxelConfig.minYRange       = -39.68f;
-    cfg.voxelConfig.minZRange       = -3.0f;
-    cfg.voxelConfig.maxXRange       = 69.12f;
-    cfg.voxelConfig.maxYRange       = 39.68f;
-    cfg.voxelConfig.maxZRange       = 1.0f;
+    cfg.voxelConfig.pillarXSize = 0.16f;
+    cfg.voxelConfig.pillarYSize = 0.16f;
+    cfg.voxelConfig.pillarZSize = 4.0f;
+    cfg.voxelConfig.minXRange = 0.0f;
+    cfg.voxelConfig.minYRange = -39.68f;
+    cfg.voxelConfig.minZRange = -3.0f;
+    cfg.voxelConfig.maxXRange = 69.12f;
+    cfg.voxelConfig.maxYRange = 39.68f;
+    cfg.voxelConfig.maxZRange = 1.0f;
 
     // Buffer IDs: outputPlr[0..3], outputFeat[4..7], plrPoints[8], coordToPlrIdx[9]
-    cfg.outputPlrBufferIds     = { 0, 1, 2, 3 };
+    cfg.outputPlrBufferIds = { 0, 1, 2, 3 };
     cfg.outputFeatureBufferIds = { 4, 5, 6, 7 };
-    cfg.plrPointsBufferId      = 8;
-    cfg.coordToPlrIdxBufferId  = 9;
+    cfg.plrPointsBufferId = 8;
+    cfg.coordToPlrIdxBufferId = 9;
 
     BufferManager bufMgr = BufferManager( { "VOXEL_CAST_FAIL", QC_NODE_TYPE_VOXEL, 0 } );
 
     TensorProps_t outputPlrTensorProp;
     outputPlrTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    outputPlrTensorProp.dims[0]    = cfg.voxelConfig.maxNumPlrs;
-    outputPlrTensorProp.dims[1]    = VOXELIZATION_PILLAR_COORDS_DIM;
-    outputPlrTensorProp.dims[2]    = 0;
-    outputPlrTensorProp.numDims    = 2;
+    outputPlrTensorProp.dims[0] = cfg.voxelConfig.maxNumPlrs;
+    outputPlrTensorProp.dims[1] = VOXELIZATION_PILLAR_COORDS_DIM;
+    outputPlrTensorProp.dims[2] = 0;
+    outputPlrTensorProp.numDims = 2;
 
     TensorProps_t outputFeatureTensorProp;
     outputFeatureTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    outputFeatureTensorProp.dims[0]    = cfg.voxelConfig.maxNumPlrs;
-    outputFeatureTensorProp.dims[1]    = cfg.voxelConfig.maxNumPtsPerPlr;
-    outputFeatureTensorProp.dims[2]    = cfg.voxelConfig.numOutFeatureDim;
-    outputFeatureTensorProp.dims[3]    = 0;
-    outputFeatureTensorProp.numDims    = 3;
+    outputFeatureTensorProp.dims[0] = cfg.voxelConfig.maxNumPlrs;
+    outputFeatureTensorProp.dims[1] = cfg.voxelConfig.maxNumPtsPerPlr;
+    outputFeatureTensorProp.dims[2] = cfg.voxelConfig.numOutFeatureDim;
+    outputFeatureTensorProp.dims[3] = 0;
+    outputFeatureTensorProp.numDims = 3;
 
     size_t gridXSize = (size_t) ceil( ( cfg.voxelConfig.maxXRange - cfg.voxelConfig.minXRange ) /
                                       cfg.voxelConfig.pillarXSize );
@@ -4025,9 +4064,9 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBuffer_CastFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0]    = (uint32_t) ( gridXSize * gridYSize * 2 );
-    coordToPlrIdxTensorProp.dims[1]    = 0;
-    coordToPlrIdxTensorProp.numDims    = 1;
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[1] = 0;
+    coordToPlrIdxTensorProp.numDims = 1;
 
     std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
     TensorDescriptor_t outputPlrTensors[4];
@@ -4137,7 +4176,7 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBuffer_RegBufferDescFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -4267,7 +4306,7 @@ TEST( VoxelizationImpl, Initialize_GPU_PlrPointsBuffer_SuccessfulRegistration )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -4388,7 +4427,7 @@ TEST( VoxelizationImpl, RegisterBuffer_GPU_OpenCLFailure_InputBuffer )
     TensorProps_t inputTensorProp;
     inputTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
     inputTensorProp.dims[0] = maxPointNum;
-    inputTensorProp.dims[1] = 4;  // XYZR
+    inputTensorProp.dims[1] = 4;   // XYZR
     inputTensorProp.dims[2] = 0;
     inputTensorProp.numDims = 2;
 
@@ -4418,7 +4457,7 @@ TEST( VoxelizationImpl, RegisterBuffer_GPU_OpenCLFailure_InputBuffer )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -4430,28 +4469,28 @@ TEST( VoxelizationImpl, RegisterBuffer_GPU_OpenCLFailure_InputBuffer )
     TensorDescriptor_t coordToPlrIdxTensor;
 
     ret = bufMgr.Allocate( inputTensorProp, inputTensor );
-    ASSERT_EQ(QC_STATUS_OK, ret);
+    ASSERT_EQ( QC_STATUS_OK, ret );
     config.buffers.push_back( inputTensor );
 
     for ( uint32_t i = 0; i < 4; i++ )
     {
         ret = bufMgr.Allocate( outputPlrTensorProp, outputPlrTensors[i] );
-        ASSERT_EQ(QC_STATUS_OK, ret);
+        ASSERT_EQ( QC_STATUS_OK, ret );
     }
 
     for ( uint32_t i = 0; i < 4; i++ )
     {
         ret = bufMgr.Allocate( outputFeatureTensorProp, outputFeatureTensors[i] );
-        ASSERT_EQ(QC_STATUS_OK, ret);
+        ASSERT_EQ( QC_STATUS_OK, ret );
         config.buffers.push_back( outputFeatureTensors[i] );
     }
 
     ret = bufMgr.Allocate( plrPointsTensorProp, plrPointsTensor );
-    ASSERT_EQ(QC_STATUS_OK, ret);
+    ASSERT_EQ( QC_STATUS_OK, ret );
     config.buffers.push_back( plrPointsTensor );
 
     ret = bufMgr.Allocate( coordToPlrIdxTensorProp, coordToPlrIdxTensor );
-    ASSERT_EQ(QC_STATUS_OK, ret);
+    ASSERT_EQ( QC_STATUS_OK, ret );
     config.buffers.push_back( coordToPlrIdxTensor );
 
     // Inject OpenCL buffer registration failure for input buffer
@@ -4480,7 +4519,7 @@ TEST( VoxelizationImpl, RegisterBuffer_GPU_OpenCLFailure_InputBuffer )
     ret = voxel.Initialize( config );
 
     // Should fail with buffer registration error
-    EXPECT_NE( QC_STATUS_OK, ret );    
+    EXPECT_NE( QC_STATUS_OK, ret );
 
     // 3rd call for create outputFeatureBufferIds
     // Inject OpenCL buffer registration failure for input buffer
@@ -4494,7 +4533,7 @@ TEST( VoxelizationImpl, RegisterBuffer_GPU_OpenCLFailure_InputBuffer )
     ret = voxel.Initialize( config );
 
     // Should fail with buffer registration error
-    EXPECT_NE( QC_STATUS_OK, ret );     
+    EXPECT_NE( QC_STATUS_OK, ret );
 
     // Reset mock
     MockApi_CL_ResetAll();
@@ -4581,75 +4620,77 @@ TEST( VoxelizationImpl, Initialize_RegisterOutputPlrBuffer_Failure_Lines234_238 
     ret = dt.Get( "static", staticCfg );
     ASSERT_EQ( QC_STATUS_OK, ret );
 
-    uint32_t maxPointNum       = staticCfg.Get<uint32_t>( "maxPointNum", 0 );
-    uint32_t maxPlrNum         = staticCfg.Get<uint32_t>( "maxPlrNum", 0 );
+    uint32_t maxPointNum = staticCfg.Get<uint32_t>( "maxPointNum", 0 );
+    uint32_t maxPlrNum = staticCfg.Get<uint32_t>( "maxPlrNum", 0 );
     uint32_t maxPointNumPerPlr = staticCfg.Get<uint32_t>( "maxPointNumPerPlr", 0 );
     uint32_t outputFeatureDimNum = staticCfg.Get<uint32_t>( "outputFeatureDimNum", 0 );
     float Xsize = staticCfg.Get<float>( "Xsize", 0 );
     float Ysize = staticCfg.Get<float>( "Ysize", 0 );
-    float Xmin  = staticCfg.Get<float>( "Xmin", 0 );
-    float Ymin  = staticCfg.Get<float>( "Ymin", 0 );
-    float Xmax  = staticCfg.Get<float>( "Xmax", 0 );
-    float Ymax  = staticCfg.Get<float>( "Ymax", 0 );
+    float Xmin = staticCfg.Get<float>( "Xmin", 0 );
+    float Ymin = staticCfg.Get<float>( "Ymin", 0 );
+    float Xmax = staticCfg.Get<float>( "Xmax", 0 );
+    float Ymax = staticCfg.Get<float>( "Ymax", 0 );
 
     TensorProps_t inputProp;
     inputProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    inputProp.dims[0]    = maxPointNum;
-    inputProp.dims[1]    = 4;  // XYZR
-    inputProp.dims[2]    = 0;
-    inputProp.numDims    = 2;
+    inputProp.dims[0] = maxPointNum;
+    inputProp.dims[1] = 4;   // XYZR
+    inputProp.dims[2] = 0;
+    inputProp.numDims = 2;
 
     TensorProps_t outputPlrProp;
     outputPlrProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    outputPlrProp.dims[0]    = maxPlrNum;
-    outputPlrProp.dims[1]    = VOXELIZATION_PILLAR_COORDS_DIM;
-    outputPlrProp.dims[2]    = 0;
-    outputPlrProp.numDims    = 2;
+    outputPlrProp.dims[0] = maxPlrNum;
+    outputPlrProp.dims[1] = VOXELIZATION_PILLAR_COORDS_DIM;
+    outputPlrProp.dims[2] = 0;
+    outputPlrProp.numDims = 2;
 
     TensorProps_t outputFeatureProp;
     outputFeatureProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    outputFeatureProp.dims[0]    = maxPlrNum;
-    outputFeatureProp.dims[1]    = maxPointNumPerPlr;
-    outputFeatureProp.dims[2]    = outputFeatureDimNum;
-    outputFeatureProp.dims[3]    = 0;
-    outputFeatureProp.numDims    = 3;
+    outputFeatureProp.dims[0] = maxPlrNum;
+    outputFeatureProp.dims[1] = maxPointNumPerPlr;
+    outputFeatureProp.dims[2] = outputFeatureDimNum;
+    outputFeatureProp.dims[3] = 0;
+    outputFeatureProp.numDims = 3;
 
     size_t gridXSize = (size_t) ceil( ( Xmax - Xmin ) / Xsize );
     size_t gridYSize = (size_t) ceil( ( Ymax - Ymin ) / Ysize );
 
     TensorProps_t plrPointsProp;
     plrPointsProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    plrPointsProp.dims[0]    = maxPlrNum + 1;
-    plrPointsProp.dims[1]    = 0;
-    plrPointsProp.numDims    = 1;
+    plrPointsProp.dims[0] = maxPlrNum + 1;
+    plrPointsProp.dims[1] = 0;
+    plrPointsProp.numDims = 1;
 
     TensorProps_t coordToPlrIdxProp;
     coordToPlrIdxProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxProp.dims[0]    = (uint32_t)( gridXSize * gridYSize * 2 );
-    coordToPlrIdxProp.dims[1]    = 0;
-    coordToPlrIdxProp.numDims    = 1;
+    coordToPlrIdxProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
+    coordToPlrIdxProp.dims[1] = 0;
+    coordToPlrIdxProp.numDims = 1;
 
-    TensorDescriptor_t inputTensor, outputPlrTensor, outputFeatureTensor, plrPointsTensor, coordToPlrIdxTensor;
+    TensorDescriptor_t inputTensor, outputPlrTensor, outputFeatureTensor, plrPointsTensor,
+            coordToPlrIdxTensor;
 
     ret = bufMgr.Allocate( inputProp, inputTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( inputTensor );        // buffer index 0 -> inputPcdBufferIds[0]
+    config.buffers.push_back( inputTensor );   // buffer index 0 -> inputPcdBufferIds[0]
 
     ret = bufMgr.Allocate( outputPlrProp, outputPlrTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( outputPlrTensor );    // buffer index 1 -> outputPlrBufferIds[0]
+    config.buffers.push_back( outputPlrTensor );   // buffer index 1 -> outputPlrBufferIds[0]
 
     ret = bufMgr.Allocate( outputFeatureProp, outputFeatureTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( outputFeatureTensor );// buffer index 2 -> outputFeatureBufferIds[0]
+    config.buffers.push_back(
+            outputFeatureTensor );   // buffer index 2 -> outputFeatureBufferIds[0]
 
     ret = bufMgr.Allocate( plrPointsProp, plrPointsTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( plrPointsTensor );    // buffer index 3 -> plrPointsBufferId
+    config.buffers.push_back( plrPointsTensor );   // buffer index 3 -> plrPointsBufferId
 
     ret = bufMgr.Allocate( coordToPlrIdxProp, coordToPlrIdxTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( coordToPlrIdxTensor );// buffer index 4 -> coordToPlrIdxBufferId
+    config.buffers.push_back( coordToPlrIdxTensor );   // buffer index 4 -> coordToPlrIdxBufferId
 
     // Inject clCreateBuffer failure at call #4.
     // MockApi_CL_Control resets s_kenerlCnt to 0. During Initialize:
@@ -4666,7 +4707,8 @@ TEST( VoxelizationImpl, Initialize_RegisterOutputPlrBuffer_Failure_Lines234_238 
 
     // Initialize must fail because output pillar buffer registration failed (lines 234-238)
     EXPECT_NE( QC_STATUS_OK, ret );
-    std::cout << "Initialize_RegisterOutputPlrBuffer_Failure_Lines234_238: ret = " << ret << std::endl;
+    std::cout << "Initialize_RegisterOutputPlrBuffer_Failure_Lines234_238: ret = " << ret
+              << std::endl;
 
     MockApi_CL_ResetAll();
 
@@ -4741,75 +4783,77 @@ TEST( VoxelizationImpl, Initialize_RegisterOutputFeatureBuffer_Failure_Lines262_
     ret = dt.Get( "static", staticCfg );
     ASSERT_EQ( QC_STATUS_OK, ret );
 
-    uint32_t maxPointNum       = staticCfg.Get<uint32_t>( "maxPointNum", 0 );
-    uint32_t maxPlrNum         = staticCfg.Get<uint32_t>( "maxPlrNum", 0 );
+    uint32_t maxPointNum = staticCfg.Get<uint32_t>( "maxPointNum", 0 );
+    uint32_t maxPlrNum = staticCfg.Get<uint32_t>( "maxPlrNum", 0 );
     uint32_t maxPointNumPerPlr = staticCfg.Get<uint32_t>( "maxPointNumPerPlr", 0 );
     uint32_t outputFeatureDimNum = staticCfg.Get<uint32_t>( "outputFeatureDimNum", 0 );
     float Xsize = staticCfg.Get<float>( "Xsize", 0 );
     float Ysize = staticCfg.Get<float>( "Ysize", 0 );
-    float Xmin  = staticCfg.Get<float>( "Xmin", 0 );
-    float Ymin  = staticCfg.Get<float>( "Ymin", 0 );
-    float Xmax  = staticCfg.Get<float>( "Xmax", 0 );
-    float Ymax  = staticCfg.Get<float>( "Ymax", 0 );
+    float Xmin = staticCfg.Get<float>( "Xmin", 0 );
+    float Ymin = staticCfg.Get<float>( "Ymin", 0 );
+    float Xmax = staticCfg.Get<float>( "Xmax", 0 );
+    float Ymax = staticCfg.Get<float>( "Ymax", 0 );
 
     TensorProps_t inputProp;
     inputProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    inputProp.dims[0]    = maxPointNum;
-    inputProp.dims[1]    = 4;  // XYZR
-    inputProp.dims[2]    = 0;
-    inputProp.numDims    = 2;
+    inputProp.dims[0] = maxPointNum;
+    inputProp.dims[1] = 4;   // XYZR
+    inputProp.dims[2] = 0;
+    inputProp.numDims = 2;
 
     TensorProps_t outputPlrProp;
     outputPlrProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    outputPlrProp.dims[0]    = maxPlrNum;
-    outputPlrProp.dims[1]    = VOXELIZATION_PILLAR_COORDS_DIM;
-    outputPlrProp.dims[2]    = 0;
-    outputPlrProp.numDims    = 2;
+    outputPlrProp.dims[0] = maxPlrNum;
+    outputPlrProp.dims[1] = VOXELIZATION_PILLAR_COORDS_DIM;
+    outputPlrProp.dims[2] = 0;
+    outputPlrProp.numDims = 2;
 
     TensorProps_t outputFeatureProp;
     outputFeatureProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    outputFeatureProp.dims[0]    = maxPlrNum;
-    outputFeatureProp.dims[1]    = maxPointNumPerPlr;
-    outputFeatureProp.dims[2]    = outputFeatureDimNum;
-    outputFeatureProp.dims[3]    = 0;
-    outputFeatureProp.numDims    = 3;
+    outputFeatureProp.dims[0] = maxPlrNum;
+    outputFeatureProp.dims[1] = maxPointNumPerPlr;
+    outputFeatureProp.dims[2] = outputFeatureDimNum;
+    outputFeatureProp.dims[3] = 0;
+    outputFeatureProp.numDims = 3;
 
     size_t gridXSize = (size_t) ceil( ( Xmax - Xmin ) / Xsize );
     size_t gridYSize = (size_t) ceil( ( Ymax - Ymin ) / Ysize );
 
     TensorProps_t plrPointsProp;
     plrPointsProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    plrPointsProp.dims[0]    = maxPlrNum + 1;
-    plrPointsProp.dims[1]    = 0;
-    plrPointsProp.numDims    = 1;
+    plrPointsProp.dims[0] = maxPlrNum + 1;
+    plrPointsProp.dims[1] = 0;
+    plrPointsProp.numDims = 1;
 
     TensorProps_t coordToPlrIdxProp;
     coordToPlrIdxProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxProp.dims[0]    = (uint32_t)( gridXSize * gridYSize * 2 );
-    coordToPlrIdxProp.dims[1]    = 0;
-    coordToPlrIdxProp.numDims    = 1;
+    coordToPlrIdxProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
+    coordToPlrIdxProp.dims[1] = 0;
+    coordToPlrIdxProp.numDims = 1;
 
-    TensorDescriptor_t inputTensor, outputPlrTensor, outputFeatureTensor, plrPointsTensor, coordToPlrIdxTensor;
+    TensorDescriptor_t inputTensor, outputPlrTensor, outputFeatureTensor, plrPointsTensor,
+            coordToPlrIdxTensor;
 
     ret = bufMgr.Allocate( inputProp, inputTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( inputTensor );        // buffer index 0 -> inputPcdBufferIds[0]
+    config.buffers.push_back( inputTensor );   // buffer index 0 -> inputPcdBufferIds[0]
 
     ret = bufMgr.Allocate( outputPlrProp, outputPlrTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( outputPlrTensor );    // buffer index 1 -> outputPlrBufferIds[0]
+    config.buffers.push_back( outputPlrTensor );   // buffer index 1 -> outputPlrBufferIds[0]
 
     ret = bufMgr.Allocate( outputFeatureProp, outputFeatureTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( outputFeatureTensor );// buffer index 2 -> outputFeatureBufferIds[0]
+    config.buffers.push_back(
+            outputFeatureTensor );   // buffer index 2 -> outputFeatureBufferIds[0]
 
     ret = bufMgr.Allocate( plrPointsProp, plrPointsTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( plrPointsTensor );    // buffer index 3 -> plrPointsBufferId
+    config.buffers.push_back( plrPointsTensor );   // buffer index 3 -> plrPointsBufferId
 
     ret = bufMgr.Allocate( coordToPlrIdxProp, coordToPlrIdxTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    config.buffers.push_back( coordToPlrIdxTensor );// buffer index 4 -> coordToPlrIdxBufferId
+    config.buffers.push_back( coordToPlrIdxTensor );   // buffer index 4 -> coordToPlrIdxBufferId
 
     // Inject clCreateBuffer failure at call #5.
     // MockApi_CL_Control resets s_kenerlCnt to 0. During Initialize:
@@ -4827,7 +4871,8 @@ TEST( VoxelizationImpl, Initialize_RegisterOutputFeatureBuffer_Failure_Lines262_
 
     // Initialize must fail because output feature buffer registration failed (lines 262-268)
     EXPECT_NE( QC_STATUS_OK, ret );
-    std::cout << "Initialize_RegisterOutputFeatureBuffer_Failure_Lines262_268: ret = " << ret << std::endl;
+    std::cout << "Initialize_RegisterOutputFeatureBuffer_Failure_Lines262_268: ret = " << ret
+              << std::endl;
 
     MockApi_CL_ResetAll();
 
@@ -5032,7 +5077,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_InputTensor_NullBuffer_MCDC_Case1
     TensorProps_t inputTensorProp;
     inputTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
     inputTensorProp.dims[0] = maxPointNum;
-    inputTensorProp.dims[1] = 4;  // XYZR
+    inputTensorProp.dims[1] = 4;   // XYZR
     inputTensorProp.dims[2] = 0;
     inputTensorProp.numDims = 2;
 
@@ -5083,7 +5128,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_InputTensor_NullBuffer_MCDC_Case1
 
     // Create frame descriptor with NULL buffer pointer
     // This tests MC/DC Case 1: pInputTensor->pBuf == nullptr
-    inputTensor.pBuf = nullptr;  // Set to NULL to trigger first condition
+    inputTensor.pBuf = nullptr;   // Set to NULL to trigger first condition
     inputTensor.dims[0] = 1000;
 
     NodeFrameDescriptor frameDesc( 3 );
@@ -5109,7 +5154,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_InputTensor_NullBuffer_MCDC_Case1
     EXPECT_EQ( QC_STATUS_OK, ret );
 
     ret = bufMgr.Free( inputTensor );
-    //EXPECT_EQ( QC_STATUS_OK, ret );
+    // EXPECT_EQ( QC_STATUS_OK, ret );
 
     for ( uint32_t i = 0; i < 4; i++ )
     {
@@ -5206,7 +5251,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_InputTensor_InvalidNumDims_MCDC_C
 
     // Modify numDims to invalid value (not 2)
     // This tests MC/DC Case 2: numDims != 2 (with pBuf valid)
-    inputTensor.numDims = 3;  // Invalid! Should be 2
+    inputTensor.numDims = 3;   // Invalid! Should be 2
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -5328,7 +5373,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_InputTensor_InvalidTensorType_MCD
 
     // Modify tensorType to invalid value (not FLOAT_32)
     // This tests MC/DC Case 3: tensorType != FLOAT_32 (with pBuf valid and numDims = 2)
-    inputTensor.tensorType = QC_TENSOR_TYPE_INT_32;  // Invalid! Should be FLOAT_32
+    inputTensor.tensorType = QC_TENSOR_TYPE_INT_32;   // Invalid! Should be FLOAT_32
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -5449,8 +5494,9 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_InputTensor_InvalidFeatureDim_MCD
     inputTensor.dims[0] = 1000;
 
     // Modify dims[1] to invalid value (not matching numInFeatureDim which is 4 for XYZR)
-    // This tests MC/DC Case 4: dims[1] != numInFeatureDim (with pBuf valid, numDims = 2, tensorType = FLOAT_32)
-    inputTensor.dims[1] = 3;  // Invalid! Should be 4 for XYZR mode
+    // This tests MC/DC Case 4: dims[1] != numInFeatureDim (with pBuf valid, numDims = 2, tensorType
+    // = FLOAT_32)
+    inputTensor.dims[1] = 3;   // Invalid! Should be 4 for XYZR mode
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -5517,7 +5563,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_InputTensor_AllValid_MCDC_Case5 )
     TensorProps_t inputTensorProp;
     inputTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
     inputTensorProp.dims[0] = maxPointNum;
-    inputTensorProp.dims[1] = 4;  // XYZR
+    inputTensorProp.dims[1] = 4;   // XYZR
     inputTensorProp.dims[2] = 0;
     inputTensorProp.numDims = 2;
 
@@ -5805,7 +5851,7 @@ TEST( VoxelizationImpl, Initialize_GPU_CoordToPlrIdxBuffer_RegBufferDescFailure 
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -5884,51 +5930,51 @@ TEST( VoxelizationImpl, Initialize_GPU_CoordToPlrIdxBuffer_CastFailure )
 
     // Setup configuration with GPU processor
     VoxelizationImplConfig_t &cfg = voxelTest.GetConfig();
-    cfg.voxelConfig.processor       = QC_PROCESSOR_GPU;
-    cfg.voxelConfig.inputMode       = VOXELIZATION_INPUT_MODE_XYZR;
+    cfg.voxelConfig.processor = QC_PROCESSOR_GPU;
+    cfg.voxelConfig.inputMode = VOXELIZATION_INPUT_MODE_XYZR;
     cfg.voxelConfig.numInFeatureDim = 4;
     cfg.voxelConfig.numOutFeatureDim = 10;
-    cfg.voxelConfig.maxNumInPts     = 300000;
-    cfg.voxelConfig.maxNumPlrs      = 12000;
+    cfg.voxelConfig.maxNumInPts = 300000;
+    cfg.voxelConfig.maxNumPlrs = 12000;
     cfg.voxelConfig.maxNumPtsPerPlr = 32;
-    cfg.voxelConfig.pillarXSize     = 0.16f;
-    cfg.voxelConfig.pillarYSize     = 0.16f;
-    cfg.voxelConfig.pillarZSize     = 4.0f;
-    cfg.voxelConfig.minXRange       = 0.0f;
-    cfg.voxelConfig.minYRange       = -39.68f;
-    cfg.voxelConfig.minZRange       = -3.0f;
-    cfg.voxelConfig.maxXRange       = 69.12f;
-    cfg.voxelConfig.maxYRange       = 39.68f;
-    cfg.voxelConfig.maxZRange       = 1.0f;
+    cfg.voxelConfig.pillarXSize = 0.16f;
+    cfg.voxelConfig.pillarYSize = 0.16f;
+    cfg.voxelConfig.pillarZSize = 4.0f;
+    cfg.voxelConfig.minXRange = 0.0f;
+    cfg.voxelConfig.minYRange = -39.68f;
+    cfg.voxelConfig.minZRange = -3.0f;
+    cfg.voxelConfig.maxXRange = 69.12f;
+    cfg.voxelConfig.maxYRange = 39.68f;
+    cfg.voxelConfig.maxZRange = 1.0f;
 
     // Buffer IDs: outputPlr[0..3], outputFeat[4..7], plrPoints[8], coordToPlrIdx[9]
-    cfg.outputPlrBufferIds     = { 0, 1, 2, 3 };
+    cfg.outputPlrBufferIds = { 0, 1, 2, 3 };
     cfg.outputFeatureBufferIds = { 4, 5, 6, 7 };
-    cfg.plrPointsBufferId      = 8;
-    cfg.coordToPlrIdxBufferId  = 9;
+    cfg.plrPointsBufferId = 8;
+    cfg.coordToPlrIdxBufferId = 9;
 
     BufferManager bufMgr = BufferManager( { "VOXEL_COORD_CAST_FAIL", QC_NODE_TYPE_VOXEL, 0 } );
 
     TensorProps_t outputPlrTensorProp;
     outputPlrTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    outputPlrTensorProp.dims[0]    = cfg.voxelConfig.maxNumPlrs;
-    outputPlrTensorProp.dims[1]    = VOXELIZATION_PILLAR_COORDS_DIM;
-    outputPlrTensorProp.dims[2]    = 0;
-    outputPlrTensorProp.numDims    = 2;
+    outputPlrTensorProp.dims[0] = cfg.voxelConfig.maxNumPlrs;
+    outputPlrTensorProp.dims[1] = VOXELIZATION_PILLAR_COORDS_DIM;
+    outputPlrTensorProp.dims[2] = 0;
+    outputPlrTensorProp.numDims = 2;
 
     TensorProps_t outputFeatureTensorProp;
     outputFeatureTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
-    outputFeatureTensorProp.dims[0]    = cfg.voxelConfig.maxNumPlrs;
-    outputFeatureTensorProp.dims[1]    = cfg.voxelConfig.maxNumPtsPerPlr;
-    outputFeatureTensorProp.dims[2]    = cfg.voxelConfig.numOutFeatureDim;
-    outputFeatureTensorProp.dims[3]    = 0;
-    outputFeatureTensorProp.numDims    = 3;
+    outputFeatureTensorProp.dims[0] = cfg.voxelConfig.maxNumPlrs;
+    outputFeatureTensorProp.dims[1] = cfg.voxelConfig.maxNumPtsPerPlr;
+    outputFeatureTensorProp.dims[2] = cfg.voxelConfig.numOutFeatureDim;
+    outputFeatureTensorProp.dims[3] = 0;
+    outputFeatureTensorProp.numDims = 3;
 
     TensorProps_t plrPointsTensorProp;
     plrPointsTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    plrPointsTensorProp.dims[0]    = cfg.voxelConfig.maxNumPlrs + 1;
-    plrPointsTensorProp.dims[1]    = 0;
-    plrPointsTensorProp.numDims    = 1;
+    plrPointsTensorProp.dims[0] = cfg.voxelConfig.maxNumPlrs + 1;
+    plrPointsTensorProp.dims[1] = 0;
+    plrPointsTensorProp.numDims = 1;
 
     std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
     TensorDescriptor_t outputPlrTensors[4];
@@ -6040,7 +6086,7 @@ TEST( VoxelizationImpl, Initialize_GPU_CoordToPlrIdxBuffer_SuccessfulRegistratio
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -6193,7 +6239,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_NullBuffer_MCDC_Ca
     TensorProps_t inputTensorProp;
     inputTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
     inputTensorProp.dims[0] = maxPointNum;
-    inputTensorProp.dims[1] = 4;  // XYZR
+    inputTensorProp.dims[1] = 4;   // XYZR
     inputTensorProp.dims[2] = 0;
     inputTensorProp.numDims = 2;
 
@@ -6242,7 +6288,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_NullBuffer_MCDC_Ca
 
     // Create frame descriptor with NULL output pillar buffer pointer
     // This tests MC/DC Case 1: pOutputPlrTensor->pBuf == nullptr
-    outputPlrTensor.pBuf = nullptr;  // Set to NULL to trigger first condition
+    outputPlrTensor.pBuf = nullptr;   // Set to NULL to trigger first condition
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -6357,7 +6403,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_InvalidNumDims_MCD
 
     // Modify numDims to invalid value (not 2)
     // This tests MC/DC Case 2: numDims != 2 (with pBuf valid)
-    outputPlrTensor.numDims = 3;  // Invalid! Should be 2
+    outputPlrTensor.numDims = 3;   // Invalid! Should be 2
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -6472,7 +6518,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_InvalidTensorType_
 
     // Modify tensorType to invalid value (not FLOAT_32)
     // This tests MC/DC Case 3: tensorType != FLOAT_32 (with pBuf valid and numDims = 2)
-    outputPlrTensor.tensorType = QC_TENSOR_TYPE_INT_32;  // Invalid! Should be FLOAT_32 for XYZR
+    outputPlrTensor.tensorType = QC_TENSOR_TYPE_INT_32;   // Invalid! Should be FLOAT_32 for XYZR
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -6587,7 +6633,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_InvalidDims0_MCDC_
 
     // Modify dims[0] to invalid value (not matching maxNumPlrs)
     // This tests MC/DC Case 4: dims[0] != maxNumPlrs
-    outputPlrTensor.dims[0] = maxPlrNum - 1;  // Invalid! Should match maxNumPlrs
+    outputPlrTensor.dims[0] = maxPlrNum - 1;   // Invalid! Should match maxNumPlrs
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -6621,8 +6667,8 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_InvalidDims0_MCDC_
     EXPECT_EQ( QC_STATUS_OK, ret );
 }
 
-// Test Case 5: MC/DC Coverage - pOutputPlrTensor->dims[1] != VOXELIZATION_PILLAR_COORDS_DIM (TRUE) for XYZR
-// This covers: (F || F || F || F || T) → TRUE
+// Test Case 5: MC/DC Coverage - pOutputPlrTensor->dims[1] != VOXELIZATION_PILLAR_COORDS_DIM (TRUE)
+// for XYZR This covers: (F || F || F || F || T) → TRUE
 TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_InvalidDims1_MCDC_Case5 )
 {
     QCStatus_e ret;
@@ -6702,7 +6748,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_InvalidDims1_MCDC_
 
     // Modify dims[1] to invalid value (not VOXELIZATION_PILLAR_COORDS_DIM which is 4)
     // This tests MC/DC Case 5: dims[1] != VOXELIZATION_PILLAR_COORDS_DIM
-    outputPlrTensor.dims[1] = 3;  // Invalid! Should be 4 (VOXELIZATION_PILLAR_COORDS_DIM)
+    outputPlrTensor.dims[1] = 3;   // Invalid! Should be 4 (VOXELIZATION_PILLAR_COORDS_DIM)
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -6768,7 +6814,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZR_OutputPlr_AllValid_MCDC_Case
     TensorProps_t inputTensorProp;
     inputTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
     inputTensorProp.dims[0] = maxPointNum;
-    inputTensorProp.dims[1] = 4;  // XYZR
+    inputTensorProp.dims[1] = 4;   // XYZR
     inputTensorProp.dims[2] = 0;
     inputTensorProp.numDims = 2;
 
@@ -6897,14 +6943,14 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_NullBuffer_MCDC_C
     TensorProps_t inputTensorProp;
     inputTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
     inputTensorProp.dims[0] = maxPointNum;
-    inputTensorProp.dims[1] = 5;  // XYZRT
+    inputTensorProp.dims[1] = 5;   // XYZRT
     inputTensorProp.dims[2] = 0;
     inputTensorProp.numDims = 2;
 
     TensorProps_t outputPlrTensorProp;
-    outputPlrTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;  // INT_32 for XYZRT mode
+    outputPlrTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;   // INT_32 for XYZRT mode
     outputPlrTensorProp.dims[0] = maxPlrNum;
-    outputPlrTensorProp.dims[1] = 2;  // 2 for XYZRT mode
+    outputPlrTensorProp.dims[1] = 2;   // 2 for XYZRT mode
     outputPlrTensorProp.dims[2] = 0;
     outputPlrTensorProp.numDims = 2;
 
@@ -6927,7 +6973,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_NullBuffer_MCDC_C
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -6971,7 +7017,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_NullBuffer_MCDC_C
 
     // Create frame descriptor with NULL output pillar buffer pointer
     // This tests MC/DC Case 1: pOutputPlrTensor->pBuf == nullptr
-    outputPlrTensor.pBuf = nullptr;  // Set to NULL to trigger first condition
+    outputPlrTensor.pBuf = nullptr;   // Set to NULL to trigger first condition
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -7079,7 +7125,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidNumDims_MC
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7123,7 +7169,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidNumDims_MC
 
     // Modify numDims to invalid value (not 2)
     // This tests MC/DC Case 2: numDims != 2 (with pBuf valid)
-    outputPlrTensor.numDims = 3;  // Invalid! Should be 2
+    outputPlrTensor.numDims = 3;   // Invalid! Should be 2
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -7231,7 +7277,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidTensorType
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7275,7 +7321,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidTensorType
 
     // Modify tensorType to invalid value (not INT_32)
     // This tests MC/DC Case 3: tensorType != INT_32 (with pBuf valid and numDims = 2)
-    outputPlrTensor.tensorType = QC_TENSOR_TYPE_FLOAT_32;  // Invalid! Should be INT_32 for XYZRT
+    outputPlrTensor.tensorType = QC_TENSOR_TYPE_FLOAT_32;   // Invalid! Should be INT_32 for XYZRT
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -7383,7 +7429,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidDims0_MCDC
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7427,7 +7473,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidDims0_MCDC
 
     // Modify dims[0] to invalid value (not matching maxNumPlrs)
     // This tests MC/DC Case 4: dims[0] != maxNumPlrs
-    outputPlrTensor.dims[0] = maxPlrNum - 1;  // Invalid! Should match maxNumPlrs
+    outputPlrTensor.dims[0] = maxPlrNum - 1;   // Invalid! Should match maxNumPlrs
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -7535,7 +7581,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidDims1_MCDC
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7579,7 +7625,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_InvalidDims1_MCDC
 
     // Modify dims[1] to invalid value (not 2)
     // This tests MC/DC Case 5: dims[1] != 2
-    outputPlrTensor.dims[1] = 3;  // Invalid! Should be 2 for XYZRT mode
+    outputPlrTensor.dims[1] = 3;   // Invalid! Should be 2 for XYZRT mode
 
     NodeFrameDescriptor frameDesc( 3 );
     ret = frameDesc.SetBuffer( 0, inputTensor );
@@ -7657,14 +7703,14 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_AllValid_MCDC_Cas
     TensorProps_t inputTensorProp;
     inputTensorProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
     inputTensorProp.dims[0] = maxPointNum;
-    inputTensorProp.dims[1] = 5;  // XYZRT
+    inputTensorProp.dims[1] = 5;   // XYZRT
     inputTensorProp.dims[2] = 0;
     inputTensorProp.numDims = 2;
 
     TensorProps_t outputPlrTensorProp;
-    outputPlrTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;  // INT_32 for XYZRT mode
+    outputPlrTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;   // INT_32 for XYZRT mode
     outputPlrTensorProp.dims[0] = maxPlrNum;
-    outputPlrTensorProp.dims[1] = 2;  // 2 for XYZRT mode
+    outputPlrTensorProp.dims[1] = 2;   // 2 for XYZRT mode
     outputPlrTensorProp.dims[2] = 0;
     outputPlrTensorProp.numDims = 2;
 
@@ -7687,7 +7733,7 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_AllValid_MCDC_Cas
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t) ( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -7779,13 +7825,11 @@ TEST( VoxelizationImpl, ProcessFrameDescriptor_XYZRT_OutputPlr_AllValid_MCDC_Cas
 // Helper: Initialize CPU XYZR node with minimal single-buffer config
 // Returns true on success. Allocates outputPlrTensor at config.buffers[0],
 // outputFeatureTensor at config.buffers[1].
-static bool SetupMinimalCPU_XYZR( QCNodeInit_t &config,
-                                   BufferManager &bufMgr,
-                                   TensorDescriptor_t &outputPlrTensor,
-                                   TensorDescriptor_t &outputFeatureTensor,
-                                   uint32_t maxPlrNum = 12000,
-                                   uint32_t maxPointNumPerPlr = 32,
-                                   uint32_t outputFeatureDimNum = 10 )
+static bool SetupMinimalCPU_XYZR( QCNodeInit_t &config, BufferManager &bufMgr,
+                                  TensorDescriptor_t &outputPlrTensor,
+                                  TensorDescriptor_t &outputFeatureTensor,
+                                  uint32_t maxPlrNum = 12000, uint32_t maxPointNumPerPlr = 32,
+                                  uint32_t outputFeatureDimNum = 10 )
 {
     TensorProps_t outputPlrProp;
     outputPlrProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;
@@ -7802,27 +7846,23 @@ static bool SetupMinimalCPU_XYZR( QCNodeInit_t &config,
     outputFeatProp.dims[3] = 0;
     outputFeatProp.numDims = 3;
 
-    if ( QC_STATUS_OK != bufMgr.Allocate( outputPlrProp, outputPlrTensor ) )
-        return false;
+    if ( QC_STATUS_OK != bufMgr.Allocate( outputPlrProp, outputPlrTensor ) ) return false;
     config.buffers.push_back( outputPlrTensor );
 
-    if ( QC_STATUS_OK != bufMgr.Allocate( outputFeatProp, outputFeatureTensor ) )
-        return false;
+    if ( QC_STATUS_OK != bufMgr.Allocate( outputFeatProp, outputFeatureTensor ) ) return false;
     config.buffers.push_back( outputFeatureTensor );
 
     return true;
 }
 
 // Helper: Initialize GPU XYZRT node with minimal single-buffer config
-static bool SetupMinimalGPU_XYZRT( QCNodeInit_t &config,
-                                    BufferManager &bufMgr,
-                                    TensorDescriptor_t &outputPlrTensor,
-                                    TensorDescriptor_t &outputFeatureTensor,
-                                    TensorDescriptor_t &plrPointsTensor,
-                                    TensorDescriptor_t &coordToPlrIdxTensor,
-                                    uint32_t maxPlrNum = 25000,
-                                    uint32_t maxPointNumPerPlr = 32,
-                                    uint32_t outputFeatureDimNum = 10 )
+static bool SetupMinimalGPU_XYZRT( QCNodeInit_t &config, BufferManager &bufMgr,
+                                   TensorDescriptor_t &outputPlrTensor,
+                                   TensorDescriptor_t &outputFeatureTensor,
+                                   TensorDescriptor_t &plrPointsTensor,
+                                   TensorDescriptor_t &coordToPlrIdxTensor,
+                                   uint32_t maxPlrNum = 25000, uint32_t maxPointNumPerPlr = 32,
+                                   uint32_t outputFeatureDimNum = 10 )
 {
     TensorProps_t outputPlrProp;
     outputPlrProp.tensorType = QC_TENSOR_TYPE_INT_32;
@@ -7840,8 +7880,8 @@ static bool SetupMinimalGPU_XYZRT( QCNodeInit_t &config,
     outputFeatProp.numDims = 3;
 
     // gridXSize * gridYSize for XYZRT config: (51.2-(-51.2))/0.2 = 512, same for Y
-    size_t gridXSize = (size_t)ceil( ( 51.2f - ( -51.2f ) ) / 0.2f );
-    size_t gridYSize = (size_t)ceil( ( 51.2f - ( -51.2f ) ) / 0.2f );
+    size_t gridXSize = (size_t) ceil( ( 51.2f - ( -51.2f ) ) / 0.2f );
+    size_t gridYSize = (size_t) ceil( ( 51.2f - ( -51.2f ) ) / 0.2f );
 
     TensorProps_t plrPointsProp;
     plrPointsProp.tensorType = QC_TENSOR_TYPE_INT_32;
@@ -7851,24 +7891,20 @@ static bool SetupMinimalGPU_XYZRT( QCNodeInit_t &config,
 
     TensorProps_t coordProp;
     coordProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordProp.dims[0] = (uint32_t)( gridXSize * gridYSize * 2 );
+    coordProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordProp.dims[1] = 0;
     coordProp.numDims = 1;
 
-    if ( QC_STATUS_OK != bufMgr.Allocate( outputPlrProp, outputPlrTensor ) )
-        return false;
+    if ( QC_STATUS_OK != bufMgr.Allocate( outputPlrProp, outputPlrTensor ) ) return false;
     config.buffers.push_back( outputPlrTensor );   // index 0
 
-    if ( QC_STATUS_OK != bufMgr.Allocate( outputFeatProp, outputFeatureTensor ) )
-        return false;
+    if ( QC_STATUS_OK != bufMgr.Allocate( outputFeatProp, outputFeatureTensor ) ) return false;
     config.buffers.push_back( outputFeatureTensor );   // index 1
 
-    if ( QC_STATUS_OK != bufMgr.Allocate( plrPointsProp, plrPointsTensor ) )
-        return false;
+    if ( QC_STATUS_OK != bufMgr.Allocate( plrPointsProp, plrPointsTensor ) ) return false;
     config.buffers.push_back( plrPointsTensor );   // index 2
 
-    if ( QC_STATUS_OK != bufMgr.Allocate( coordProp, coordToPlrIdxTensor ) )
-        return false;
+    if ( QC_STATUS_OK != bufMgr.Allocate( coordProp, coordToPlrIdxTensor ) ) return false;
     config.buffers.push_back( coordToPlrIdxTensor );   // index 3
 
     return true;
@@ -7881,8 +7917,8 @@ static bool SetupMinimalGPU_XYZRT( QCNodeInit_t &config,
 
 // Parameterized helper for XYZR output pillar validation tests
 static void RunXYZR_OutputPlr_ValidationTest( TensorDescriptor_t &outputPlrTensor,
-                                               const char *bufMgrName = "VOXEL_XYZR_PLR_FIX",
-                                               bool modifyBeforeSetBuffer = false )
+                                              const char *bufMgrName = "VOXEL_XYZR_PLR_FIX",
+                                              bool modifyBeforeSetBuffer = false )
 {
     QCStatus_e ret;
     DataTree dt;
@@ -7915,7 +7951,7 @@ static void RunXYZR_OutputPlr_ValidationTest( TensorDescriptor_t &outputPlrTenso
     TensorDescriptor_t inputTensor;
     ret = bufMgr.Allocate( inputProp, inputTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    RandomGenPoints( (float *)inputTensor.pBuf, 1000 );
+    RandomGenPoints( (float *) inputTensor.pBuf, 1000 );
     inputTensor.dims[0] = 1000;
 
     // outputPlrTensor is passed in with invalid values already set
@@ -7936,39 +7972,39 @@ static void RunXYZR_OutputPlr_ValidationTest( TensorDescriptor_t &outputPlrTenso
 
 // Helper macro to set up minimal CPU XYZR node for validation tests
 // NOTE: Must be defined AFTER SetupMinimalCPU_XYZR and g_Config_XYZR_Minimal
-#define SETUP_XYZR_VALIDATION_TEST( BUF_MGR_NAME )                                    \
-    QCStatus_e ret;                                                                    \
-    DataTree dt;                                                                       \
-    QCNodeInit_t config;                                                               \
-    std::string errors;                                                                \
-    ret = dt.Load( g_Config_XYZR_Minimal, errors );                                   \
-    ASSERT_EQ( QC_STATUS_OK, ret );                                                    \
-    config.config = dt.Dump();                                                         \
-    BufferManager bufMgr( { BUF_MGR_NAME, QC_NODE_TYPE_VOXEL, 0 } );                  \
-    TensorDescriptor_t outPlr, outFeat;                                                \
-    ASSERT_TRUE( SetupMinimalCPU_XYZR( config, bufMgr, outPlr, outFeat ) );           \
-    QC::Node::Voxelization voxel;                                                      \
-    ret = voxel.Initialize( config );                                                  \
-    ASSERT_EQ( QC_STATUS_OK, ret );                                                    \
-    ret = voxel.Start();                                                               \
-    ASSERT_EQ( QC_STATUS_OK, ret );                                                    \
-    TensorProps_t inputProp;                                                           \
-    inputProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;                                    \
-    inputProp.dims[0] = 1000;                                                          \
-    inputProp.dims[1] = 4;                                                             \
-    inputProp.dims[2] = 0;                                                             \
-    inputProp.numDims = 2;                                                             \
-    TensorDescriptor_t inputTensor;                                                    \
-    ret = bufMgr.Allocate( inputProp, inputTensor );                                   \
-    ASSERT_EQ( QC_STATUS_OK, ret );                                                    \
-    RandomGenPoints( (float *)inputTensor.pBuf, 1000 );                                \
+#define SETUP_XYZR_VALIDATION_TEST( BUF_MGR_NAME )                                                 \
+    QCStatus_e ret;                                                                                \
+    DataTree dt;                                                                                   \
+    QCNodeInit_t config;                                                                           \
+    std::string errors;                                                                            \
+    ret = dt.Load( g_Config_XYZR_Minimal, errors );                                                \
+    ASSERT_EQ( QC_STATUS_OK, ret );                                                                \
+    config.config = dt.Dump();                                                                     \
+    BufferManager bufMgr( { BUF_MGR_NAME, QC_NODE_TYPE_VOXEL, 0 } );                               \
+    TensorDescriptor_t outPlr, outFeat;                                                            \
+    ASSERT_TRUE( SetupMinimalCPU_XYZR( config, bufMgr, outPlr, outFeat ) );                        \
+    QC::Node::Voxelization voxel;                                                                  \
+    ret = voxel.Initialize( config );                                                              \
+    ASSERT_EQ( QC_STATUS_OK, ret );                                                                \
+    ret = voxel.Start();                                                                           \
+    ASSERT_EQ( QC_STATUS_OK, ret );                                                                \
+    TensorProps_t inputProp;                                                                       \
+    inputProp.tensorType = QC_TENSOR_TYPE_FLOAT_32;                                                \
+    inputProp.dims[0] = 1000;                                                                      \
+    inputProp.dims[1] = 4;                                                                         \
+    inputProp.dims[2] = 0;                                                                         \
+    inputProp.numDims = 2;                                                                         \
+    TensorDescriptor_t inputTensor;                                                                \
+    ret = bufMgr.Allocate( inputProp, inputTensor );                                               \
+    ASSERT_EQ( QC_STATUS_OK, ret );                                                                \
+    RandomGenPoints( (float *) inputTensor.pBuf, 1000 );                                           \
     inputTensor.dims[0] = 1000;
 
-#define CLEANUP_XYZR_VALIDATION_TEST()  \
-    voxel.Stop();                       \
-    voxel.DeInitialize();               \
-    bufMgr.Free( inputTensor );         \
-    bufMgr.Free( outPlr );              \
+#define CLEANUP_XYZR_VALIDATION_TEST()                                                             \
+    voxel.Stop();                                                                                  \
+    voxel.DeInitialize();                                                                          \
+    bufMgr.Free( inputTensor );                                                                    \
+    bufMgr.Free( outPlr );                                                                         \
     bufMgr.Free( outFeat );
 
 TEST( VoxelizationImpl_Fixed, XYZR_OutputPlr_NullBuf_MCDC )
@@ -7994,7 +8030,7 @@ TEST( VoxelizationImpl_Fixed, XYZR_OutputPlr_InvalidNumDims_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_XYZR_PLR_NDIM" )
 
     TensorDescriptor_t invalidPlr = outPlr;
-    invalidPlr.numDims = 3;  // invalid, should be 2
+    invalidPlr.numDims = 3;   // invalid, should be 2
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8012,7 +8048,7 @@ TEST( VoxelizationImpl_Fixed, XYZR_OutputPlr_InvalidTensorType_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_XYZR_PLR_TYPE" )
 
     TensorDescriptor_t invalidPlr = outPlr;
-    invalidPlr.tensorType = QC_TENSOR_TYPE_INT_32;  // invalid for XYZR
+    invalidPlr.tensorType = QC_TENSOR_TYPE_INT_32;   // invalid for XYZR
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8030,7 +8066,7 @@ TEST( VoxelizationImpl_Fixed, XYZR_OutputPlr_InvalidDims0_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_XYZR_PLR_DIM0" )
 
     TensorDescriptor_t invalidPlr = outPlr;
-    invalidPlr.dims[0] = 11999;  // != maxNumPlrs (12000)
+    invalidPlr.dims[0] = 11999;   // != maxNumPlrs (12000)
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8048,7 +8084,7 @@ TEST( VoxelizationImpl_Fixed, XYZR_OutputPlr_InvalidDims1_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_XYZR_PLR_DIM1" )
 
     TensorDescriptor_t invalidPlr = outPlr;
-    invalidPlr.dims[1] = 3;  // != VOXELIZATION_PILLAR_COORDS_DIM (4)
+    invalidPlr.dims[1] = 3;   // != VOXELIZATION_PILLAR_COORDS_DIM (4)
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8092,7 +8128,7 @@ TEST( VoxelizationImpl_Fixed, XYZR_OutputPlr_AllValid_MCDC )
     TensorDescriptor_t inputTensor;
     ret = bufMgr.Allocate( inputProp, inputTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    RandomGenPoints( (float *)inputTensor.pBuf, 1000 );
+    RandomGenPoints( (float *) inputTensor.pBuf, 1000 );
     inputTensor.dims[0] = 1000;
 
     NodeFrameDescriptor frameDesc( 3 );
@@ -8117,7 +8153,7 @@ TEST( VoxelizationImpl_Fixed, XYZR_OutputPlr_AllValid_MCDC )
 
 // Helper for output feature tensor validation tests (XYZR CPU minimal config)
 static void RunXYZR_OutputFeat_ValidationTest( TensorDescriptor_t &outputFeatTensor,
-                                                const char *bufMgrName = "VOXEL_FEAT_FIX" )
+                                               const char *bufMgrName = "VOXEL_FEAT_FIX" )
 {
     QCStatus_e ret;
     DataTree dt;
@@ -8147,7 +8183,7 @@ static void RunXYZR_OutputFeat_ValidationTest( TensorDescriptor_t &outputFeatTen
     TensorDescriptor_t inputTensor;
     ret = bufMgr.Allocate( inputProp, inputTensor );
     ASSERT_EQ( QC_STATUS_OK, ret );
-    RandomGenPoints( (float *)inputTensor.pBuf, 1000 );
+    RandomGenPoints( (float *) inputTensor.pBuf, 1000 );
     inputTensor.dims[0] = 1000;
 
     NodeFrameDescriptor frameDesc( 3 );
@@ -8188,7 +8224,7 @@ TEST( VoxelizationImpl_Fixed, OutputFeat_InvalidNumDims_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_FEAT_NDIM" )
 
     TensorDescriptor_t invalidFeat = outFeat;
-    invalidFeat.numDims = 2;  // invalid, should be 3
+    invalidFeat.numDims = 2;   // invalid, should be 3
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8206,7 +8242,7 @@ TEST( VoxelizationImpl_Fixed, OutputFeat_InvalidTensorType_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_FEAT_TYPE" )
 
     TensorDescriptor_t invalidFeat = outFeat;
-    invalidFeat.tensorType = QC_TENSOR_TYPE_INT_32;  // invalid
+    invalidFeat.tensorType = QC_TENSOR_TYPE_INT_32;   // invalid
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8224,7 +8260,7 @@ TEST( VoxelizationImpl_Fixed, OutputFeat_InvalidDims0_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_FEAT_DIM0" )
 
     TensorDescriptor_t invalidFeat = outFeat;
-    invalidFeat.dims[0] = 11999;  // != maxNumPlrs (12000)
+    invalidFeat.dims[0] = 11999;   // != maxNumPlrs (12000)
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8242,7 +8278,7 @@ TEST( VoxelizationImpl_Fixed, OutputFeat_InvalidDims1_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_FEAT_DIM1" )
 
     TensorDescriptor_t invalidFeat = outFeat;
-    invalidFeat.dims[1] = 31;  // != maxNumPtsPerPlr (32)
+    invalidFeat.dims[1] = 31;   // != maxNumPtsPerPlr (32)
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8260,7 +8296,7 @@ TEST( VoxelizationImpl_Fixed, OutputFeat_InvalidDims2_MCDC )
     SETUP_XYZR_VALIDATION_TEST( "VOXEL_FEAT_DIM2" )
 
     TensorDescriptor_t invalidFeat = outFeat;
-    invalidFeat.dims[2] = 9;  // != numOutFeatureDim (10)
+    invalidFeat.dims[2] = 9;   // != numOutFeatureDim (10)
 
     NodeFrameDescriptor frameDesc( 3 );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, inputTensor ) );
@@ -8445,8 +8481,8 @@ TEST( VoxelizationImpl_Fixed, GPU_XYZR_ProcessCL_ExecuteKernelFailure )
     outputFeatureTensorProp.dims[3] = 0;
     outputFeatureTensorProp.numDims = 3;
 
-    size_t gridXSize = (size_t)ceil( ( Xmax - Xmin ) / Xsize );
-    size_t gridYSize = (size_t)ceil( ( Ymax - Ymin ) / Ysize );
+    size_t gridXSize = (size_t) ceil( ( Xmax - Xmin ) / Xsize );
+    size_t gridYSize = (size_t) ceil( ( Ymax - Ymin ) / Ysize );
 
     TensorProps_t plrPointsTensorProp;
     plrPointsTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
@@ -8456,7 +8492,7 @@ TEST( VoxelizationImpl_Fixed, GPU_XYZR_ProcessCL_ExecuteKernelFailure )
 
     TensorProps_t coordToPlrIdxTensorProp;
     coordToPlrIdxTensorProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordToPlrIdxTensorProp.dims[0] = (uint32_t)( gridXSize * gridYSize * 2 );
+    coordToPlrIdxTensorProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordToPlrIdxTensorProp.dims[1] = 0;
     coordToPlrIdxTensorProp.numDims = 1;
 
@@ -8505,7 +8541,7 @@ TEST( VoxelizationImpl_Fixed, GPU_XYZR_ProcessCL_ExecuteKernelFailure )
     MockApi_CL_Control( MOCK_API_CL_ENQUEUE_NDRANGE_KERNEL, MOCK_CONTROL_CL_RETURN, &failStatus );
 
     // Generate random points and set up frame descriptor
-    RandomGenPoints( (float *)inputTensor.pBuf, 1000 );
+    RandomGenPoints( (float *) inputTensor.pBuf, 1000 );
     inputTensor.dims[0] = 1000;
 
     NodeFrameDescriptor frameDesc( 3 );
@@ -8557,13 +8593,10 @@ TEST( VoxelizationImpl_Fixed, GPU_XYZR_ProcessCL_ExecuteKernelFailure )
 // buffers[0] = outputPlrTensor, buffers[1] = outputFeatureTensor
 // buffers[2] = plrPointsTensor, buffers[3] = coordToPlrIdxTensor
 static bool SetupGPU_XYZR_VoxelizationImplTest(
-    VoxelizationImplTest &voxelTest,
-    BufferManager &bufMgr,
-    TensorDescriptor_t &outputPlrTensor,
-    TensorDescriptor_t &outputFeatureTensor,
-    TensorDescriptor_t &plrPointsTensor,
-    TensorDescriptor_t &coordToPlrIdxTensor,
-    std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers )
+        VoxelizationImplTest &voxelTest, BufferManager &bufMgr, TensorDescriptor_t &outputPlrTensor,
+        TensorDescriptor_t &outputFeatureTensor, TensorDescriptor_t &plrPointsTensor,
+        TensorDescriptor_t &coordToPlrIdxTensor,
+        std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers )
 {
     VoxelizationImplConfig_t &cfg = voxelTest.GetConfig();
     cfg.voxelConfig.processor = QC_PROCESSOR_GPU;
@@ -8603,10 +8636,10 @@ static bool SetupGPU_XYZR_VoxelizationImplTest(
     outputFeatProp.dims[3] = 0;
     outputFeatProp.numDims = 3;
 
-    size_t gridXSize = (size_t)ceil( ( cfg.voxelConfig.maxXRange - cfg.voxelConfig.minXRange ) /
-                                     cfg.voxelConfig.pillarXSize );
-    size_t gridYSize = (size_t)ceil( ( cfg.voxelConfig.maxYRange - cfg.voxelConfig.minYRange ) /
-                                     cfg.voxelConfig.pillarYSize );
+    size_t gridXSize = (size_t) ceil( ( cfg.voxelConfig.maxXRange - cfg.voxelConfig.minXRange ) /
+                                      cfg.voxelConfig.pillarXSize );
+    size_t gridYSize = (size_t) ceil( ( cfg.voxelConfig.maxYRange - cfg.voxelConfig.minYRange ) /
+                                      cfg.voxelConfig.pillarYSize );
 
     TensorProps_t plrPointsProp;
     plrPointsProp.tensorType = QC_TENSOR_TYPE_INT_32;
@@ -8616,7 +8649,7 @@ static bool SetupGPU_XYZR_VoxelizationImplTest(
 
     TensorProps_t coordProp;
     coordProp.tensorType = QC_TENSOR_TYPE_INT_32;
-    coordProp.dims[0] = (uint32_t)( gridXSize * gridYSize * 2 );
+    coordProp.dims[0] = ( uint32_t )( gridXSize * gridYSize * 2 );
     coordProp.dims[1] = 0;
     coordProp.numDims = 1;
 
@@ -8646,8 +8679,8 @@ static bool SetupGPU_XYZR_VoxelizationImplTest(
     TensorDescriptor_t outputPlrTensor, outputFeatureTensor, plrPointsTensor, coordToPlrIdxTensor; \
     std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;                           \
     ASSERT_TRUE( SetupGPU_XYZR_VoxelizationImplTest( voxelTest, bufMgr, outputPlrTensor,           \
-                                                      outputFeatureTensor, plrPointsTensor,        \
-                                                      coordToPlrIdxTensor, buffers ) );            \
+                                                     outputFeatureTensor, plrPointsTensor,         \
+                                                     coordToPlrIdxTensor, buffers ) );             \
     QCStatus_e ret = voxelTest.Initialize( nullptr, buffers );                                     \
     ASSERT_EQ( QC_STATUS_OK, ret );                                                                \
     ret = voxelTest.Start();                                                                       \
@@ -8661,7 +8694,7 @@ static bool SetupGPU_XYZR_VoxelizationImplTest(
     TensorDescriptor_t inputTensor;                                                                \
     ret = bufMgr.Allocate( inputProp, inputTensor );                                               \
     ASSERT_EQ( QC_STATUS_OK, ret );                                                                \
-    RandomGenPoints( (float *)inputTensor.pBuf, 1000 );                                            \
+    RandomGenPoints( (float *) inputTensor.pBuf, 1000 );                                           \
     inputTensor.dims[0] = 1000;
 
 // Macro to set up GPU XYZR VoxelizationImplTest with a specific node ID
@@ -8675,9 +8708,9 @@ static bool SetupGPU_XYZR_VoxelizationImplTest(
     BufferManager bufMgr( { BUF_MGR_NAME, QC_NODE_TYPE_VOXEL, NODE_ID } );                         \
     TensorDescriptor_t outputPlrTensor, outputFeatureTensor, plrPointsTensor, coordToPlrIdxTensor; \
     std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;                           \
-    ASSERT_TRUE(SetupGPU_XYZR_VoxelizationImplTest( voxelTest, bufMgr, outputPlrTensor,            \
-                                                      outputFeatureTensor, plrPointsTensor,        \
-                                                      coordToPlrIdxTensor, buffers ) );            \
+    ASSERT_TRUE( SetupGPU_XYZR_VoxelizationImplTest( voxelTest, bufMgr, outputPlrTensor,           \
+                                                     outputFeatureTensor, plrPointsTensor,         \
+                                                     coordToPlrIdxTensor, buffers ) );             \
     QCStatus_e ret = voxelTest.Initialize( nullptr, buffers );                                     \
     ASSERT_EQ( QC_STATUS_OK, ret );                                                                \
     ret = voxelTest.Start();                                                                       \
@@ -8691,17 +8724,17 @@ static bool SetupGPU_XYZR_VoxelizationImplTest(
     TensorDescriptor_t inputTensor;                                                                \
     ret = bufMgr.Allocate( inputProp, inputTensor );                                               \
     ASSERT_EQ( QC_STATUS_OK, ret );                                                                \
-    RandomGenPoints( (float *)inputTensor.pBuf, 1000 );                                            \
+    RandomGenPoints( (float *) inputTensor.pBuf, 1000 );                                           \
     inputTensor.dims[0] = 1000;
 
-#define CLEANUP_GPU_XYZR_IMPL_TEST()                    \
-    voxelTest.Stop();                                   \
-    voxelTest.DeInitialize();                           \
-    bufMgr.Free( inputTensor );                         \
-    bufMgr.Free( outputPlrTensor );                     \
-    bufMgr.Free( outputFeatureTensor );                 \
-    bufMgr.Free( plrPointsTensor );                     \
-    bufMgr.Free( coordToPlrIdxTensor );                 \
+#define CLEANUP_GPU_XYZR_IMPL_TEST()                                                               \
+    voxelTest.Stop();                                                                              \
+    voxelTest.DeInitialize();                                                                      \
+    bufMgr.Free( inputTensor );                                                                    \
+    bufMgr.Free( outputPlrTensor );                                                                \
+    bufMgr.Free( outputFeatureTensor );                                                            \
+    bufMgr.Free( plrPointsTensor );                                                                \
+    bufMgr.Free( coordToPlrIdxTensor );                                                            \
     MockApi_CL_ResetAll();
 
 // ============================================================================
@@ -8812,6 +8845,44 @@ TEST( VoxelizationImplTest, ProcessFrameDescriptor_GPU_CoordToPlrIdxTensor_ZeroS
     voxelTest.GetCoordToPlrIdxTensor().size = origSize;
 
     CLEANUP_GPU_XYZR_IMPL_TEST()
+}
+
+/*
+ * Force the VoxelizationImpl allocation in the Voxelization constructor to fail
+ * (new(std::nothrow) returns nullptr) and verify the node is left in a bad state:
+ * GetState() reports QC_OBJECT_STATE_ERROR and every other API returns
+ * QC_STATUS_NOMEM instead of dereferencing a null m_pVoxelImpl.
+ *
+ * NOTE: size-targeting via MockC_MallocCtrlSize(sizeof(VoxelizationImpl)) did not
+ * intercept the ctor alloc in this binary (VoxelSdkForTest / OpenCL build flags),
+ * so this uses the count-based MockC_MallocCtrl(1) to fail the next malloc.
+ */
+TEST( NodeVoxelization, ImplAllocFailBadState )
+{
+    QCStatus_e ret = QC_STATUS_OK;
+
+    MockC_MallocCtrl( 1 );
+    QC::Node::Voxelization voxel;
+    MockC_MallocCtrl( 0 );
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, voxel.GetState() );
+
+    QCNodeInit_t config;
+    ret = voxel.Initialize( config );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = voxel.Start();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = voxel.Stop();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = voxel.DeInitialize();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    NodeFrameDescriptor frameDesc( 1 );
+    ret = voxel.ProcessFrameDescriptor( frameDesc );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
 }
 
 #ifndef GTEST_QCNODE

@@ -1,11 +1,11 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-#include <gtest/gtest.h>
 #include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <functional>
+#include <gtest/gtest.h>
 #include <vector>
 
 #include "QC/Infras/Log/Logger.hpp"
@@ -193,7 +193,7 @@ struct TestableVidcNodeConfig : public VidcNodeBase_Config_t
 class TestableVidcNodeConfigIfs : public VidcNodeBaseConfigIfs
 {
 public:
-    TestableVidcNodeConfigIfs( Logger &logger ) : VidcNodeBaseConfigIfs( logger ) {}
+    TestableVidcNodeConfigIfs( Logger &logger ) : VidcNodeBaseConfigIfs( m_config, logger ) {}
 
     ~TestableVidcNodeConfigIfs() {}
 
@@ -202,14 +202,19 @@ public:
     {
         DataTree old_dataTree = m_dataTree;
         m_dataTree = dt;
-        QCStatus_e status = VidcNodeBaseConfigIfs::VerifyAndSet( cfg, errors, config );
+        QCStatus_e status = VidcNodeBaseConfigIfs::VerifyAndSet( cfg, errors );
+        config = m_config;
         m_dataTree = old_dataTree;
         return status;
     }
 
-    const std::string &GetOptions() { return m_options; }
+    QCStatus_e GetOptions( std::string &options ) override
+    {
+        options = m_options;
+        return QC_STATUS_OK;
+    }
 
-    const QCNodeConfigBase_t &Get() { return m_config; }
+    const QCNodeConfigBase_t &Get() override { return m_config; }
 
 private:
     VidcNodeBase_Config_t m_config{};
@@ -231,7 +236,11 @@ public:
         return QC_STATUS_UNSUPPORTED;
     }
 
-    const std::string &GetOptions() { return m_options; }
+    QCStatus_e GetOptions( std::string &options ) override
+    {
+        options = m_options;
+        return QC_STATUS_OK;
+    }
 
     const QCNodeMonitoringBase_t &Get() { return m_config; }
 

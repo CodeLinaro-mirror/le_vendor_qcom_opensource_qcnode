@@ -93,6 +93,12 @@ QCStatus_e SampleCL2DFlex::ParseConfig( SampleConfig_t &config )
     m_bNoPadding = Get( config, "no_padding", false );
 
     uint32_t deviceId = Get( config, "deviceId", 0 );
+    if ( QC_CL2DFLEX_DEVICE_ID_MAX < deviceId )
+    {
+        QC_ERROR( "invalid deviceId %u, max supported deviceId is %u\n", deviceId,
+                  QC_CL2DFLEX_DEVICE_ID_MAX );
+        ret = QC_STATUS_BAD_ARGUMENTS;
+    }
     m_dataTree.Set<uint32_t>( "static.deviceId", deviceId );
 
     m_outputWidth = Get( config, "output_width", 1920 );
@@ -347,6 +353,7 @@ QCStatus_e SampleCL2DFlex::ParseConfig( SampleConfig_t &config )
     }
 
     m_bLatest = Get( config, "latest", true );
+    m_queueDepth = Get( config, "queue_depth", (uint32_t) 2 );
 
     return ret;
 }
@@ -493,7 +500,7 @@ QCStatus_e SampleCL2DFlex::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = m_sub.Init( name, m_inputTopicName, 2, m_bLatest );
+        ret = m_sub.Init( name, m_inputTopicName, m_queueDepth, m_bLatest );
     }
 
     if ( QC_STATUS_OK == ret )

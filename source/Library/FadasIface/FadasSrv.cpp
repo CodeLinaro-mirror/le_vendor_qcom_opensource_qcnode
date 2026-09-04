@@ -137,7 +137,11 @@ QCStatus_e FadasSrv::InitGPU()
 {
     QCStatus_e ret = QC_STATUS_OK;
 
+#if defined( __linux__ ) && !defined( __ANDROID__ )
+    s_libGPUHandle = dlopen( "libfadasGpu.so", RTLD_NOW | RTLD_DEEPBIND );
+#else
     s_libGPUHandle = dlopen( "libfadasGpu.so", RTLD_LAZY );
+#endif
 
     if ( nullptr == s_libGPUHandle )
     {
@@ -568,6 +572,16 @@ int32_t FadasSrv::FadasMemMap( const QCBufferDescriptorBase_t &bufDesc )
     {
         fd = FadasMemMapDSP( bufDesc );
     }
+    else if ( QC_PROCESSOR_GPU == m_processor )
+    {
+#if defined( QNXNTO )
+        fd = 1
+
+#else
+        fd = static_cast<int32_t>( bufDesc.dmaHandle );
+
+#endif
+    }
     else
     {
         fd = 1;
@@ -638,12 +652,12 @@ QCStatus_e FadasSrv::FadasRegisterBufGPU( FadasBufType_e bufType, uint8_t *bufPt
     QCStatus_e ret = QC_STATUS_OK;
     FadasError_e nErr = FADAS_ERROR_NONE;
     uint8_t *ptr = bufPtr;
+    uint32_t offset = bufOffset;
 
-    (void) bufFd; /* not used by GPU */
     ptr += bufOffset;
     for ( uint32_t i = 0; i < batch; i++ )
     {
-        nErr = s_FadasRegBufGPU( bufType, ptr, bufSize );
+        nErr = s_FadasRegBufGPU( bufType, ptr, bufSize, bufFd, static_cast<int32_t>( offset ) );
         if ( FADAS_ERROR_NONE != nErr )
         {
             QC_ERROR( "FadasRegBufGPU fail: %d!", nErr );
@@ -651,6 +665,7 @@ QCStatus_e FadasSrv::FadasRegisterBufGPU( FadasBufType_e bufType, uint8_t *bufPt
             break;
         }
         ptr += bufSize;
+        offset += bufSize;
     }
 
     return ret;

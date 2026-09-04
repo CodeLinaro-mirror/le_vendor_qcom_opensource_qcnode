@@ -18,3 +18,6 @@ beginDelete SRC
 	qnx_ap\AMSS\qcnode\third_party
 endDelete SRC
 
+beginCopying
+    qnx_ap\AMSS\qcnode\third_party []\qnx_ap\AMSS\qcnode\third_party
+endCopying

@@ -63,7 +63,7 @@ using namespace QC::Memory;
 typedef FadasError_e ( *FuncFadasInitGPU_t )( const char *licenseKey );
 typedef FadasError_e ( *FuncFadasDeInitGPU_t )( void );
 typedef FadasError_e ( *FuncFadasRegBufGPU_t )( FadasBufType_e bufType, const void *buf,
-                                                size_t bufSize );
+                                                size_t bufSize, int32_t fd, int32_t offset );
 typedef FadasError_e ( *FuncFadasDeregBufGPU_t )( const void *buf );
 typedef FadasRemapMap_t *( *FuncFadasRemap_CreateMapFromMapGPU_t )(
         uint32_t camWidth, uint32_t camHeight, uint32_t mapWidth, uint32_t mapHeight,

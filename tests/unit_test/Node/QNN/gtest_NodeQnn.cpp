@@ -244,6 +244,13 @@ public:
 
     static void QnnEventCallBack( const QCNodeEventInfo_t &info ) {}
 
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+    QCStatus_e GetFastRpcDomainId( uint32_t coreId, int &domainId )
+    {
+        return qnn.GetFastRpcDomainId( coreId, domainId );
+    }
+#endif
+
 public:
     QnnImpl::NotifyParam_t m_notifyParam;
     QnnImpl qnn;
@@ -411,7 +418,8 @@ protected:
     void AllocateBuffers()
     {
         QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-        const std::string &options = cfgIfs.GetOptions();
+        std::string options;
+        ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
         // printf( "options: %s\n", options.c_str() );
         DataTree optionsDt;
 
@@ -768,7 +776,8 @@ TEST( QNN, LoadModel )
 TEST_F( QnnTest, StateMachine )
 {
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_BAD_STATE, cfgIfs.GetOptions( options ) );
     ASSERT_EQ( "{}", options );
 
     ret = qnn.Start();
@@ -864,7 +873,8 @@ TEST( QNN, LoadOpPackage )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     printf( "options: %s\n", options.c_str() );
     DataTree optionsDt;
@@ -1028,7 +1038,8 @@ TEST( QNN, CreateModelFromSo )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1121,7 +1132,8 @@ TEST( QNN, DynamicBatchSize )
 
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
     std::vector<DataTree> outputDts;
@@ -1230,7 +1242,8 @@ TEST( QNN, BufferFree )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1357,7 +1370,8 @@ TEST( QNN, OneBufferMutipleTensors )
     ret = qnn.Start();
     ASSERT_EQ( QC_STATUS_OK, ret );
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1534,7 +1548,8 @@ TEST( QNN, TwoModelWithSameBuffer )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn0.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1640,7 +1655,8 @@ TEST( QNN, AsyncExecute )
     ret = qnn.Start();
     ASSERT_EQ( QC_STATUS_OK, ret );
 
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1774,7 +1790,8 @@ TEST( QNN, InputOutputCheck )
 
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -1924,7 +1941,8 @@ TEST( QNN, ExecuteWithRegDeRegEachTime )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -2024,7 +2042,8 @@ TEST( QNN, ExecuteWithAllocBufferEachTime )
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     DataTree optionsDt;
     std::vector<DataTree> inputDts;
@@ -2136,7 +2155,8 @@ TEST( QNN, InitDeInitializeStress )
         ASSERT_EQ( QC_STATUS_OK, ret );
 
         QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
-        const std::string &options = cfgIfs.GetOptions();
+        std::string options;
+        ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
         DataTree optionsDt;
         std::vector<DataTree> inputDts;
@@ -2405,8 +2425,10 @@ TEST_F( QnnTest, QnnConfig )
 
     {
         Init( "SANITY", "binary", "data/centernet/program.bin", "htp0" );
-        std::string options = cfgIfs.GetOptions();
-        std::string options2 = cfgIfs.GetOptions();
+        std::string options;
+        ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
+        std::string options2;
+        ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options2 ) );
         ASSERT_EQ( options, options2 );
         Deinit();
     }
@@ -2420,8 +2442,8 @@ TEST_F( QnnTest, QnnMonitor )
     ASSERT_EQ( QC_STATUS_UNSUPPORTED, ret );
 
     {
-        std::string options = monitorIfs.GetOptions();
-        ASSERT_EQ( options, "{}" );
+        std::string options;
+        ASSERT_EQ( QC_STATUS_UNSUPPORTED, monitorIfs.GetOptions( options ) );
     }
 
     {
@@ -3539,10 +3561,297 @@ TEST_F( QnnTest, MockQnnAddModel )
     ASSERT_EQ( ret, QC_STATUS_FAIL );
 }
 
+/*
+ * Force the QnnImpl allocation in the Qnn constructor to fail (new(std::nothrow)
+ * returns nullptr) and verify the node is left in a bad state: GetState() reports
+ * QC_OBJECT_STATE_ERROR and every other API returns QC_STATUS_NOMEM instead of
+ * dereferencing a null m_pQnnImpl. MockC_MallocCtrlSize targets exactly the
+ * sizeof(QnnImpl) allocation, so unrelated allocations are unaffected.
+ */
+TEST( QNN, ImplAllocFailBadState )
+{
+    QCStatus_e ret = QC_STATUS_OK;
+    std::string errors;
+
+    /* Arm the C mock so the operator-new backing malloc of size sizeof(QnnImpl)
+     * returns nullptr. new(std::nothrow) then yields nullptr without throwing. */
+    MockC_MallocCtrlSize( sizeof( QnnImpl ) );
+
+    Qnn qnn;
+
+    /* The one-shot size trigger consumed itself; make sure it is cleared so the
+     * rest of this test (and later tests) allocate normally. */
+    MockC_MallocCtrlSize( 0 );
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, qnn.GetState() );
+
+    QCNodeInit_t config;
+    ret = qnn.Initialize( config );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = qnn.Start();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = qnn.Stop();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    ret = qnn.DeInitialize();
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+
+    NodeFrameDescriptor frameDesc( 1 );
+    ret = qnn.ProcessFrameDescriptor( frameDesc );
+    ASSERT_EQ( QC_STATUS_NOMEM, ret );
+}
+
+
+// ================================================================
+// GetFastRpcDomainId unit tests (x86 with QC_TARGET_SOC=8797)
+// remote_system_request: qmock cdsprpc (NSP→ids 10..13, HPASS→ids 20..22)
+// Mock controls: MockRemoteSystemRequest_* (QnnFastrpcStubs.cpp, static linked)
+// Calloc fail: MockC_MallocCtrlSizeAndCount
+// ================================================================
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#include "MockCLib.hpp"
+#include "remote.h"
+
+extern "C"
+{
+    void MockRemoteSystemRequest_SetReturnCode( int errCode );
+    void MockRemoteSystemRequest_SetNumDomains( int n );
+    void MockRemoteSystemRequest_SetFailSecondCall();
+    void MockRemoteSystemRequest_SetOverrideDomainType( int domainType );
+    void MockRemoteSystemRequest_SetOverrideDomainID( int baseId );
+    void MockRemoteSystemRequest_Reset();
+}
+
+class GetFastRpcDomainIdTest : public ::testing::Test
+{
+protected:
+    void SetUp() override
+    {
+        MockRemoteSystemRequest_Reset();
+        MockC_ClearAll();
+        m_impl = new QnnImplTest( m_nodeId, m_logger );
+    }
+    void TearDown() override
+    {
+        delete m_impl;
+        m_impl = nullptr;
+        MockRemoteSystemRequest_Reset();
+        MockC_ClearAll();
+    }
+    void SetProcessor( Qnn_ProcessorType_e proc, uint32_t coreId = 0 )
+    {
+        m_impl->GetConfig().processorType = proc;
+        m_impl->GetConfig().coreIds = { coreId };
+    }
+    QCNodeID_t m_nodeId;
+    Logger m_logger;
+    QnnImplTest *m_impl = nullptr;
+};
+
+
+/* first remote_system_request call returns error */
+TEST_F( GetFastRpcDomainIdTest, FirstCallFail )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0 );
+    MockRemoteSystemRequest_SetReturnCode( -1 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( -1, domainId );
+}
+
+/* second remote_system_request call (populate) fails; first call (count) succeeds */
+TEST_F( GetFastRpcDomainIdTest, SecondCallFail )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0 );
+    MockRemoteSystemRequest_SetFailSecondCall();
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( -1, domainId );
+}
+
+
+/* HTP0 + NSP qmock: success, coreId=0 → domains[0].id = 10 */
+TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_Match )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0, 0 );
+    MockRemoteSystemRequest_SetOverrideDomainID( 100 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( 100, domainId );
+}
+
+/* HTP0 coreId=3 → domains[3].id = 13 */
+TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_CoreId3 )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0, 3 );
+    MockRemoteSystemRequest_SetOverrideDomainID( 100 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 3, domainId ) );
+    ASSERT_EQ( 103, domainId );   // baseId + coreId = 100 + 3
+}
+
+/* HTP0 coreId=4 >= num_domains=4 → else → FAIL */
+TEST_F( GetFastRpcDomainIdTest, HTP0_CoreIdOutOfRange )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0, 4 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 4, domainId ) );
+}
+
+/* HTP0 with num_domains overridden to 0 → calloc(0) returns null → FAIL */
+TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_NumDomainsZero )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0, 0 );
+    MockRemoteSystemRequest_SetNumDomains( 0 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+}
+
+/* HTP1 + HPASS qmock: success, domains[0].id = 20 */
+TEST_F( GetFastRpcDomainIdTest, HTP1_HPASS_Match )
+{
+    SetProcessor( QNN_PROCESSOR_HTP1 );
+    MockRemoteSystemRequest_SetOverrideDomainID( 200 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( 200, domainId );   // domains[0].id = baseId + 0
+}
+
+/* HTP1 num_domains overridden to 0 → 0 < 0 false → else → FAIL */
+TEST_F( GetFastRpcDomainIdTest, HTP1_ZeroDomains )
+{
+    SetProcessor( QNN_PROCESSOR_HTP1 );
+    MockRemoteSystemRequest_SetNumDomains( 0 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+}
+
+/* HTP2 + HPASS qmock: success, domains[1].id = 21 */
+TEST_F( GetFastRpcDomainIdTest, HTP2_HPASS_Match )
+{
+    SetProcessor( QNN_PROCESSOR_HTP2 );
+    MockRemoteSystemRequest_SetOverrideDomainID( 200 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( 201, domainId );   // domains[1].id = baseId + 1
+}
+
+/* HTP2 num_domains overridden to 1 → 1 < 1 false → else → FAIL */
+TEST_F( GetFastRpcDomainIdTest, HTP2_InsufficientDomains )
+{
+    SetProcessor( QNN_PROCESSOR_HTP2 );
+    MockRemoteSystemRequest_SetNumDomains( 1 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+}
+
+/* HTP3 + HPASS qmock: success, domains[2].id = 22 */
+TEST_F( GetFastRpcDomainIdTest, HTP3_HPASS_Match )
+{
+    SetProcessor( QNN_PROCESSOR_HTP3 );
+    MockRemoteSystemRequest_SetOverrideDomainID( 200 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( 202, domainId );   // domains[2].id = baseId + 2
+}
+
+/* HTP3 num_domains overridden to 2 → 2 < 2 false → else → FAIL */
+TEST_F( GetFastRpcDomainIdTest, HTP3_InsufficientDomains )
+{
+    SetProcessor( QNN_PROCESSOR_HTP3 );
+    MockRemoteSystemRequest_SetNumDomains( 2 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+}
+
+/* else branch: HTP0 coreId out of range (99 >= 4) → else → FAIL */
+TEST_F( GetFastRpcDomainIdTest, ElseBranch )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0, 99 );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 99, domainId ) );
+}
+
+
+/* calloc(num_domains, sizeof(fastrpc_domain)) returns null.
+ * MockC_MallocCtrlSizeAndCount intercepts the malloc(n*sizeof(fastrpc_domain))
+ * that calloc calls internally. NSP returns 4 domains so size = 4*sizeof(fastrpc_domain).
+ * Covers: nullptr == req.sys.domains True branch (line 1838). */
+TEST_F( GetFastRpcDomainIdTest, CallocFail )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0 );
+    // MockC_CallocCtrlSize fires when calloc(nitems, size) where nitems*size equals the given
+    // total. NSP qmock returns 4 domains, so calloc(4, sizeof(fastrpc_domain)) =
+    // 4*sizeof(fastrpc_domain).
+    MockC_CallocCtrlSize( 4 * sizeof( fastrpc_domain ) );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( -1, domainId );
+    MockC_ClearAll();
+}
+
+/* HTP1 with NSP domain type returned (not HPASS) → HPASS == domains[0].type False → else FAIL
+ * Covers: condition (HPASS == req.sys.domains[0].type) = False */
+TEST_F( GetFastRpcDomainIdTest, HTP1_WrongDomainType )
+{
+    SetProcessor( QNN_PROCESSOR_HTP1 );
+    MockRemoteSystemRequest_SetOverrideDomainType( (int) NSP );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( -1, domainId );
+}
+
+/* HTP2 with NSP domain type returned → HPASS == domains[1].type False → else FAIL
+ * Covers: condition (HPASS == req.sys.domains[1].type) = False */
+TEST_F( GetFastRpcDomainIdTest, HTP2_WrongDomainType )
+{
+    SetProcessor( QNN_PROCESSOR_HTP2 );
+    MockRemoteSystemRequest_SetOverrideDomainType( (int) NSP );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( -1, domainId );
+}
+
+/* HTP3 with NSP domain type returned → HPASS == domains[2].type False → else FAIL
+ * Covers: condition (HPASS == req.sys.domains[2].type) = False */
+TEST_F( GetFastRpcDomainIdTest, HTP3_WrongDomainType )
+{
+    SetProcessor( QNN_PROCESSOR_HTP3 );
+    MockRemoteSystemRequest_SetOverrideDomainType( (int) NSP );
+    int domainId = -1;
+    ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
+    ASSERT_EQ( -1, domainId );
+}
+
+
+/* Initialize error path: GetFastRpcDomainId fails → status = QC_STATUS_FAIL
+ * Covers QnnImpl.cpp:1471-1474 (GetFastRpcDomainId error handling in Initialize) */
+TEST_F( GetFastRpcDomainIdTest, InitializeGetDomainIdFail )
+{
+    SetProcessor( QNN_PROCESSOR_HTP0 );
+    // Arm before Initialize so the first remote_system_request inside
+    // GetFastRpcDomainId (called at the start of Initialize) returns error.
+    MockRemoteSystemRequest_SetReturnCode( -1 );
+
+    QnnImplConfig_t &cfg = m_impl->GetConfig();
+    cfg.loadType = QNN_LOAD_CONTEXT_BIN_FROM_FILE;
+    cfg.modelPath = "data/centernet/program.bin";
+
+    std::vector<std::reference_wrapper<QCBufferDescriptorBase>> buffers;
+    QCStatus_e ret = m_impl->Initialize( nullptr, buffers );
+    ASSERT_EQ( QC_STATUS_FAIL, ret );
+}
+
+#endif   // QC_TARGET_SOC == 8797
+
+
 #ifndef GTEST_QCNODE
 #if __CTC__
 extern "C" void ctc_append_all( void );
 #endif
+
 int main( int argc, char **argv )
 {
     ::testing::InitGoogleTest( &argc, argv );
@@ -3552,4 +3861,6 @@ int main( int argc, char **argv )
 #endif
     return nVal;
 }
-#endif
+
+
+#endif   // GTEST_QCNODE

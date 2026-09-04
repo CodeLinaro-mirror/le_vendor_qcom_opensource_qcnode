@@ -83,6 +83,7 @@ private:
     std::string m_outputTopicName;
     std::string m_modelInOutInfoTopicName;
     bool m_bLatest = true;
+    uint32_t m_queueDepth = 2;
 
     std::string m_modelPath;
     std::thread m_thread;

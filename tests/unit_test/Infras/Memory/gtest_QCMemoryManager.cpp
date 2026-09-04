@@ -4,6 +4,7 @@
 #include "QC/Infras/Memory/HeapAllocator.hpp"
 #include "QC/Infras/Memory/ManagerLocal.hpp"
 #include "QC/Infras/Memory/Pool.hpp"
+#include "MockCLib.hpp"
 #include "gtest/gtest.h"
 
 
@@ -813,6 +814,36 @@ TEST_F( Test_QCMemorymanager, SANITY_pool_create_destroy )
         status = instance.CreatePool( handle1, poolCfg, poolHandle );
         ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
     }
+}
+
+/*
+ * Force the `new (std::nothrow) Pool(config)` allocation in CreatePool to fail and
+ * verify it reports QC_STATUS_NOMEM (the live null-check) instead of dereferencing
+ * a null pool or crashing. MockC_MallocCtrlSize targets exactly the sizeof(Pool)
+ * allocation, so the manager's other allocations are unaffected.
+ */
+TEST_F( Test_QCMemorymanager, PoolAllocFailNoMem )
+{
+    QCMemoryPoolInitConfig_t poolCfg;
+    poolCfg.buff.size = 1024;
+    poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    poolCfg.buff.cache = QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES;
+    poolCfg.maxElements = 10;
+    poolCfg.name = "nomem pool";
+    poolCfg.allocator = QC_MEMORY_ALLOCATOR_DMA;
+
+    QCMemoryPoolHandle_t poolHandle;
+    QCNodeID_t node1 = { "NoMem node", QC_NODE_TYPE_FADAS_REMAP, 0 };
+    QCMemoryHandle_t handle1;
+
+    status = Ifs->Register( node1, handle1 );
+    ASSERT_EQ( QC_STATUS_OK, status );
+
+    MockC_MallocCtrlSize( sizeof( Pool ) );
+    status = Ifs->CreatePool( handle1, poolCfg, poolHandle );
+    MockC_MallocCtrlSize( 0 );
+
+    ASSERT_EQ( QC_STATUS_NOMEM, status );
 }
 
 TEST_F( Test_QCMemorymanager, SANITY_pool_create_destroy_max )

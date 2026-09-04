@@ -648,7 +648,8 @@ QCStatus_e VidcDrvClient::EmptyBuffer( VideoFrameDescriptor &frameDesc )
     QCStatus_e ret = QC_STATUS_OK;
     int32_t rc = 0;
     uint64_t handle = frameDesc.dmaHandle;
-    vidc_timestamp_type timestampUs = static_cast<vidc_timestamp_type>( frameDesc.timestampNs / 1000 );
+    vidc_timestamp_type timestampUs =
+            static_cast<vidc_timestamp_type>( frameDesc.timestampNs / 1000 );
     uint64_t appMarkData = frameDesc.appMarkData;
     vidc_frame_data_type frameData = {};
 
@@ -662,7 +663,7 @@ QCStatus_e VidcDrvClient::EmptyBuffer( VideoFrameDescriptor &frameDesc )
     frameData.alloc_len = static_cast<uint32_t>( frameDesc.size );
     frameData.offset = static_cast<uint32_t>( frameDesc.offset );
     frameData.frame_handle = (typeof( frameData.frame_handle )) handle;
-    frameData.frame_addr = static_cast<uint8_t *>( frameDesc.pBuf );
+    frameData.frame_addr = nullptr;
 #if !defined( __QNXNTO__ )
     frameData.pid = frameDesc.pid;
 #endif
@@ -813,7 +814,7 @@ QCStatus_e VidcDrvClient::FillBuffer( VideoFrameDescriptor &frameDesc )
         frameData.alloc_len = static_cast<uint32_t>( frameDesc.size );
         frameData.offset = static_cast<uint32_t>( frameDesc.offset );
         frameData.frame_handle = (typeof( frameData.frame_handle )) handle;
-        frameData.frame_addr = static_cast<uint8_t *>( frameDesc.pBuf );
+        frameData.frame_addr = nullptr;
 #if !defined( __QNXNTO__ )
         frameData.pid = frameDesc.pid;
 #endif

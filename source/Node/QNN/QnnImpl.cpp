@@ -28,11 +28,14 @@ namespace QC
 namespace Node
 {
 
-#if defined( QC_TARGET_SOC )
-#if ( QC_TARGET_SOC == 8295 ) || ( QC_TARGET_SOC == 8620 ) || ( QC_TARGET_SOC == 8650 )
-#define QC_USE_REMOTE_REGISTER_V2
-#endif
-#endif
+// FastRPC v2 buffer-registration API. Declared here because the prototypes live in
+// remote_auto.h, which is not present in the QNX sysroot and is not pulled in by
+// remote.h / fastrpc_api.h.
+extern "C"
+{
+    int get_extended_domains_id( int domain, int session );
+    void remote_register_buf_v2( int ext_domain_id, void *buf, int size, int fd );
+}
 
 std::mutex QnnImpl::s_lock[QNN_PROCESSOR_MAX];
 std::map<void *, int> QnnImpl::s_dmaMemRefMap[QNN_PROCESSOR_MAX];
@@ -1080,7 +1083,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
     QnnHtpPerfInfrastructure_PowerConfig_t powerConfig;
     (void) memset( &powerConfig, 0, sizeof( powerConfig ) );
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
     QnnHtpPerfInfrastructure_PowerConfig_t powerHmxConfig;
     memset( &powerHmxConfig, 0, sizeof( powerHmxConfig ) );
 #endif
@@ -1138,7 +1141,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
         powerConfig.dcvsV3Config.sleepDisable = 0;
         powerConfig.dcvsV3Config.setSleepDisable = 0;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
         powerHmxConfig.option = QNN_HTP_PERF_INFRASTRUCTURE_POWER_CONFIGOPTION_HMX_V2;
         powerHmxConfig.hmxV2Config.hmxPickDefault = 0;
 #endif
@@ -1160,7 +1163,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerMax =
                         DCVS_VOLTAGE_VCORNER_MAX_VOLTAGE_CORNER;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_MAX;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_MAX;
@@ -1177,7 +1180,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_TURBO;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_TURBO;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_TUR;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_TUR;
@@ -1195,7 +1198,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_SVS;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_SVS;
@@ -1213,7 +1216,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS2;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS2;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1231,7 +1234,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_SVS_PLUS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_SVS_PLUS;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1249,7 +1252,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_CORNER_DISABLE;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_CORNER_DISABLE;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_LOW;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_LOW_SVS_D2;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_LOW_SVS_D2;
@@ -1265,7 +1268,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_NOM;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_NOM;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_NOM;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_NOM;
@@ -1281,7 +1284,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
                 powerConfig.dcvsV3Config.coreVoltageCornerTarget = DCVS_VOLTAGE_VCORNER_NOM_PLUS;
                 powerConfig.dcvsV3Config.coreVoltageCornerMax = DCVS_VOLTAGE_VCORNER_NOM_PLUS;
 
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                 powerHmxConfig.hmxV2Config.hmxPerfMode = QNN_HTP_PERF_INFRASTRUCTURE_CLK_PERF_HIGH;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerMin = DCVS_EXP_VCORNER_NOM_L1;
                 powerHmxConfig.hmxV2Config.hmxVoltageCornerTarget = DCVS_EXP_VCORNER_NOM_L1;
@@ -1302,11 +1305,11 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
         {
             powerConfig.dcvsV3Config.contextId = powerConfigId;
             const QnnHtpPerfInfrastructure_PowerConfig_t *powerConfigs[] = { &powerConfig,
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
                                                                              &powerHmxConfig,
 #endif
                                                                              nullptr };
-#if defined( QC_TARGET_SOC ) && (( QC_TARGET_SOC == 8797 ))
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
             if ( QNN_PROCESSOR_HTP0 != m_config.processorType )
             { /* No HMX for HPASS */
                 powerConfigs[1] = nullptr;
@@ -1410,10 +1413,6 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
         QC_ERROR( "modelPath is null" );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
-    else
-    {
-        /* OK */
-    }
 
     if ( QC_STATUS_OK == status )
     {
@@ -1449,6 +1448,42 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
     {
         m_bLoadFromCachedBinary = ( ( QNN_LOAD_CONTEXT_BIN_FROM_FILE == m_config.loadType ) ||
                                     ( QNN_LOAD_CONTEXT_BIN_FROM_BUFFER == m_config.loadType ) );
+    }
+
+    if ( QC_STATUS_OK == status )
+    {
+        // Resolve the FastRPC extended domain id once, from the first configured core, before
+        // fetching function pointers. It is reused for every remote_register_buf_v2() call.
+        if ( ( m_config.processorType >= QNN_PROCESSOR_HTP0 ) &&
+             ( m_config.processorType <= QNN_PROCESSOR_HTP3 ) )
+        {
+            int domain = CDSP_DOMAIN_ID;
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+            uint32_t coreId = 0U;
+            if ( false == m_config.coreIds.empty() )
+            {
+                coreId = m_config.coreIds[0];
+            }
+            // Nord enumerates FastRPC domains dynamically (NSP/HPASS per core).
+            QCStatus_e domainStatus = GetFastRpcDomainId( coreId, domain );
+            if ( QC_STATUS_OK != domainStatus )
+            {
+                QC_ERROR( "GetFastRpcDomainId failed for core %u", coreId );
+                status = QC_STATUS_FAIL;
+            }
+#else
+            // Other SoCs use fixed CDSP domain ids.
+            if ( QNN_PROCESSOR_HTP1 == m_config.processorType )
+            {
+                domain = CDSP1_DOMAIN_ID;
+            }
+#endif
+
+            if ( QC_STATUS_OK == status )
+            {
+                m_extDomainId = get_extended_domains_id( domain, 0 /* client */ );
+            }
+        }
     }
 
     if ( QC_STATUS_OK == status )
@@ -1764,41 +1799,104 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
     return status;
 }
 
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+QCStatus_e QnnImpl::GetFastRpcDomainId( uint32_t coreId, int &domainId )
+{
+    QCStatus_e ret = QC_STATUS_OK;
+
+    system_req_payload req = { (system_req_id) 0 };
+    req.id = FASTRPC_GET_DOMAINS;
+    req.sys.domains = nullptr;
+    if ( QNN_PROCESSOR_HTP0 == m_config.processorType )
+    {
+        req.sys.flags = DOMAINS_LIST_FLAGS_SET_TYPE( req.sys.flags, NSP );
+    }
+    else
+    {
+        req.sys.flags = DOMAINS_LIST_FLAGS_SET_TYPE( req.sys.flags, HPASS );
+    }
+
+    // First request: how many domains of this type are available.
+    int err = remote_system_request( &req );
+    if ( 0 != err )
+    {
+        QC_ERROR( "remote_system_request(count) failed, ret = %d", err );
+        ret = QC_STATUS_FAIL;
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        req.sys.domains =
+                (fastrpc_domain *) calloc( req.sys.num_domains, sizeof( fastrpc_domain ) );
+        req.sys.max_domains = req.sys.num_domains;
+        if ( nullptr == req.sys.domains )
+        {
+            QC_ERROR( "Failed to allocate memory for domain array" );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        // Second request: populate the domain-info array.
+        err = remote_system_request( &req );
+        if ( 0 != err )
+        {
+            QC_ERROR( "remote_system_request(list) failed, ret = %d", err );
+            ret = QC_STATUS_FAIL;
+        }
+        // HTP0 -> NSP domain selected by core index; HTP1/2/3 -> HPASS domains 0/1/2.
+        else if ( ( QNN_PROCESSOR_HTP0 == m_config.processorType ) &&
+                  ( coreId < static_cast<uint32_t>( req.sys.num_domains ) ) &&
+                  ( NSP == req.sys.domains[coreId].type ) )
+        {
+            domainId = req.sys.domains[coreId].id;
+        }
+        else if ( ( QNN_PROCESSOR_HTP1 == m_config.processorType ) && ( 0 < req.sys.num_domains ) &&
+                  ( HPASS == req.sys.domains[0].type ) )
+        {
+            domainId = req.sys.domains[0].id;
+        }
+        else if ( ( QNN_PROCESSOR_HTP2 == m_config.processorType ) && ( 1 < req.sys.num_domains ) &&
+                  ( HPASS == req.sys.domains[1].type ) )
+        {
+            domainId = req.sys.domains[1].id;
+        }
+        else if ( ( QNN_PROCESSOR_HTP3 == m_config.processorType ) && ( 2 < req.sys.num_domains ) &&
+                  ( HPASS == req.sys.domains[2].type ) )
+        {
+            domainId = req.sys.domains[2].id;
+        }
+        else
+        {
+            QC_ERROR( "domain type not match for processor %d!", m_config.processorType );
+            ret = QC_STATUS_FAIL;
+        }
+    }
+
+    if ( nullptr != req.sys.domains )
+    {
+        free( req.sys.domains );
+    }
+    return ret;
+}
+#endif
+
 QCStatus_e QnnImpl::RemoteRegisterBuf( const TensorDescriptor_t &tensorDesc, int &fd )
 {
     QCStatus_e status = QC_STATUS_OK;
-#ifdef QC_USE_REMOTE_REGISTER_V2
-    constexpr int client = 0;   // NOTE: default is 0
-    int domain = CDSP_DOMAIN_ID;
-    int extDomainId;
-    if ( QNN_PROCESSOR_HTP1 == m_config.processorType )
-    {
-        domain = CDSP1_DOMAIN_ID;
-    }
-    extDomainId = get_extended_domains_id( domain, client );
-#endif
 
     std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
 
     int rpcFd = rpcmem_to_fd( tensorDesc.pBuf );
     if ( rpcFd < 0 )
     {
-#ifdef QC_USE_REMOTE_REGISTER_V2
 #if defined( __QNXNTO__ )
-        remote_register_buf_v2( extDomainId, tensorDesc.pBuf, static_cast<int>( tensorDesc.size ),
+        remote_register_buf_v2( m_extDomainId, tensorDesc.pBuf, static_cast<int>( tensorDesc.size ),
                                 0 );
 #else
-        remote_register_buf_v2( extDomainId, tensorDesc.pBuf, static_cast<int>( tensorDesc.size ),
+        remote_register_buf_v2( m_extDomainId, tensorDesc.pBuf, static_cast<int>( tensorDesc.size ),
                                 static_cast<int>( tensorDesc.dmaHandle ) );
-#endif
-
-#else
-#if defined( __QNXNTO__ )
-        remote_register_buf( tensorDesc.pBuf, static_cast<int>( tensorDesc.size ), 0 );
-#else
-        remote_register_buf( tensorDesc.pBuf, static_cast<int>( tensorDesc.size ),
-                             static_cast<int>( tensorDesc.dmaHandle ) );
-#endif
 #endif
         rpcFd = rpcmem_to_fd( tensorDesc.pBuf );
         if ( rpcFd >= 0 )
@@ -2373,16 +2471,6 @@ QCStatus_e QnnImpl::DisablePerf()
 
 void QnnImpl::RemoteDeRegisterBuf( void *pData, size_t size )
 {
-#ifdef QC_USE_REMOTE_REGISTER_V2
-    constexpr int client = 0;   // NOTE: default is 0
-    int domain = CDSP_DOMAIN_ID;
-    int extDomainId;
-    if ( QNN_PROCESSOR_HTP1 == m_config.processorType )
-    {
-        domain = CDSP1_DOMAIN_ID;
-    }
-    extDomainId = get_extended_domains_id( domain, client );
-#endif
     std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
     auto it = s_dmaMemRefMap[m_config.processorType].find( pData );
     if ( it != s_dmaMemRefMap[m_config.processorType].end() )
@@ -2393,11 +2481,7 @@ void QnnImpl::RemoteDeRegisterBuf( void *pData, size_t size )
         }
         if ( 0 == it->second )
         {
-#ifdef QC_USE_REMOTE_REGISTER_V2
-            remote_register_buf_v2( extDomainId, pData, static_cast<int>( size ), -1 );
-#else
-            remote_register_buf( pData, static_cast<int>( size ), -1 );
-#endif
+            remote_register_buf_v2( m_extDomainId, pData, static_cast<int>( size ), -1 );
             (void) s_dmaMemRefMap[m_config.processorType].erase( it );
         }
     }

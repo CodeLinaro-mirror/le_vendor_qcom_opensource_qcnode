@@ -12,34 +12,34 @@
 #include <vector>
 
 
-#define QC_RADAR_FRIEND_CLASS_UT \
-            FRIEND_TEST (::RadarNodeTest, Start_FailsWhenRadarImplNotInitialized ); \
-            FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks ); \
-            FRIEND_TEST (::RadarNodeTest, Execute_BranchCoverage ); \
-            FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor ); \
-            FRIEND_TEST (::RadarNodeTest, Initialize_WithStub_FullLifecycle ); \
-            FRIEND_TEST (::RadarNodeTest, ValidateBuffer_TypeBranches );
+#define QC_RADAR_FRIEND_CLASS_UT                                                                   \
+    FRIEND_TEST( ::RadarNodeTest, Start_FailsWhenRadarImplNotInitialized );                        \
+    FRIEND_TEST( ::RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks );                  \
+    FRIEND_TEST( ::RadarNodeTest, Execute_BranchCoverage );                                        \
+    FRIEND_TEST( ::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor );                         \
+    FRIEND_TEST( ::RadarNodeTest, Initialize_WithStub_FullLifecycle );                             \
+    FRIEND_TEST( ::RadarNodeTest, ValidateBuffer_TypeBranches );
 
-#define QC_RADAR_IMPL_FRIEND_CLASS_UT \
-            FRIEND_TEST (::RadarNodeTest, Execute_BranchCoverage ); \
-            FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor ); \
-            FRIEND_TEST (::RadarNodeTest, Initialize_WithStub_FullLifecycle ); \
-            FRIEND_TEST (::RadarNodeTest, ValidateBuffer_TypeBranches );
+#define QC_RADAR_IMPL_FRIEND_CLASS_UT                                                              \
+    FRIEND_TEST( ::RadarNodeTest, Execute_BranchCoverage );                                        \
+    FRIEND_TEST( ::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor );                         \
+    FRIEND_TEST( ::RadarNodeTest, Initialize_WithStub_FullLifecycle );                             \
+    FRIEND_TEST( ::RadarNodeTest, ValidateBuffer_TypeBranches );
 
-#define QC_RADAR_IFACE_FRIEND_CLASS_UT \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteOk ); \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteTimeout ); \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteInvalid ); \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteFail ); \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_ExecuteBadArgs ); \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_Deinitialize ); \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_StubBased_AlreadyInitialized ); \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_InitializeIsOpenTrue ); \
-            FRIEND_TEST (::RadarNodeTest, RadarImpl_InitializeIsOpenFalse ); \
-            FRIEND_TEST (::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor ); \
-            FRIEND_TEST (::RadarNodeTest, Execute_BranchCoverage ); \
-            FRIEND_TEST (::RadarNodeTest, Initialize_WithStub_FullLifecycle ); \
-            FRIEND_TEST (::RadarNodeTest, ValidateBuffer_TypeBranches );
+#define QC_RADAR_IFACE_FRIEND_CLASS_UT                                                             \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_StubBased_ExecuteOk );                                 \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_StubBased_ExecuteTimeout );                            \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_StubBased_ExecuteInvalid );                            \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_StubBased_ExecuteFail );                               \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_StubBased_ExecuteBadArgs );                            \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_StubBased_Deinitialize );                              \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_StubBased_AlreadyInitialized );                        \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_InitializeIsOpenTrue );                                \
+    FRIEND_TEST( ::RadarNodeTest, RadarImpl_InitializeIsOpenFalse );                               \
+    FRIEND_TEST( ::RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor );                         \
+    FRIEND_TEST( ::RadarNodeTest, Execute_BranchCoverage );                                        \
+    FRIEND_TEST( ::RadarNodeTest, Initialize_WithStub_FullLifecycle );                             \
+    FRIEND_TEST( ::RadarNodeTest, ValidateBuffer_TypeBranches );
 
 #ifdef QC_RADAR_FRIEND_CLASS_UT
 // Forward declare classes
@@ -78,9 +78,9 @@ class RadarNodeTest_ValidateBuffer_TypeBranches_Test;
 
 #include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/sample/BufferManager.hpp"
-#include "md5_utils.hpp"
 #include "RadarIfStub.hpp"
 #include "RadarImpl.hpp"
+#include "md5_utils.hpp"
 
 using namespace QC;
 using namespace QC::Node;
@@ -647,7 +647,8 @@ TEST_F( RadarNodeTest, Start_FailsWhenRadarImplNotInitialized )
 
 /**
  * @brief ProcessFrameDescriptor branches for map size and impl init
- * Coverage: ProcessFrameDescriptor rejects when buffer map has fewer than 2 entries or impl not initialized
+ * Coverage: ProcessFrameDescriptor rejects when buffer map has fewer than 2 entries or impl not
+ * initialized
  */
 TEST_F( RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks )
 {
@@ -671,7 +672,8 @@ TEST_F( RadarNodeTest, ProcessFrameDescriptor_MapSizeAndIfaceChecks )
 
 /**
  * @brief Execute branch coverage without requiring radar service
- * Coverage: Execute rejects bad state, null buffers, and uninitialized impl; ValidateBuffer and stub execution paths
+ * Coverage: Execute rejects bad state, null buffers, and uninitialized impl; ValidateBuffer and
+ * stub execution paths
  */
 TEST_F( RadarNodeTest, Execute_BranchCoverage )
 {
@@ -696,14 +698,14 @@ TEST_F( RadarNodeTest, Execute_BranchCoverage )
                radarNode.Execute( &inputBuffer.tensor, nullptr ) );
 
     // Valid buffers but impl not initialized
-    radarNode.m_config.maxInputBufferSize  = m_config.maxInputBufferSize;
+    radarNode.m_config.maxInputBufferSize = m_config.maxInputBufferSize;
     radarNode.m_config.maxOutputBufferSize = m_config.maxOutputBufferSize;
     EXPECT_EQ( QCStatus_e::QC_STATUS_BAD_STATE,
                radarNode.Execute( &inputBuffer.tensor, &outputBuffer.tensor ) );
 
     // ── ValidateBuffer failure cases ──────────────────────────────────────────
-    radarNode.m_state                      = QC_OBJECT_STATE_RUNNING;
-    radarNode.m_config.maxInputBufferSize  = m_config.maxInputBufferSize;
+    radarNode.m_state = QC_OBJECT_STATE_RUNNING;
+    radarNode.m_config.maxInputBufferSize = m_config.maxInputBufferSize;
     radarNode.m_config.maxOutputBufferSize = m_config.maxOutputBufferSize;
 
     // size == 0: ValidateBuffer rejects before dmaHandle check
@@ -1133,7 +1135,7 @@ TEST_F( RadarNodeTest, InitializeWithBuffers_NoRuntimeBuffers )
     dt.Set<uint32_t>( "static.maxInputBufferSize", config.maxInputBufferSize );
     dt.Set<uint32_t>( "static.maxOutputBufferSize", config.maxOutputBufferSize );
 
-    std::vector<uint32_t> inputBufferIds  = { 0 };
+    std::vector<uint32_t> inputBufferIds = { 0 };
     std::vector<uint32_t> outputBufferIds = { 1 };
     dt.Set( "static.inputs", inputBufferIds );
     dt.Set( "static.outputs", outputBufferIds );
@@ -1445,13 +1447,15 @@ TEST_F( RadarNodeTest, MultipleInstanceTest )
 TEST_F( RadarNodeTest, ConfigIfs_GetOptions_Coverage )
 {
     Radar radarNode;
-    std::string options = radarNode.GetConfigurationIfs().GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, radarNode.GetConfigurationIfs().GetOptions( options ) );
     EXPECT_TRUE( options.empty() );
 }
 
 /**
  * @brief Cover SetupGlobalBufferIdMap() default branch and VerifyStaticConfig() missing-map path.
- * Coverage: VerifyStaticConfig accepts absent globalBufferIdMap; SetupGlobalBufferIdMap creates default entries.
+ * Coverage: VerifyStaticConfig accepts absent globalBufferIdMap; SetupGlobalBufferIdMap creates
+ * default entries.
  */
 TEST_F( RadarNodeTest, SetupGlobalBufferIdMap_DefaultMap_WhenNotProvided )
 {
@@ -1521,16 +1525,16 @@ struct FakeBufferDescriptor : public QCBufferDescriptorBase_t
 
 /**
  * @brief ProcessFrameDescriptor: unknown descriptor type → INVALID_BUF on input and output.
- * Coverage: ProcessFrameDescriptor rejects unknown descriptor type on input, and on output when input is valid
- *           nullptr==pOutputTensor [T], nullptr==pOutputBuffer [T] (lines 502-505)
+ * Coverage: ProcessFrameDescriptor rejects unknown descriptor type on input, and on output when
+ * input is valid nullptr==pOutputTensor [T], nullptr==pOutputBuffer [T] (lines 502-505)
  */
 TEST_F( RadarNodeTest, ProcessFrameDescriptor_FakeDescriptor )
 {
     Radar radarNode;
     radarNode.m_state = QC_OBJECT_STATE_RUNNING;
-    radarNode.m_config.maxInputBufferSize  = radarConfigBasic.maxInputBufferSize;
+    radarNode.m_config.maxInputBufferSize = radarConfigBasic.maxInputBufferSize;
     radarNode.m_config.maxOutputBufferSize = radarConfigBasic.maxOutputBufferSize;
-    radarNode.m_globalBufferIdMap          = { { "input", 0 }, { "output", 1 } };
+    radarNode.m_globalBufferIdMap = { { "input", 0 }, { "output", 1 } };
     radarNode.m_pImpl->m_radar.reset( new q::interface::RadarStub{} );
     (void) radarNode.m_pImpl->Initialize( "/stub/path" );
 
@@ -1798,11 +1802,10 @@ TEST_F( RadarNodeTest, ValidateBuffer_TypeBranches )
         ASSERT_EQ( QCStatus_e::QC_STATUS_OK, inBuf.GetAllocationStatus() );
         ASSERT_EQ( QCStatus_e::QC_STATUS_OK, outBuf.GetAllocationStatus() );
 
-        inBuf.tensor.type  = t;
+        inBuf.tensor.type = t;
         outBuf.tensor.type = t;
 
-        EXPECT_EQ( QCStatus_e::QC_STATUS_OK,
-                   radarNode.Execute( &inBuf.tensor, &outBuf.tensor ) );
+        EXPECT_EQ( QCStatus_e::QC_STATUS_OK, radarNode.Execute( &inBuf.tensor, &outBuf.tensor ) );
     }
 
     radarNode.Stop();
@@ -1824,7 +1827,7 @@ TEST_F( RadarNodeTest, RadarImpl_InitializeIsOpenTrue )
 TEST_F( RadarNodeTest, RadarImpl_InitializeIsOpenFalse )
 {
     RadarImpl iface;
-    auto *s  = new q::interface::RadarStub{};
+    auto *s = new q::interface::RadarStub{};
     s->m_isOpen = false;
     iface.m_radar.reset( s );
     EXPECT_EQ( QC_STATUS_BAD_STATE, iface.Initialize( "/stub/path" ) );

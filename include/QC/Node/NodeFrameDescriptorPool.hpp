@@ -104,7 +104,11 @@ public:
      * @note This method pushes a QCFrameDescriptorNodeIfs object onto the queue, making it
      * available for future retrieval.
      */
-    void Put( QCFrameDescriptorNodeIfs &frameDesc ) { m_queue.push( frameDesc ); }
+    void Put( QCFrameDescriptorNodeIfs &frameDesc )
+    {
+        std::lock_guard<std::mutex> l( m_lock );
+        m_queue.push( frameDesc );
+    }
 
 private:
     NodeFrameDescriptor &Dummy() { return s_dummy; }

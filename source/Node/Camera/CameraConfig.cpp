@@ -98,7 +98,7 @@ QCStatus_e CameraConfig::VerifyStaticConfig( DataTree &dt, std::string &errors )
     if ( QC_STATUS_OK == status )
     {
         uint8_t camFrameDropPeriod = dt.Get<uint8_t>( "camFrameDropPeriod", UINT8_MAX );
-        if ( UINT8_MAX == camFrameDropPeriod )
+        if ( UINT8_MAX == static_cast<uint32_t>( camFrameDropPeriod ) )
         {
             errors += "the camFrameDropPeriod is empty, ";
             status = QC_STATUS_BAD_ARGUMENTS;
@@ -151,10 +151,11 @@ QCStatus_e CameraConfig::VerifyStaticConfig( DataTree &dt, std::string &errors )
                 errors += "the streamId for stream " + std::to_string( i ) + " is empty, ";
                 status = QC_STATUS_BAD_ARGUMENTS;
             }
-            else if ( streamId >= QCNODE_CAMERA_MAX_STREAM_NUM )
+            else if ( streamId > QCNODE_CAMERA_MAX_STREAM_ID )
             {
                 errors += "the streamId for stream " + std::to_string( i ) +
-                          " is larger than maximum, ";
+                          " is out of valid range (must be 0 to " +
+                          std::to_string( QCNODE_CAMERA_MAX_STREAM_ID ) + "), ";
                 status = QC_STATUS_BAD_ARGUMENTS;
             }
 
@@ -265,6 +266,7 @@ QCStatus_e CameraConfig::VerifyStaticConfig( DataTree &dt, std::string &errors )
             for ( size_t i = 0; i < metadataNum; i++ )
             {
                 DataTree metadataConfig = metaDataConfigs[i];
+                std::string tag = metadataConfig.Get<std::string>( "tag", "" );
 
                 if ( QC_STATUS_OK == status )
                 {
@@ -274,6 +276,19 @@ QCStatus_e CameraConfig::VerifyStaticConfig( DataTree &dt, std::string &errors )
                     {
                         errors += "the bufferListId for metadata " + std::to_string( i ) +
                                   " is empty, ";
+                        status = QC_STATUS_BAD_ARGUMENTS;
+                    }
+                }
+
+                if ( QC_STATUS_OK == status )
+                {
+                    CameraMetaDataType_e tagType = GetMetaDataType( tag );
+                    if ( ( CAMERA_METADATA_TYPE_TUNING_FEATURE_MODE != tagType ) &&
+                         ( CAMERA_METADATA_TYPE_ISP_INJECTION != tagType ) )
+                    {
+                        errors += "the tag '" + tag + "' for metadata " + std::to_string( i ) +
+                                  " is invalid (expected INJECTION_SENSOR_METADATA, "
+                                  "TUNING_FEATURE_1_MODE or TUNING_FEATURE_2_MODE), ";
                         status = QC_STATUS_BAD_ARGUMENTS;
                     }
                 }
@@ -311,6 +326,95 @@ QCStatus_e CameraConfig::VerifyStaticConfig( DataTree &dt, std::string &errors )
                     }
                 }
 
+                // Validate INJECTION_SENSOR_METADATA specific config
+                if ( QC_STATUS_OK == status )
+                {
+                    if ( "INJECTION_SENSOR_METADATA" == tag )
+                    {
+                        DataTree injCfgDt;
+                        QCStatus_e injStatus = metadataConfig.Get( "InjectionConfig", injCfgDt );
+                        if ( QC_STATUS_OK != injStatus )
+                        {
+                            errors +=
+                                    "the InjectionConfig for INJECTION_SENSOR_METADATA metadata " +
+                                    std::to_string( i ) + " is missing, ";
+                            status = QC_STATUS_BAD_ARGUMENTS;
+                        }
+                        else
+                        {
+                            // Validate injection input buffer IDs
+                            std::vector<uint32_t> injInputBufIds = injCfgDt.Get<uint32_t>(
+                                    "inputBufferIds", std::vector<uint32_t>{} );
+                            if ( 0 == injInputBufIds.size() )
+                            {
+                                errors += "the inputBufferIds for INJECTION_SENSOR_METADATA "
+                                          "metadata " +
+                                          std::to_string( i ) + " is empty, ";
+                                status = QC_STATUS_BAD_ARGUMENTS;
+                            }
+                            else
+                            {
+                                for ( uint32_t bufferId : injInputBufIds )
+                                {
+                                    if ( usedBufferIds.find( bufferId ) != usedBufferIds.end() )
+                                    {
+                                        errors += "duplicate buffer ID " +
+                                                  std::to_string( bufferId ) +
+                                                  " found in INJECTION_SENSOR_METADATA "
+                                                  "inputBufferIds "
+                                                  "metadata " +
+                                                  std::to_string( i ) + ", ";
+                                        status = QC_STATUS_BAD_ARGUMENTS;
+                                        break;
+                                    }
+                                    usedBufferIds.insert( bufferId );
+                                }
+                            }
+
+                            if ( QC_STATUS_OK == status )
+                            {
+                                std::string injFormat =
+                                        injCfgDt.Get<std::string>( "format", "mipiraw_12" );
+                                QCarCamColorFmt_e injFmt = GetInjectQcarCamFormat( injFormat );
+                                if ( QCARCAM_FMT_MAX == injFmt )
+                                {
+                                    errors += "the injection format '" + injFormat +
+                                              "' for INJECTION_SENSOR_METADATA metadata " +
+                                              std::to_string( i ) +
+                                              " is invalid (expected mipiraw_8/10/12/14/16 or "
+                                              "plain16_10/12/14/16), ";
+                                    status = QC_STATUS_BAD_ARGUMENTS;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Validate outputBufferIds (if outputBufferListId is set)
+                if ( QC_STATUS_OK == status )
+                {
+                    uint32_t outputBufListId =
+                            metadataConfig.Get<uint32_t>( "outputBufferListId", 0 );
+                    if ( 0 != outputBufListId )
+                    {
+                        std::vector<uint32_t> outputBufIds = metadataConfig.Get<uint32_t>(
+                                "outputBufferIds", std::vector<uint32_t>{} );
+                        for ( uint32_t bufferId : outputBufIds )
+                        {
+                            if ( usedBufferIds.find( bufferId ) != usedBufferIds.end() )
+                            {
+                                errors += "duplicate buffer ID " + std::to_string( bufferId ) +
+                                          " found in outputBufferIds for metadata " +
+                                          std::to_string( i ) + ", ";
+                                status = QC_STATUS_BAD_ARGUMENTS;
+                                break;
+                            }
+                            usedBufferIds.insert( bufferId );
+                        }
+                    }
+                }
+
                 if ( QC_STATUS_OK != status )
                 {
                     QC_ERROR( "Config verification failed for metadata %u, ", i );
@@ -334,73 +438,212 @@ QCStatus_e CameraConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
 
     std::vector<DataTree> streamConfigs;
     std::vector<DataTree> metaDataConfigs;
-    CameraImplConfig_t &config = m_pCamImpl->GetConifg();
 
-    status = VerifyStaticConfig( dt, errors );
-    if ( QC_STATUS_OK == status )
+    if ( nullptr == m_pCamImpl )
     {
-        config.nodeId.name = dt.Get<std::string>( "name", "" );
-        config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
-        config.inputId = dt.Get<uint32_t>( "inputId", UINT32_MAX );
-        config.clientId = dt.Get<uint32_t>( "clientId", UINT32_MAX );
-        config.srcId = dt.Get<uint32_t>( "srcId", UINT32_MAX );
-        config.inputMode = dt.Get<uint32_t>( "inputMode", UINT32_MAX );
-        config.ispUseCase = dt.Get<uint32_t>( "ispUseCase", UINT32_MAX );
-        config.camFrameDropPattern = dt.Get<uint32_t>( "camFrameDropPattern", UINT32_MAX );
-        config.camFrameDropPeriod = dt.Get<uint8_t>( "camFrameDropPeriod", UINT8_MAX );
-        config.opMode = dt.Get<uint32_t>( "opMode", UINT32_MAX );
-        status = dt.Get( "streamConfigs", streamConfigs );
+        QC_ERROR( "CameraImpl not allocated (out of memory)" );
+        status = QC_STATUS_NOMEM;
     }
-
-    if ( QC_STATUS_OK == status )
+    else
     {
-        for ( uint32_t i = 0; i < streamConfigs.size(); i++ )
+        CameraImplConfig_t &config = m_pCamImpl->GetConifg();
+
+        status = VerifyStaticConfig( dt, errors );
+        if ( QC_STATUS_OK == status )
         {
-            CameraStreamConfig_t streamConfig;
-            DataTree streamConfigDt = streamConfigs[i];
-
-            streamConfig.streamId = streamConfigDt.Get<uint32_t>( "streamId", UINT32_MAX );
-            streamConfig.width = streamConfigDt.Get<uint32_t>( "width", UINT32_MAX );
-            streamConfig.height = streamConfigDt.Get<uint32_t>( "height", UINT32_MAX );
-            streamConfig.format = streamConfigDt.GetImageFormat( "format", QC_IMAGE_FORMAT_MAX );
-            streamConfig.submitRequestPattern =
-                    streamConfigDt.Get<uint32_t>( "submitRequestPattern", UINT32_MAX );
-            streamConfig.bufferIds =
-                    streamConfigDt.Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
-            config.streamConfigs.push_back( streamConfig );
+            config.nodeId.name = dt.Get<std::string>( "name", "" );
+            config.nodeId.id = dt.Get<uint8_t>( "id", UINT8_MAX );
+            config.inputId = dt.Get<uint32_t>( "inputId", UINT32_MAX );
+            config.clientId = dt.Get<uint32_t>( "clientId", UINT32_MAX );
+            config.srcId = dt.Get<uint32_t>( "srcId", UINT32_MAX );
+            config.inputMode = dt.Get<uint32_t>( "inputMode", UINT32_MAX );
+            config.ispUseCase = dt.Get<uint32_t>( "ispUseCase", UINT32_MAX );
+            config.camFrameDropPattern = dt.Get<uint32_t>( "camFrameDropPattern", UINT32_MAX );
+            config.camFrameDropPeriod = dt.Get<uint8_t>( "camFrameDropPeriod", UINT8_MAX );
+            config.opMode = dt.Get<uint32_t>( "opMode", UINT32_MAX );
+            status = dt.Get( "streamConfigs", streamConfigs );
         }
-    }
-
-    if ( QC_STATUS_OK == status )
-    {
-        config.bRequestMode = dt.Get<bool>( "requestMode", true );
-        config.bPrimary = dt.Get<bool>( "primary", true );
-        config.bEnalbleMetaData = dt.Get<bool>( "enableMetaData", false );
-        config.bMultiStreamFrameReady = dt.Get<bool>( "enableMultiStreamFrameReady", false );
-        config.bRecovery = dt.Get<bool>( "recovery", false );
-    }
-
-    if ( ( QC_STATUS_OK == status ) && ( true == config.bEnalbleMetaData ) )
-    {
-        status = dt.Get( "metaDataConfigs", metaDataConfigs );
 
         if ( QC_STATUS_OK == status )
         {
-            for ( size_t i = 0; i < metaDataConfigs.size(); i++ )
+            for ( uint32_t i = 0; i < streamConfigs.size(); i++ )
             {
-                CameraMetaDataConfig_t metaDataConfig;
-                DataTree metaDataConfigDt = metaDataConfigs[i];
+                CameraStreamConfig_t streamConfig;
+                DataTree streamConfigDt = streamConfigs[i];
 
-                metaDataConfig.bufferListId =
-                        metaDataConfigDt.Get<uint32_t>( "bufferListId", UINT32_MAX );
-                metaDataConfig.bufferIds =
-                        metaDataConfigDt.Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
-                config.metaDataConfigs.push_back( metaDataConfig );
+                streamConfig.streamId = streamConfigDt.Get<uint32_t>( "streamId", UINT32_MAX );
+                streamConfig.contextId = streamConfigDt.Get<uint32_t>( "contextId", 0U );
+                streamConfig.width = streamConfigDt.Get<uint32_t>( "width", UINT32_MAX );
+                streamConfig.height = streamConfigDt.Get<uint32_t>( "height", UINT32_MAX );
+                streamConfig.format =
+                        streamConfigDt.GetImageFormat( "format", QC_IMAGE_FORMAT_MAX );
+                streamConfig.submitRequestPattern =
+                        streamConfigDt.Get<uint32_t>( "submitRequestPattern", UINT32_MAX );
+                streamConfig.bufferIds =
+                        streamConfigDt.Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
+                config.streamConfigs.push_back( streamConfig );
+            }
+        }
+
+        if ( QC_STATUS_OK == status )
+        {
+            config.bRequestMode = dt.Get<bool>( "requestMode", true );
+            config.bPrimary = dt.Get<bool>( "primary", true );
+            config.bEnalbleMetaData = dt.Get<bool>( "enableMetaData", false );
+            config.bMultiStreamFrameReady = dt.Get<bool>( "enableMultiStreamFrameReady", false );
+            config.bRecovery = dt.Get<bool>( "recovery", false );
+        }
+
+        if ( ( QC_STATUS_OK == status ) && ( true == config.bEnalbleMetaData ) )
+        {
+            status = dt.Get( "metaDataConfigs", metaDataConfigs );
+
+            if ( QC_STATUS_OK == status )
+            {
+                for ( size_t i = 0; i < metaDataConfigs.size(); i++ )
+                {
+                    CameraMetaDataConfig_t metaDataConfig = {};
+                    DataTree metaDataConfigDt = metaDataConfigs[i];
+
+                    metaDataConfig.bufferListId =
+                            metaDataConfigDt.Get<uint32_t>( "bufferListId", UINT32_MAX );
+                    metaDataConfig.bufferIds =
+                            metaDataConfigDt.Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
+                    metaDataConfig.metaDataType =
+                            GetMetaDataType( metaDataConfigDt.Get<std::string>( "tag", "" ) );
+
+                    if ( CAMERA_METADATA_TYPE_ISP_INJECTION == metaDataConfig.metaDataType )
+                    {
+                        DataTree injCfgDt;
+                        QCStatus_e injStatus = metaDataConfigDt.Get( "InjectionConfig", injCfgDt );
+                        if ( QC_STATUS_OK == injStatus )
+                        {
+                            metaDataConfig.injectionConfig.inputId =
+                                    injCfgDt.Get<uint32_t>( "inputId", 0 );
+                            metaDataConfig.injectionConfig.inputMode =
+                                    injCfgDt.Get<uint32_t>( "inputMode", 0 );
+                            metaDataConfig.injectionConfig.inputTuningParamFeature1Mode =
+                                    injCfgDt.Get<uint32_t>( "inputTuningParamFeature1Mode", 0 );
+                            metaDataConfig.injectionConfig.inputTuningParamFeature2Mode =
+                                    injCfgDt.Get<uint32_t>( "inputTuningParamFeature2Mode", 0 );
+                            metaDataConfig.injectionConfig.inputSceneMode =
+                                    injCfgDt.Get<uint32_t>( "inputSceneMode", 0 );
+                            metaDataConfig.injectionConfig.inputBufferListId =
+                                    injCfgDt.Get<uint32_t>( "inputBufferListId",
+                                                            QCARCAM_BUFFERLIST_ID_INPUT_0 );
+                            metaDataConfig.injectionConfig.inputBufferIds = injCfgDt.Get<uint32_t>(
+                                    "inputBufferIds", std::vector<uint32_t>{} );
+                            metaDataConfig.injectionConfig.format = GetInjectQcarCamFormat(
+                                    injCfgDt.Get<std::string>( "format", "mipiraw_12" ) );
+                            metaDataConfig.injectionConfig.width =
+                                    injCfgDt.Get<uint32_t>( "width", 0 );
+                            metaDataConfig.injectionConfig.height =
+                                    injCfgDt.Get<uint32_t>( "height", 0 );
+                            metaDataConfig.injectionConfig.stride =
+                                    injCfgDt.Get<uint32_t>( "stride", 0 );
+
+                            // Sensor header / per-frame metadata buffers
+                            metaDataConfig.injectionConfig.headerBufferListId =
+                                    injCfgDt.Get<uint32_t>( "headerBufferListId",
+                                                            QCARCAM_BUFFERLIST_ID_INPUT_METADATA );
+                            metaDataConfig.injectionConfig.headerBufferIds = injCfgDt.Get<uint32_t>(
+                                    "headerBufferIds", std::vector<uint32_t>{} );
+
+                            // EEPROM calibration data buffers
+                            metaDataConfig.injectionConfig.eepromBufferListId =
+                                    injCfgDt.Get<uint32_t>( "eepromBufferListId",
+                                                            QCARCAM_BUFFERLIST_ID_INPUT_METADATA +
+                                                                    1U );
+                            metaDataConfig.injectionConfig.eepromBufferIds = injCfgDt.Get<uint32_t>(
+                                    "eepromBufferIds", std::vector<uint32_t>{} );
+                        }
+                    }
+
+                    // Parse output metadata buffer config (optional, 0 = not used)
+                    metaDataConfig.outputBufferListId =
+                            metaDataConfigDt.Get<uint32_t>( "outputBufferListId", 0 );
+                    metaDataConfig.outputBufferIds = metaDataConfigDt.Get<uint32_t>(
+                            "outputBufferIds", std::vector<uint32_t>{} );
+
+                    config.metaDataConfigs.push_back( metaDataConfig );
+                }
             }
         }
     }
 
     return status;
+}
+
+QCarCamColorFmt_e CameraConfig::GetInjectQcarCamFormat( const std::string &format )
+{
+    QCarCamColorFmt_e qcarcamFormat = QCARCAM_FMT_MAX;
+
+    if ( "mipiraw_8" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_MIPIRAW_8;
+    }
+    else if ( "mipiraw_10" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_MIPIRAW_10;
+    }
+    else if ( "mipiraw_12" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_MIPIRAW_12;
+    }
+    else if ( "mipiraw_14" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_MIPIRAW_14;
+    }
+    else if ( "mipiraw_16" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_MIPIRAW_16;
+    }
+    else if ( "plain16_10" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_PLAIN16_10;
+    }
+    else if ( "plain16_12" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_PLAIN16_12;
+    }
+    else if ( "plain16_14" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_PLAIN16_14;
+    }
+    else if ( "plain16_16" == format )
+    {
+        qcarcamFormat = QCARCAM_FMT_PLAIN16_16;
+    }
+    else
+    {
+        QC_ERROR( "GetInjectQcarCamFormat: unsupported inject format string: %s", format.c_str() );
+    }
+
+    return qcarcamFormat;
+}
+
+CameraMetaDataType_e CameraConfig::GetMetaDataType( const std::string &tag )
+{
+    CameraMetaDataType_e metaDataType = CAMERA_METADATA_TYPE_UNKNOWN;
+
+    if ( ( "TUNING_FEATURE_1_MODE" == tag ) || ( "TUNING_FEATURE_2_MODE" == tag ) )
+    {
+        metaDataType = CAMERA_METADATA_TYPE_TUNING_FEATURE_MODE;
+    }
+    else if ( "INJECTION_SENSOR_METADATA" == tag )
+    {
+        metaDataType = CAMERA_METADATA_TYPE_ISP_INJECTION;
+    }
+    else if ( "" != tag )
+    {
+        metaDataType = CAMERA_METADATA_TYPE_GENERIC;
+    }
+    else
+    {
+        QC_ERROR( "Unsupported metadata type: %s", tag.c_str() );
+    }
+
+    return metaDataType;
 }
 
 QCStatus_e CameraConfig::VerifyAndSet( const std::string config, std::string &errors )
@@ -422,14 +665,27 @@ QCStatus_e CameraConfig::VerifyAndSet( const std::string config, std::string &er
     return status;
 }
 
-const std::string &CameraConfig::GetOptions()
+QCStatus_e CameraConfig::GetOptions( std::string &options )
 {
-    return m_options;
+    options = m_options;
+    return QC_STATUS_OK;
 }
 
 const QCNodeConfigBase_t &CameraConfig::Get()
 {
-    return m_pCamImpl->GetConifg();
+    static const CameraImplConfig_t s_defaultConfig{};
+    const QCNodeConfigBase_t *pConfig = &s_defaultConfig;
+
+    if ( nullptr == m_pCamImpl )
+    {
+        QC_ERROR( "CameraImpl not allocated (out of memory)" );
+    }
+    else
+    {
+        pConfig = &m_pCamImpl->GetConifg();
+    }
+
+    return *pConfig;
 }
 
 }   // namespace Node

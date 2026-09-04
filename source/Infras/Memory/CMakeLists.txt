@@ -23,36 +23,23 @@ set(MEMORY_IFS_HEADERS
     ${HEADERS_DIR}/QC/Infras/Memory/Ifs/QCMemoryUtilsIfs.hpp
 )
 
-# Use the ENABLE_SIMNODE option to conditionally include source files
-if(ENABLE_SIMNODE)
-    # For simulation build, only include HeapAllocator.cpp
-    set(MEMORY_SOURCES
-        HeapAllocator.cpp
-        BufferDescriptor.cpp
-        ManagerLocal.cpp
-    )
+# For on-target build, include all source files
+set(MEMORY_SOURCES
+    BufferDescriptor.cpp
+    ImageDescriptor.cpp
+    TensorDescriptor.cpp
+    CameraBufferDescriptor.cpp
+    ManagerLocal.cpp
+    HeapAllocator.cpp
+    UtilsBase.cpp
+    VideoFrameDescriptor.cpp
+    QCMemoryFactory.cpp
+)
 
-    # Set minimal libraries for simulation
-    set(TARGET_LIBRARIES QCNodeCommon)
-else()
-    # For on-target build, include all source files
-    set(MEMORY_SOURCES
-        BufferDescriptor.cpp
-        ImageDescriptor.cpp
-        TensorDescriptor.cpp
-        CameraBufferDescriptor.cpp
-        ManagerLocal.cpp
-        HeapAllocator.cpp
-        UtilsBase.cpp
-        VideoFrameDescriptor.cpp
-        QCMemoryFactory.cpp
-    )
+# Set full libraries for on-target build
+set(TARGET_LIBRARIES QCNodeCommon apdf aosal)
 
-    # Set full libraries for on-target build
-    set(TARGET_LIBRARIES QCNodeCommon apdf aosal)
-endif()
-
-if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     list(APPEND MEMORY_HEADERS
         ${HEADERS_DIR}/QC/Infras/Memory/DMABUFFAllocator.hpp
         ${HEADERS_DIR}/QC/Infras/Memory/DMABUFFUtils.hpp
@@ -64,27 +51,24 @@ else()
     )
 endif()
 
-# Handle platform-specific source files - only include if not in simulation mode
-if(NOT ENABLE_SIMNODE)
-    if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux" AND "${CMAKE_SYSTEM_PROCESSOR}" STREQUAL "aarch64")
-        list(APPEND MEMORY_SOURCES
-            DMABUFFAllocator.cpp
-            DMABUFFUtils.cpp
-        )
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    list(APPEND MEMORY_SOURCES
+        DMABUFFAllocator.cpp
+        DMABUFFUtils.cpp
+    )
 
-        # Add Linux-specific libraries and include directories
-        list(APPEND TARGET_LIBRARIES kiumd)
-        list(APPEND HEADERS_DIR ${CMAKE_SYSROOT}/usr/include/WF)
-        list(APPEND HEADERS_DIR ${CMAKE_SYSROOT}/usr/include/linux-ark)
-    else()
-        list(APPEND MEMORY_SOURCES
-            PMEMAllocator.cpp
-            PMEMUtils.cpp
-        )
+    # Add Linux-specific libraries and include directories
+    list(APPEND TARGET_LIBRARIES kiumd)
+    list(APPEND HEADERS_DIR ${CMAKE_SYSROOT}/usr/include/WF)
+    list(APPEND HEADERS_DIR ${CMAKE_SYSROOT}/usr/include/linux-ark)
+else()
+    list(APPEND MEMORY_SOURCES
+        PMEMAllocator.cpp
+        PMEMUtils.cpp
+    )
 
-        # Add QNX-specific libraries
-        list(APPEND TARGET_LIBRARIES pmem_client pmemext fastrpc_pmem mmap_peer OSAbstraction)
-    endif()
+    # Add QNX-specific libraries
+    list(APPEND TARGET_LIBRARIES pmem_client pmemext fastrpc_pmem mmap_peer OSAbstraction)
 endif()
 
 add_library(QCNodeMemory OBJECT ${MEMORY_SOURCES})

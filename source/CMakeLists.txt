@@ -17,41 +17,41 @@ set( TARGET_LIBRARIES
     QCNodeBase
 )
 
-# Add regular nodes if not in simulation mode
-if( NOT ENABLE_SIMNODE )
-    list( APPEND TARGET_LIBRARIES
-        QCNodeCamera
-        QCNodeCL2DFlex
-        QCNodeVideoEncoder
-        QCNodeVideoDecoder
-    )
+# Add regular nodes
+list( APPEND TARGET_LIBRARIES
+    QCNodeCamera
+    QCNodeCL2DFlex
+    QCNodeVideoEncoder
+    QCNodeVideoDecoder
+)
 
-    if ( ENABLE_EVA )
-      list( APPEND TARGET_LIBRARIES
-                QCNodeOpticalFlow
-                QCNodeDepthFromStereo
-      )
-    endif()
+if ( ENABLE_EVA )
+  list( APPEND TARGET_LIBRARIES
+            QCNodeOpticalFlow
+            QCNodeDepthFromStereo
+  )
+endif()
 
-    if ( ENABLE_FADAS )
-      list( APPEND TARGET_LIBRARIES
-                QCNodeRemap
-                QCNodeVoxelization
-      )
-    endif()
+if ( ENABLE_FADAS )
+  list( APPEND TARGET_LIBRARIES
+            QCNodeRemap
+            QCNodeVoxelization
+  )
+endif()
 
-    if ( ENABLE_RADAR )
-      list( APPEND TARGET_LIBRARIES
-                QCNodeNodeRadar
-      )
-    endif()
+if ( ENABLE_RADAR )
+  list( APPEND TARGET_LIBRARIES
+            QCNodeNodeRadar
+  )
+endif()
 
-    if( NOT TARGET QCNodeQNN )
-      message(STATUS "build QCNode without QNN")
-    else()
-      list( APPEND TARGET_LIBRARIES QCNodeQNN )
-    endif()
+if( NOT TARGET QCNodeQNN )
+  message(STATUS "build QCNode without QNN")
 else()
+  list( APPEND TARGET_LIBRARIES QCNodeQNN )
+endif()
+
+if ( ENABLE_SIMNODE )
     # Add SimulationNode when in simulation mode
     list( APPEND TARGET_LIBRARIES QCNodeSimulationNode )
 endif()

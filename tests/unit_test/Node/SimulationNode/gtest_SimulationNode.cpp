@@ -762,7 +762,8 @@ TEST_F( SimulationNodeTest, ConfigurationOptions )
     QCStatus_e status = m_pSimulationNode->Initialize( nodeInit );
     EXPECT_EQ( status, QC_STATUS_OK );
 
-    const std::string &options = m_pSimulationNode->GetConfigurationIfs().GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, m_pSimulationNode->GetConfigurationIfs().GetOptions( options ) );
     EXPECT_FALSE( options.empty() );
     EXPECT_NE( options.find( "version" ), std::string::npos );
     EXPECT_NE( options.find( "processingMode" ), std::string::npos );

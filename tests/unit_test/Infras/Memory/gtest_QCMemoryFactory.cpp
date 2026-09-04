@@ -127,14 +127,16 @@ TEST( QCMemoryFactory, CreateMemoryManager_InvalidType )
 // ---------------------------------------------------------------------------
 TEST( QCMemoryFactory, GetSupportedAllocatorTypes_NotEmpty )
 {
-    const std::vector<QCMemoryAllocator_e> &types = QCMemoryFactory::GetSupportedAllocatorTypes();
+    std::vector<QCMemoryAllocator_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypes( types ), QC_STATUS_OK );
 
     ASSERT_FALSE( types.empty() );
 }
 
 TEST( QCMemoryFactory, GetSupportedAllocatorTypes_ContainsHeap )
 {
-    const std::vector<QCMemoryAllocator_e> &types = QCMemoryFactory::GetSupportedAllocatorTypes();
+    std::vector<QCMemoryAllocator_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypes( types ), QC_STATUS_OK );
 
     auto it = std::find( types.begin(), types.end(), QC_MEMORY_ALLOCATOR_HEAP );
     ASSERT_NE( types.end(), it );
@@ -142,7 +144,8 @@ TEST( QCMemoryFactory, GetSupportedAllocatorTypes_ContainsHeap )
 
 TEST( QCMemoryFactory, GetSupportedAllocatorTypes_PlatformSpecific )
 {
-    const std::vector<QCMemoryAllocator_e> &types = QCMemoryFactory::GetSupportedAllocatorTypes();
+    std::vector<QCMemoryAllocator_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypes( types ), QC_STATUS_OK );
 
 #if defined( __linux__ ) || defined( __QNX__ )
     // DMA allocators should be present on Linux and QNX
@@ -158,7 +161,8 @@ TEST( QCMemoryFactory, GetSupportedAllocatorTypes_PlatformSpecific )
 TEST( QCMemoryFactory, GetSupportedAllocatorTypes_Consistency )
 {
     // Verify that all returned types can be created successfully
-    const std::vector<QCMemoryAllocator_e> &types = QCMemoryFactory::GetSupportedAllocatorTypes();
+    std::vector<QCMemoryAllocator_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypes( types ), QC_STATUS_OK );
     QCMemoryAllocatorConfigInit_t config = {};
 
     for ( QCMemoryAllocator_e type : types )
@@ -176,14 +180,16 @@ TEST( QCMemoryFactory, GetSupportedAllocatorTypes_Consistency )
 // ---------------------------------------------------------------------------
 TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypes_NotEmpty )
 {
-    const std::vector<QCBufferType_e> &types = QCMemoryFactory::GetSupportedBufferDescriptorTypes();
+    std::vector<QCBufferType_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedBufferDescriptorTypes( types ), QC_STATUS_OK );
 
     ASSERT_FALSE( types.empty() );
 }
 
 TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypes_ContainsBasicTypes )
 {
-    const std::vector<QCBufferType_e> &types = QCMemoryFactory::GetSupportedBufferDescriptorTypes();
+    std::vector<QCBufferType_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedBufferDescriptorTypes( types ), QC_STATUS_OK );
 
     auto itRaw = std::find( types.begin(), types.end(), QC_BUFFER_TYPE_RAW );
     auto itImage = std::find( types.begin(), types.end(), QC_BUFFER_TYPE_IMAGE );
@@ -199,7 +205,8 @@ TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypes_ContainsBasicTypes )
 TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypes_Consistency )
 {
     // Verify that all returned types can be created successfully
-    const std::vector<QCBufferType_e> &types = QCMemoryFactory::GetSupportedBufferDescriptorTypes();
+    std::vector<QCBufferType_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedBufferDescriptorTypes( types ), QC_STATUS_OK );
 
     for ( QCBufferType_e type : types )
     {
@@ -216,16 +223,16 @@ TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypes_Consistency )
 // ---------------------------------------------------------------------------
 TEST( QCMemoryFactory, GetSupportedMemoryManagerTypes_NotEmpty )
 {
-    const std::vector<QCMemoryManagerType_e> &types =
-            QCMemoryFactory::GetSupportedMemoryManagerTypes();
+    std::vector<QCMemoryManagerType_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedMemoryManagerTypes( types ), QC_STATUS_OK );
 
     ASSERT_FALSE( types.empty() );
 }
 
 TEST( QCMemoryFactory, GetSupportedMemoryManagerTypes_ContainsLocal )
 {
-    const std::vector<QCMemoryManagerType_e> &types =
-            QCMemoryFactory::GetSupportedMemoryManagerTypes();
+    std::vector<QCMemoryManagerType_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedMemoryManagerTypes( types ), QC_STATUS_OK );
 
     auto it = std::find( types.begin(), types.end(), QC_MEMORY_MANAGER_LOCAL );
     ASSERT_NE( types.end(), it );
@@ -234,8 +241,8 @@ TEST( QCMemoryFactory, GetSupportedMemoryManagerTypes_ContainsLocal )
 TEST( QCMemoryFactory, GetSupportedMemoryManagerTypes_Consistency )
 {
     // Verify that all returned types can be created successfully
-    const std::vector<QCMemoryManagerType_e> &types =
-            QCMemoryFactory::GetSupportedMemoryManagerTypes();
+    std::vector<QCMemoryManagerType_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedMemoryManagerTypes( types ), QC_STATUS_OK );
 
     for ( QCMemoryManagerType_e type : types )
     {
@@ -252,14 +259,16 @@ TEST( QCMemoryFactory, GetSupportedMemoryManagerTypes_Consistency )
 // ---------------------------------------------------------------------------
 TEST( QCMemoryFactory, GetSupportedAllocatorTypesJson_NotEmpty )
 {
-    std::string json = QCMemoryFactory::GetSupportedAllocatorTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypesJson( json ), QC_STATUS_OK );
 
     ASSERT_FALSE( json.empty() );
 }
 
 TEST( QCMemoryFactory, GetSupportedAllocatorTypesJson_ValidFormat )
 {
-    std::string json = QCMemoryFactory::GetSupportedAllocatorTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypesJson( json ), QC_STATUS_OK );
 
     // Should start with { and end with }
     ASSERT_EQ( '{', json.front() );
@@ -268,15 +277,18 @@ TEST( QCMemoryFactory, GetSupportedAllocatorTypesJson_ValidFormat )
 
 TEST( QCMemoryFactory, GetSupportedAllocatorTypesJson_ContainsHeap )
 {
-    std::string json = QCMemoryFactory::GetSupportedAllocatorTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypesJson( json ), QC_STATUS_OK );
 
     ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_ALLOCATOR_HEAP" ) );
 }
 
 TEST( QCMemoryFactory, GetSupportedAllocatorTypesJson_MatchesVector )
 {
-    std::string json = QCMemoryFactory::GetSupportedAllocatorTypesJson();
-    const std::vector<QCMemoryAllocator_e> &types = QCMemoryFactory::GetSupportedAllocatorTypes();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypesJson( json ), QC_STATUS_OK );
+    std::vector<QCMemoryAllocator_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedAllocatorTypes( types ), QC_STATUS_OK );
 
     // Count commas in JSON (should be types.size() - 1)
     size_t commaCount = std::count( json.begin(), json.end(), ',' );
@@ -288,14 +300,16 @@ TEST( QCMemoryFactory, GetSupportedAllocatorTypesJson_MatchesVector )
 // ---------------------------------------------------------------------------
 TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypesJson_NotEmpty )
 {
-    std::string json = QCMemoryFactory::GetSupportedBufferDescriptorTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedBufferDescriptorTypesJson( json ), QC_STATUS_OK );
 
     ASSERT_FALSE( json.empty() );
 }
 
 TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypesJson_ValidFormat )
 {
-    std::string json = QCMemoryFactory::GetSupportedBufferDescriptorTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedBufferDescriptorTypesJson( json ), QC_STATUS_OK );
 
     // Should start with { and end with }
     ASSERT_EQ( '{', json.front() );
@@ -304,7 +318,8 @@ TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypesJson_ValidFormat )
 
 TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypesJson_ContainsBasicTypes )
 {
-    std::string json = QCMemoryFactory::GetSupportedBufferDescriptorTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedBufferDescriptorTypesJson( json ), QC_STATUS_OK );
 
     ASSERT_NE( std::string::npos, json.find( "QC_BUFFER_TYPE_RAW" ) );
     ASSERT_NE( std::string::npos, json.find( "QC_BUFFER_TYPE_IMAGE" ) );
@@ -314,8 +329,10 @@ TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypesJson_ContainsBasicTypes 
 
 TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypesJson_MatchesVector )
 {
-    std::string json = QCMemoryFactory::GetSupportedBufferDescriptorTypesJson();
-    const std::vector<QCBufferType_e> &types = QCMemoryFactory::GetSupportedBufferDescriptorTypes();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedBufferDescriptorTypesJson( json ), QC_STATUS_OK );
+    std::vector<QCBufferType_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedBufferDescriptorTypes( types ), QC_STATUS_OK );
 
     // Count commas in JSON (should be types.size() - 1)
     size_t commaCount = std::count( json.begin(), json.end(), ',' );
@@ -327,14 +344,16 @@ TEST( QCMemoryFactory, GetSupportedBufferDescriptorTypesJson_MatchesVector )
 // ---------------------------------------------------------------------------
 TEST( QCMemoryFactory, GetSupportedMemoryManagerTypesJson_NotEmpty )
 {
-    std::string json = QCMemoryFactory::GetSupportedMemoryManagerTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedMemoryManagerTypesJson( json ), QC_STATUS_OK );
 
     ASSERT_FALSE( json.empty() );
 }
 
 TEST( QCMemoryFactory, GetSupportedMemoryManagerTypesJson_ValidFormat )
 {
-    std::string json = QCMemoryFactory::GetSupportedMemoryManagerTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedMemoryManagerTypesJson( json ), QC_STATUS_OK );
 
     // Should start with { and end with }
     ASSERT_EQ( '{', json.front() );
@@ -343,16 +362,18 @@ TEST( QCMemoryFactory, GetSupportedMemoryManagerTypesJson_ValidFormat )
 
 TEST( QCMemoryFactory, GetSupportedMemoryManagerTypesJson_ContainsLocal )
 {
-    std::string json = QCMemoryFactory::GetSupportedMemoryManagerTypesJson();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedMemoryManagerTypesJson( json ), QC_STATUS_OK );
 
     ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_MANAGER_LOCAL" ) );
 }
 
 TEST( QCMemoryFactory, GetSupportedMemoryManagerTypesJson_MatchesVector )
 {
-    std::string json = QCMemoryFactory::GetSupportedMemoryManagerTypesJson();
-    const std::vector<QCMemoryManagerType_e> &types =
-            QCMemoryFactory::GetSupportedMemoryManagerTypes();
+    std::string json;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedMemoryManagerTypesJson( json ), QC_STATUS_OK );
+    std::vector<QCMemoryManagerType_e> types;
+    ASSERT_EQ( QCMemoryFactory::GetSupportedMemoryManagerTypes( types ), QC_STATUS_OK );
 
     // Count commas in JSON (should be types.size() - 1)
     size_t commaCount = std::count( json.begin(), json.end(), ',' );

@@ -100,9 +100,9 @@ VideoFrameDescriptor_t contains all the parameters of input and output video fra
 | Component | Value   | Description                  |
 |-----------|---------|------------------------------|
 | MAJOR     | 2       | Major architecture changes   |
-| MINOR     | 0       | Backward-compatible features |
+| MINOR     | 1       | Backward-compatible features |
 | PATCH     | 0       | Bug fixes                    |
-| HEX       | 0x20000 | Combined version identifier  |
+| HEX       | 0x20100 | Combined version identifier  |
 
 All API compatibility guarantees are tied to this version number
 
@@ -265,7 +265,10 @@ struct VidcEncoderData_t {
 
 #### 4.5.1.2 Method: `GetOptions()`
 
-**Returns**: JSON schema string for valid configurations
+**Prototype**: `QCStatus_e GetOptions( std::string &options )`
+
+**Returns**: `QC_STATUS_OK` with `options` set to the JSON schema string for valid configurations
+(an error code on failure).
 
 ```json
 {
@@ -431,7 +434,8 @@ void MyCallback(QCFrameDescriptorNodeIfs& result) {
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
 
     QCNodeConfigIfs &cfgIfs = pNodeVide->GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
 
@@ -577,7 +581,8 @@ void MyCallback(QCFrameDescriptorNodeIfs& result) {
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
 
     QCNodeConfigIfs &cfgIfs = pNodeVide->GetConfigurationIfs();
-    const std::string &options = cfgIfs.GetOptions();
+    std::string options;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( options ) );
 
     ASSERT_EQ( QC_OBJECT_STATE_READY, pNodeVide->GetState() );
 

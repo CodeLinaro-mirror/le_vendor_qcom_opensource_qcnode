@@ -16,6 +16,8 @@ typedef QCarCamRet_e ( *QCarCamRegisterEventCallbackFn_t )(
 typedef QCarCamRet_e ( *QCarCamSetParamFn_t )( const QCarCamHndl_t hndl,
                                                const QCarCamParamType_e param, const void *pValue,
                                                const uint32_t size );
+typedef QCarCamRet_e ( *QCarCamSetParamExFn_t )( const QCarCamHndl_t hndl,
+                                                 const QCarCamSetParamEx_t *pParam );
 typedef QCarCamRet_e ( *QCarCamReserveFn_t )( const QCarCamHndl_t hndl );
 typedef QCarCamRet_e ( *QCarCamReleaseFn_t )( const QCarCamHndl_t hndl );
 typedef QCarCamRet_e ( *QCarCamStartFn_t )( const QCarCamHndl_t hndl );
@@ -41,6 +43,7 @@ static QCarCamOpenFn_t s_QCarCamOpenFn = nullptr;
 static QCarCamCloseFn_t s_QCarCamCloseFn = nullptr;
 static QCarCamRegisterEventCallbackFn_t s_QCarCamRegisterEventCallbackFn = nullptr;
 static QCarCamSetParamFn_t s_QCarCamSetParamFn = nullptr;
+static QCarCamSetParamExFn_t s_QCarCamSetParamExFn = nullptr;
 static QCarCamReserveFn_t s_QCarCamReserveFn = nullptr;
 static QCarCamReleaseFn_t s_QCarCamReleaseFn = nullptr;
 static QCarCamStartFn_t s_QCarCamStartFn = nullptr;
@@ -83,6 +86,7 @@ public:
         LOAD_SYMBOL( s_QCarCamRegisterEventCallbackFn, QCarCamRegisterEventCallback,
                      QCarCamRegisterEventCallbackFn_t );
         LOAD_SYMBOL( s_QCarCamSetParamFn, QCarCamSetParam, QCarCamSetParamFn_t );
+        LOAD_SYMBOL( s_QCarCamSetParamExFn, QCarCamSetParamEx, QCarCamSetParamExFn_t );
         LOAD_SYMBOL( s_QCarCamReserveFn, QCarCamReserve, QCarCamReserveFn_t );
         LOAD_SYMBOL( s_QCarCamReleaseFn, QCarCamRelease, QCarCamReleaseFn_t );
         LOAD_SYMBOL( s_QCarCamStartFn, QCarCamStart, QCarCamStartFn_t );
@@ -108,6 +112,7 @@ static QCXClientLoader s_qcxclientLoader;
 
 static MockControlParam_t s_MockParams[MOCK_API_MAX];
 static bool s_isErrorPassive = false;
+static bool s_isFullMock = false;
 
 static QCarCamEventCallback_t s_registeredCallback = nullptr;
 static void *s_registeredPrivateData = nullptr;
@@ -119,7 +124,38 @@ extern "C" void MockApi_Control( MockAPI_ID_e apiId, MockAPI_Action_e action, vo
     {
         s_MockParams[apiId].action = action;
         s_MockParams[apiId].param = param;
+        // Reset the per-slot call counter every time the slot is re-armed so
+        // RETURN_AT_CALL_N's targetCallIdx is measured from this point on.
+        s_MockParams[apiId].callCount = 0;
     }
+}
+
+// Apply MOCK_CONTROL_API_RETURN_AT_CALL_N for the given API slot. When the
+// slot is armed for this action, this fully owns the slot: it increments the
+// per-call counter, injects the configured return value once the target call
+// index is reached (and self-consumes), and otherwise leaves the slot armed
+// for the next call. Returns true iff the slot is armed for RETURN_AT_CALL_N
+// (in which case the caller must `return ret` immediately and NOT fall through
+// to the legacy one-shot block, which would prematurely disarm the slot).
+static bool HandleReturnAtCallN( MockAPI_ID_e apiId, QCarCamRet_e &ret )
+{
+    MockControlParam_t &slot = s_MockParams[apiId];
+    if ( MOCK_CONTROL_API_RETURN_AT_CALL_N != slot.action )
+    {
+        return false;
+    }
+    if ( nullptr != slot.param )
+    {
+        MockReturnAtCall_t *cfg = (MockReturnAtCall_t *) slot.param;
+        uint32_t hitIdx = slot.callCount;
+        slot.callCount++;
+        if ( hitIdx == cfg->targetCallIdx )
+        {
+            ret = cfg->ret;
+            slot.action = MOCK_CONTROL_API_NONE;
+        }
+    }
+    return true;
 }
 
 extern "C" void MockApi_SetErrorPassive( bool active )
@@ -127,12 +163,21 @@ extern "C" void MockApi_SetErrorPassive( bool active )
     s_isErrorPassive = active;
 }
 
+extern "C" void MockApi_SetFullMock( bool active )
+{
+    s_isFullMock = active;
+}
+
 // QCarCamInitialize
 QCarCamRet_e QCarCamInitialize( const QCarCamInit_t *pInitParams )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
     (void) s_qcxclientLoader;
-    if ( nullptr != s_QCarCamInitializeFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamInitializeFn )
     {
         ret = s_QCarCamInitializeFn( pInitParams );
     }
@@ -141,7 +186,6 @@ QCarCamRet_e QCarCamInitialize( const QCarCamInit_t *pInitParams )
         std::cerr << "QCarCamInitialize function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -162,7 +206,11 @@ QCarCamRet_e QCarCamInitialize( const QCarCamInit_t *pInitParams )
 QCarCamRet_e QCarCamUninitialize( void )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamUninitializeFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamUninitializeFn )
     {
         ret = s_QCarCamUninitializeFn();
     }
@@ -171,7 +219,6 @@ QCarCamRet_e QCarCamUninitialize( void )
         std::cerr << "QCarCamUninitialize function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -192,7 +239,18 @@ QCarCamRet_e QCarCamUninitialize( void )
 QCarCamRet_e QCarCamQueryInputs( QCarCamInput_t *pInputs, const uint32_t size, uint32_t *pRetSize )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamQueryInputsFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+        // Default inputCount = 1 so the constructor's retry loop exits and
+        // the array-fill call has somewhere to land. A test that wants a
+        // different count (or zero) overrides this via OUT_PARAM2 below.
+        if ( nullptr != pRetSize )
+        {
+            *pRetSize = 1;
+        }
+    }
+    else if ( nullptr != s_QCarCamQueryInputsFn )
     {
         ret = s_QCarCamQueryInputsFn( pInputs, size, pRetSize );
     }
@@ -201,7 +259,6 @@ QCarCamRet_e QCarCamQueryInputs( QCarCamInput_t *pInputs, const uint32_t size, u
         std::cerr << "QCarCamQueryInputs function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -236,8 +293,8 @@ QCarCamRet_e QCarCamQueryInputs( QCarCamInput_t *pInputs, const uint32_t size, u
             default:
                 break;
         }
-        if ( false == s_isErrorPassive )
-        { /* don't consume it for error passive mode */
+        if ( false == s_isErrorPassive && false == s_isFullMock )
+        { /* don't consume it for error passive / full-mock mode */
             s_MockParams[MOCK_API_QCARCAM_QUERY_INPUTS].action = MOCK_CONTROL_API_NONE;
         }
     }
@@ -248,7 +305,11 @@ QCarCamRet_e QCarCamQueryInputs( QCarCamInput_t *pInputs, const uint32_t size, u
 QCarCamRet_e QCarCamQueryInputModes( const uint32_t inputId, QCarCamInputModes_t *pInputModes )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamQueryInputModesFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamQueryInputModesFn )
     {
         ret = s_QCarCamQueryInputModesFn( inputId, pInputModes );
     }
@@ -257,7 +318,6 @@ QCarCamRet_e QCarCamQueryInputModes( const uint32_t inputId, QCarCamInputModes_t
         std::cerr << "QCarCamQueryInputModes function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -282,8 +342,8 @@ QCarCamRet_e QCarCamQueryInputModes( const uint32_t inputId, QCarCamInputModes_t
             default:
                 break;
         }
-        if ( false == s_isErrorPassive )
-        { /* don't consume it for error passive mode */
+        if ( false == s_isErrorPassive && false == s_isFullMock )
+        { /* don't consume it for error passive / full-mock mode */
             s_MockParams[MOCK_API_QCARCAM_QUERY_INPUT_MODES].action = MOCK_CONTROL_API_NONE;
         }
     }
@@ -294,7 +354,20 @@ QCarCamRet_e QCarCamQueryInputModes( const uint32_t inputId, QCarCamInputModes_t
 QCarCamRet_e QCarCamOpen( const QCarCamOpen_t *pOpenParams, QCarCamHndl_t *pHndl )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamOpenFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+        // Synthetic non-INVALID handle so the caller's Initialize flow doesn't
+        // bail at the QCARCAM_HNDL_INVALID gate. A test that wants a different
+        // handle (or to suppress this) can still arm MOCK_CONTROL_API_OUT_PARAM1
+        // explicitly — it overrides this default below.
+        if ( nullptr != pHndl )
+        {
+            static const QCarCamHndl_t s_fullMockHndl = (QCarCamHndl_t) 0x1;
+            *pHndl = s_fullMockHndl;
+        }
+    }
+    else if ( nullptr != s_QCarCamOpenFn )
     {
         ret = s_QCarCamOpenFn( pOpenParams, pHndl );
     }
@@ -303,7 +376,6 @@ QCarCamRet_e QCarCamOpen( const QCarCamOpen_t *pOpenParams, QCarCamHndl_t *pHndl
         std::cerr << "QCarCamOpen function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -331,7 +403,11 @@ QCarCamRet_e QCarCamOpen( const QCarCamOpen_t *pOpenParams, QCarCamHndl_t *pHndl
 QCarCamRet_e QCarCamClose( const QCarCamHndl_t hndl )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamCloseFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamCloseFn )
     {
         ret = s_QCarCamCloseFn( hndl );
     }
@@ -340,7 +416,6 @@ QCarCamRet_e QCarCamClose( const QCarCamHndl_t hndl )
         std::cerr << "QCarCamClose function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -363,7 +438,11 @@ QCarCamRet_e QCarCamRegisterEventCallback( const QCarCamHndl_t hndl,
                                            void *pPrivateData )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamRegisterEventCallbackFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamRegisterEventCallbackFn )
     {
         ret = s_QCarCamRegisterEventCallbackFn( hndl, callbackFunc, pPrivateData );
     }
@@ -372,7 +451,6 @@ QCarCamRet_e QCarCamRegisterEventCallback( const QCarCamHndl_t hndl,
         std::cerr << "QCarCamRegisterEventCallback function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -414,7 +492,11 @@ QCarCamRet_e QCarCamSetParam( const QCarCamHndl_t hndl, const QCarCamParamType_e
                               const void *pValue, const uint32_t size )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamSetParamFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamSetParamFn )
     {
         ret = s_QCarCamSetParamFn( hndl, param, pValue, size );
     }
@@ -423,7 +505,6 @@ QCarCamRet_e QCarCamSetParam( const QCarCamHndl_t hndl, const QCarCamParamType_e
         std::cerr << "QCarCamSetParam function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -446,30 +527,58 @@ QCarCamRet_e QCarCamSetParam( const QCarCamHndl_t hndl, const QCarCamParamType_e
             break;
         case QCARCAM_STREAM_CONFIG_PARAM_ISP_USECASE:
             if ( MOCK_CONTROL_API_NONE !=
-                 s_MockParams[QCARCAM_STREAM_CONFIG_PARAM_ISP_USECASE].action )
+                 s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_USECASE].action )
             {
-                if ( s_MockParams[QCARCAM_STREAM_CONFIG_PARAM_ISP_USECASE].action ==
+                if ( s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_USECASE].action ==
                      MOCK_CONTROL_API_RETURN )
                 {
-                    ret = *(QCarCamRet_e *) s_MockParams[QCARCAM_STREAM_CONFIG_PARAM_ISP_USECASE]
+                    ret = *(QCarCamRet_e *) s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_USECASE]
                                    .param;
                 }
-                s_MockParams[QCARCAM_STREAM_CONFIG_PARAM_ISP_USECASE].action =
-                        MOCK_CONTROL_API_NONE;
+                s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_USECASE].action = MOCK_CONTROL_API_NONE;
             }
             break;
         case QCARCAM_STREAM_CONFIG_PARAM_FRAME_DROP_CONTROL:
             if ( MOCK_CONTROL_API_NONE !=
-                 s_MockParams[QCARCAM_STREAM_CONFIG_PARAM_FRAME_DROP_CONTROL].action )
+                 s_MockParams[MOCK_API_QCARCAM_SET_PARAM_FRAME_DROP_CONTROL].action )
             {
-                if ( s_MockParams[QCARCAM_STREAM_CONFIG_PARAM_FRAME_DROP_CONTROL].action ==
+                if ( s_MockParams[MOCK_API_QCARCAM_SET_PARAM_FRAME_DROP_CONTROL].action ==
                      MOCK_CONTROL_API_RETURN )
                 {
                     ret = *(QCarCamRet_e *)
-                                   s_MockParams[QCARCAM_STREAM_CONFIG_PARAM_FRAME_DROP_CONTROL]
+                                   s_MockParams[MOCK_API_QCARCAM_SET_PARAM_FRAME_DROP_CONTROL]
                                            .param;
                 }
-                s_MockParams[QCARCAM_STREAM_CONFIG_PARAM_FRAME_DROP_CONTROL].action =
+                s_MockParams[MOCK_API_QCARCAM_SET_PARAM_FRAME_DROP_CONTROL].action =
+                        MOCK_CONTROL_API_NONE;
+            }
+            break;
+        case QCARCAM_STREAM_CONFIG_PARAM_STANDALONE_INJECTION_CONFIG:
+            if ( MOCK_CONTROL_API_NONE !=
+                 s_MockParams[MOCK_API_QCARCAM_SET_PARAM_STANDALONE_INJECTION_CONFIG].action )
+            {
+                if ( s_MockParams[MOCK_API_QCARCAM_SET_PARAM_STANDALONE_INJECTION_CONFIG].action ==
+                     MOCK_CONTROL_API_RETURN )
+                {
+                    ret = *(QCarCamRet_e *) s_MockParams
+                                   [MOCK_API_QCARCAM_SET_PARAM_STANDALONE_INJECTION_CONFIG]
+                                           .param;
+                }
+                s_MockParams[MOCK_API_QCARCAM_SET_PARAM_STANDALONE_INJECTION_CONFIG].action =
+                        MOCK_CONTROL_API_NONE;
+            }
+            break;
+        case QCARCAM_STREAM_CONFIG_PARAM_ISP_SETTINGS:
+            if ( MOCK_CONTROL_API_NONE !=
+                 s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_SETTINGS].action )
+            {
+                if ( s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_SETTINGS].action ==
+                     MOCK_CONTROL_API_RETURN )
+                {
+                    ret = *(QCarCamRet_e *) s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_SETTINGS]
+                                   .param;
+                }
+                s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_SETTINGS].action =
                         MOCK_CONTROL_API_NONE;
             }
             break;
@@ -480,11 +589,64 @@ QCarCamRet_e QCarCamSetParam( const QCarCamHndl_t hndl, const QCarCamParamType_e
     return ret;
 }
 
+// QCarCamSetParamEx
+QCarCamRet_e QCarCamSetParamEx( const QCarCamHndl_t hndl, const QCarCamSetParamEx_t *pParam )
+{
+    QCarCamRet_e ret = QCARCAM_RET_FAILED;
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamSetParamExFn )
+    {
+        ret = s_QCarCamSetParamExFn( hndl, pParam );
+    }
+    else
+    {
+        std::cerr << "QCarCamSetParamEx function not loaded." << std::endl;
+        ret = QCARCAM_RET_FAILED;
+    }
+    if ( s_isErrorPassive )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+
+    if ( nullptr != pParam )
+    {
+        switch ( pParam->param )
+        {
+            case QCARCAM_STREAM_CONFIG_PARAM_BATCH_MODE:
+                if ( MOCK_CONTROL_API_NONE !=
+                     s_MockParams[MOCK_API_QCARCAM_SET_PARAM_EX_BATCH_MODE].action )
+                {
+                    if ( s_MockParams[MOCK_API_QCARCAM_SET_PARAM_EX_BATCH_MODE].action ==
+                         MOCK_CONTROL_API_RETURN )
+                    {
+                        ret = *(QCarCamRet_e *)
+                                       s_MockParams[MOCK_API_QCARCAM_SET_PARAM_EX_BATCH_MODE]
+                                               .param;
+                    }
+                    s_MockParams[MOCK_API_QCARCAM_SET_PARAM_EX_BATCH_MODE].action =
+                            MOCK_CONTROL_API_NONE;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    return ret;
+}
+
 // QCarCamReserve
 QCarCamRet_e QCarCamReserve( const QCarCamHndl_t hndl )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamReserveFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamReserveFn )
     {
         ret = s_QCarCamReserveFn( hndl );
     }
@@ -493,7 +655,6 @@ QCarCamRet_e QCarCamReserve( const QCarCamHndl_t hndl )
         std::cerr << "QCarCamReserve function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -514,7 +675,11 @@ QCarCamRet_e QCarCamReserve( const QCarCamHndl_t hndl )
 QCarCamRet_e QCarCamRelease( const QCarCamHndl_t hndl )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamReleaseFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamReleaseFn )
     {
         ret = s_QCarCamReleaseFn( hndl );
     }
@@ -523,7 +688,6 @@ QCarCamRet_e QCarCamRelease( const QCarCamHndl_t hndl )
         std::cerr << "QCarCamRelease function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -544,7 +708,11 @@ QCarCamRet_e QCarCamRelease( const QCarCamHndl_t hndl )
 QCarCamRet_e QCarCamStart( const QCarCamHndl_t hndl )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamStartFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamStartFn )
     {
         ret = s_QCarCamStartFn( hndl );
     }
@@ -553,7 +721,6 @@ QCarCamRet_e QCarCamStart( const QCarCamHndl_t hndl )
         std::cerr << "QCarCamStart function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -574,7 +741,11 @@ QCarCamRet_e QCarCamStart( const QCarCamHndl_t hndl )
 QCarCamRet_e QCarCamStop( const QCarCamHndl_t hndl )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamStopFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamStopFn )
     {
         ret = s_QCarCamStopFn( hndl );
     }
@@ -583,7 +754,6 @@ QCarCamRet_e QCarCamStop( const QCarCamHndl_t hndl )
         std::cerr << "QCarCamStop function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -604,7 +774,11 @@ QCarCamRet_e QCarCamStop( const QCarCamHndl_t hndl )
 QCarCamRet_e QCarCamSetBuffers( const QCarCamHndl_t hndl, const QCarCamBufferList_t *pBuffers )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamSetBuffersFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamSetBuffersFn )
     {
         ret = s_QCarCamSetBuffersFn( hndl, pBuffers );
     }
@@ -613,10 +787,14 @@ QCarCamRet_e QCarCamSetBuffers( const QCarCamHndl_t hndl, const QCarCamBufferLis
         std::cerr << "QCarCamSetBuffers function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
+    }
+
+    if ( HandleReturnAtCallN( MOCK_API_QCARCAM_SET_BUFFERS, ret ) )
+    {
+        return ret;
     }
 
     if ( MOCK_CONTROL_API_NONE != s_MockParams[MOCK_API_QCARCAM_SET_BUFFERS].action )
@@ -634,7 +812,11 @@ QCarCamRet_e QCarCamSetBuffers( const QCarCamHndl_t hndl, const QCarCamBufferLis
 QCarCamRet_e QCarCamGetBuffers( const QCarCamHndl_t hndl, QCarCamBufferList_t *pBuffers )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamGetBuffersFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamGetBuffersFn )
     {
         ret = s_QCarCamGetBuffersFn( hndl, pBuffers );
     }
@@ -643,10 +825,14 @@ QCarCamRet_e QCarCamGetBuffers( const QCarCamHndl_t hndl, QCarCamBufferList_t *p
         std::cerr << "QCarCamGetBuffers function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
+    }
+
+    if ( HandleReturnAtCallN( MOCK_API_QCARCAM_GET_BUFFERS, ret ) )
+    {
+        return ret;
     }
 
     if ( MOCK_CONTROL_API_NONE != s_MockParams[MOCK_API_QCARCAM_GET_BUFFERS].action )
@@ -700,7 +886,11 @@ QCarCamRet_e QCarCamGetBuffers( const QCarCamHndl_t hndl, QCarCamBufferList_t *p
 QCarCamRet_e QCarCamSubmitRequest( const QCarCamHndl_t hndl, const QCarCamRequest_t *pRequest )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamSubmitRequestFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamSubmitRequestFn )
     {
         ret = s_QCarCamSubmitRequestFn( hndl, pRequest );
     }
@@ -709,10 +899,14 @@ QCarCamRet_e QCarCamSubmitRequest( const QCarCamHndl_t hndl, const QCarCamReques
         std::cerr << "QCarCamSubmitRequest function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
+    }
+
+    if ( HandleReturnAtCallN( MOCK_API_QCARCAM_SUBMIT_REQUEST, ret ) )
+    {
+        return ret;
     }
 
     if ( MOCK_CONTROL_API_NONE != s_MockParams[MOCK_API_QCARCAM_SUBMIT_REQUEST].action )
@@ -731,7 +925,11 @@ QCarCamRet_e QCarCamGetFrame( const QCarCamHndl_t hndl, QCarCamFrameInfo_t *pFra
                               const uint64_t timeout, const uint32_t flags )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamGetFrameFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamGetFrameFn )
     {
         ret = s_QCarCamGetFrameFn( hndl, pFrameInfo, timeout, flags );
     }
@@ -740,7 +938,6 @@ QCarCamRet_e QCarCamGetFrame( const QCarCamHndl_t hndl, QCarCamFrameInfo_t *pFra
         std::cerr << "QCarCamGetFrame function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
@@ -771,7 +968,11 @@ QCarCamRet_e QCarCamReleaseFrame( const QCarCamHndl_t hndl, const uint32_t id,
                                   const uint32_t bufferIndex )
 {
     QCarCamRet_e ret = QCARCAM_RET_FAILED;
-    if ( nullptr != s_QCarCamReleaseFrameFn )
+    if ( s_isFullMock )
+    {
+        ret = QCARCAM_RET_OK;
+    }
+    else if ( nullptr != s_QCarCamReleaseFrameFn )
     {
         ret = s_QCarCamReleaseFrameFn( hndl, id, bufferIndex );
     }
@@ -780,7 +981,6 @@ QCarCamRet_e QCarCamReleaseFrame( const QCarCamHndl_t hndl, const uint32_t id,
         std::cerr << "QCarCamReleaseFrame function not loaded." << std::endl;
         ret = QCARCAM_RET_FAILED;
     }
-
     if ( s_isErrorPassive )
     {
         ret = QCARCAM_RET_OK;
