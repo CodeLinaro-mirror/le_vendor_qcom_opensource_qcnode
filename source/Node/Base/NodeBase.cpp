@@ -68,6 +68,11 @@ QCStatus_e NodeConfigBase::VerifyAndSet( const std::string config, std::string &
     return status;
 }
 
+QCStatus_e NodeConfigBase::GetOptions( std::string &/*options*/ )
+{
+    return QC_STATUS_UNSUPPORTED;
+}
+
 QCStatus_e NodeBase::Init( QCNodeID_t nodeId, Logger_Level_e level )
 {
     QCStatus_e status = QC_STATUS_OK;

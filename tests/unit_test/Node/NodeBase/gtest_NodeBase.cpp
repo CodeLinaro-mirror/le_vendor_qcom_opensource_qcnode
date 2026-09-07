@@ -169,6 +169,49 @@ TEST( NodeBase, Sanity_NodeConfigBase )
     }
 }
 
+// Config that does not override GetOptions(), so calls reach
+// NodeConfigBase::GetOptions().
+class NodeConfigDefaultTest : public NodeConfigBase
+{
+public:
+    NodeConfigDefaultTest( Logger &logger ) : NodeConfigBase( logger ){};
+    ~NodeConfigDefaultTest() {}
+    const QCNodeConfigBase_t &Get() { return m_configBase; };
+
+private:
+    QCNodeConfigBase_t m_configBase;
+};
+
+TEST( NodeBase, NodeConfigBase_GetOptions_DefaultUnsupported )
+{
+    Logger logger;
+    NodeConfigDefaultTest config( logger );
+    std::string options;
+
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, config.GetOptions( options ) );
+}
+
+TEST( NodeBase, NodeConfigBase_GetOptions_DefaultViaInterface )
+{
+    Logger logger;
+    NodeConfigDefaultTest config( logger );
+    QCNodeConfigIfs &configIfs = config;
+    std::string options;
+
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, configIfs.GetOptions( options ) );
+}
+
+TEST( NodeBase, NodeConfigBase_GetOptions_OverrideTakesPrecedence )
+{
+    Logger logger;
+    NodeConfigTest config( logger );
+    QCNodeConfigIfs &configIfs = config;
+    std::string options = "unchanged";
+
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( options ) );
+    ASSERT_EQ( "", options );
+}
+
 class MonitorTest : public QCNodeMonitoringIfs
 {
 public:
