@@ -1,14 +1,14 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-#include "QC/Node/NodeFrameDescriptorPool.hpp"
+#include "NodeFrameDescriptorPool.hpp"
 
 namespace QC
 {
-namespace Node
+namespace sample
 {
 
-NodeFrameDescriptor NodeFrameDescriptorPool::s_dummy( 1 );
+QC::Node::NodeFrameDescriptor NodeFrameDescriptorPool::s_dummy( 1 );
 
-}   // namespace Node
+}   // namespace sample
 }   // namespace QC

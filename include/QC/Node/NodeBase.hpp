@@ -26,7 +26,6 @@
 #include "QC/Node/Ifs/QCNodeIfs.hpp"
 #include "QC/Node/NodeConfigBase.hpp"
 #include "QC/Node/NodeFrameDescriptor.hpp"
-#include "QC/Node/NodeFrameDescriptorPool.hpp"
 
 namespace QC
 {

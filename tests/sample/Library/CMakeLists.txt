@@ -1,6 +1,7 @@
 
 add_subdirectory(BufferManager)
 add_subdirectory(FrameSync)
+add_subdirectory(NodeFrameDescriptorPool)
 add_subdirectory(SharedRing)
 add_subdirectory(TinyViz)
 add_subdirectory(Camera)

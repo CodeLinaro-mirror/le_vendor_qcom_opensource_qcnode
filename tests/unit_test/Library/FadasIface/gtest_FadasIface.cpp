@@ -3516,6 +3516,7 @@ TEST_F( FadasIfaceTest, RegisterTensor_FadasRegisterBufFail )
     FadasSrvTestable srv;
     srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
+    srv.DeregBuf(t.pBuf);
     FadasError_e fail = FADAS_ERROR_FAIL;
     MockApi_Control( MOCK_API_FADAS_REG_BUF, MOCK_CONTROL_RETURN, &fail );
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_IN );

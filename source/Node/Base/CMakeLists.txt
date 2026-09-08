@@ -4,7 +4,6 @@ set( NODEBASE_HEADERS
     ${HEADERS_DIR}/QC/Node/NodeBase.hpp
     ${HEADERS_DIR}/QC/Node/NodeConfigBase.hpp
     ${HEADERS_DIR}/QC/Node/NodeFrameDescriptor.hpp
-    ${HEADERS_DIR}/QC/Node/NodeFrameDescriptorPool.hpp
 )
 
 set( NODEBASE_IFS_HEADERS
@@ -15,7 +14,6 @@ set( NODEBASE_SOURCES
     NodeBase.cpp
     DataTree.cpp
     NodeFrameDescriptor.cpp
-    NodeFrameDescriptorPool.cpp
     QCNodeFactory.cpp
 )
 

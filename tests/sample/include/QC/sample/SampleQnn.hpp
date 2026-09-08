@@ -5,6 +5,7 @@
 #ifndef QC_SAMPLE_QNN_HPP
 #define QC_SAMPLE_QNN_HPP
 
+#include "NodeFrameDescriptorPool.hpp"
 #include "QC/Node/QNN.hpp"
 #include "QC/sample/SampleIF.hpp"
 
