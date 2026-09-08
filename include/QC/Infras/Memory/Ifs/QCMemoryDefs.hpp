@@ -6,6 +6,8 @@
 
 #include "QC/Common/QCDefs.hpp"
 
+#include <cstddef>
+
 namespace QC
 {
 namespace Memory
@@ -154,6 +156,13 @@ static const QCAlignment_t QC_MEMORY_HEAP_MINIMAL_ALLIGNMENT = 16;
  * This constant specifies the default memory alignment value.
  */
 static const QCAlignment_t QC_MEMORY_DEFAULT_ALLIGNMENT = 4 * 1024;
+
+/**
+ * @def QC_BUFFER_NAME_MAX_LEN
+ * @brief Maximum number of characters in a buffer descriptor name, excluding
+ * the terminating null. Bounds the inline storage of QCBufferDescriptorBase::name.
+ */
+static const std::size_t QC_BUFFER_NAME_MAX_LEN = 127u;
 
 /**
  * @def QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES

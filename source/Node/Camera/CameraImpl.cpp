@@ -7,6 +7,7 @@
 #include <thread>
 
 #include "CameraImpl.hpp"
+#include "QC/Node/NodeFrameDescriptor.hpp"
 
 namespace QC
 {
@@ -2239,7 +2240,7 @@ void CameraImpl::ReturnInvalidFrame( CameraFrameDescriptor_t &frame )
 void CameraImpl::FrameCallback( CameraFrameDescriptor_t *pFrame )
 {
     QCStatus_e ret = QC_STATUS_OK;
-    NodeFrameDescriptor frameDesc( 1 );
+    NodeFrameDescriptorFlat<1> frameDesc;
 
     if ( nullptr == m_callback )
     {
@@ -2276,7 +2277,7 @@ void CameraImpl::FrameCallback( CameraFrameDescriptor_t *pFrame )
 void CameraImpl::EventCallback( const uint32_t eventId, const QCarCamEventPayload_t *pPayLoad )
 {
     QCStatus_e ret = QC_STATUS_OK;
-    NodeFrameDescriptor frameDesc( 1 );
+    NodeFrameDescriptorFlat<1> frameDesc;
     QCBufferDescriptorBase_t eventDesc;
     QCarCamEventPayload_t payload;
 
@@ -2307,7 +2308,7 @@ void CameraImpl::EventCallback( const uint32_t eventId, const QCarCamEventPayloa
     if ( QC_STATUS_OK == ret )
     {
         payload = *pPayLoad;
-        eventDesc.name = "Camera Event";
+        (void) eventDesc.name.Assign( "Camera Event" );
         eventDesc.pBuf = &payload;
         eventDesc.size = sizeof( QCarCamEventPayload_t );
         frameDesc.SetBuffer( 0, eventDesc );

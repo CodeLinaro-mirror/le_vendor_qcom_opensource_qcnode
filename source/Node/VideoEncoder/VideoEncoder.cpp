@@ -5,7 +5,9 @@
 #include <unistd.h>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/Node/VideoEncoder.hpp"
+#include <cstdio>
 
 namespace QC
 {
@@ -811,7 +813,7 @@ void VideoEncoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 {
     if ( m_callback )
     {
-        NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID + 1 );
+        NodeFrameDescriptorFlat<QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID + 1> frameDesc;
         (void) frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID, inFrameDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_configIfs.Get().nodeId, QC_STATUS_OK, GetState() );
@@ -823,7 +825,7 @@ void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
 {
     if ( m_callback )
     {
-        NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID + 1 );
+        NodeFrameDescriptorFlat<QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID + 1> frameDesc;
         (void) frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, outFrameDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_configIfs.Get().nodeId, QC_STATUS_OK, GetState() );
@@ -837,13 +839,15 @@ void VideoEncoder::EventCallback( VideoEncoder_EventType_e eventId, void *pEvent
 
     if ( m_callback )
     {
-        NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_EVENT_BUFF_ID + 1 );
+        NodeFrameDescriptorFlat<QC_NODE_VIDEO_ENCODER_EVENT_BUFF_ID + 1> frameDesc;
 
         QCBufferDescriptorBase_t errDesc;
-        errDesc.name = std::to_string( eventId );
-        errDesc.pBuf = pEvent;
-        errDesc.size = sizeof( vidc_drv_msg_info_type );
-        frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, errDesc );
+        VideoEncoderErrorInfo_t errInfo = { eventId, pEvent, sizeof( vidc_drv_msg_info_type ) };
+
+        (void) errDesc.name.Assign( "ERROR" );
+        errDesc.pBuf = &errInfo;
+        errDesc.size = sizeof( errInfo );
+        (void) frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, errDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );
         m_callback( evtInfo );

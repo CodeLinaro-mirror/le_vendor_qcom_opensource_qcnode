@@ -4540,7 +4540,7 @@ TEST( Camera, EXCEPTION_Test_ProcessFrame_InvalidBufferType_Mock )
     // nor CameraMetaDataDescriptor -> dynamic_cast fails -> INVALID_BUF.
     NodeFrameDescriptor frameDesc( 1 );
     QC::Memory::QCBufferDescriptorBase_t baseDesc;
-    baseDesc.name = "Generic";
+    (void) baseDesc.name.Assign( "Generic" );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, baseDesc ) );
 
     QCStatus_e ret = camera.ProcessFrameDescriptor( frameDesc );
@@ -5340,7 +5340,7 @@ TEST( Camera, EXCEPTION_Test_ProcessFrame_BothCastsFail_Mock )
 
     NodeFrameDescriptor frameDesc( 1 );
     QC::Memory::QCBufferDescriptorBase_t baseDesc;
-    baseDesc.name = "Generic";
+    (void) baseDesc.name.Assign( "Generic" );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, baseDesc ) );
 
     QCStatus_e ret = camera.ProcessFrameDescriptor( frameDesc );

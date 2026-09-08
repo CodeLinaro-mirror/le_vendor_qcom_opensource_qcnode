@@ -104,7 +104,7 @@ SharedRing_BufferDesc::SharedRing_BufferDesc( const QCBufferDescriptorBase_t &ot
     const TensorDescriptor_t *pTensor = dynamic_cast<const TensorDescriptor_t *>( &other );
     const ImageDescriptor_t *pImage = dynamic_cast<const ImageDescriptor_t *>( &other );
 
-    (void) snprintf( this->name, sizeof( this->name ), "%s", other.name.c_str() );
+    (void) snprintf( this->name, sizeof( this->name ), "%s", other.name.CStr() );
     this->size = other.size;
     this->alignment = other.alignment;
     this->cache = other.cache;
@@ -165,46 +165,53 @@ QCStatus_e SharedRing_BufferDesc::Import( SharedBuffer_t &sharedBuffer )
     {
         if ( QC_BUFFER_TYPE_IMAGE == this->type )
         {
-            sharedBuffer.imgDesc.name = this->name;
-            sharedBuffer.imgDesc.pBuf = mapped.pBuf;
-            sharedBuffer.imgDesc.dmaHandle = mapped.dmaHandle;
-            sharedBuffer.imgDesc.size = this->size;
-            sharedBuffer.imgDesc.alignment = this->alignment;
-            sharedBuffer.imgDesc.cache = this->cache;
-            sharedBuffer.imgDesc.allocatorType = this->allocatorType;
-            sharedBuffer.imgDesc.type = this->type;
-            sharedBuffer.imgDesc.pid = this->pid;
-            sharedBuffer.imgDesc.validSize = this->validSize;
-            sharedBuffer.imgDesc.offset = this->offset;
-            sharedBuffer.imgDesc.format = this->format;
-            sharedBuffer.imgDesc.width = this->width;
-            sharedBuffer.imgDesc.height = this->height;
-            sharedBuffer.imgDesc.batchSize = this->batchSize;
-            std::copy( this->stride, this->stride + this->numPlanes, sharedBuffer.imgDesc.stride );
-            std::copy( this->actualHeight, this->actualHeight + this->numPlanes,
-                       sharedBuffer.imgDesc.actualHeight );
-            std::copy( this->planeBufSize, this->planeBufSize + this->numPlanes,
-                       sharedBuffer.imgDesc.planeBufSize );
-            sharedBuffer.imgDesc.numPlanes = this->numPlanes;
-            sharedBuffer.buffer = sharedBuffer.imgDesc;
+            status = sharedBuffer.imgDesc.name.Assign( this->name );
+            if ( QC_STATUS_OK == status )
+            {
+                sharedBuffer.imgDesc.pBuf = mapped.pBuf;
+                sharedBuffer.imgDesc.dmaHandle = mapped.dmaHandle;
+                sharedBuffer.imgDesc.size = this->size;
+                sharedBuffer.imgDesc.alignment = this->alignment;
+                sharedBuffer.imgDesc.cache = this->cache;
+                sharedBuffer.imgDesc.allocatorType = this->allocatorType;
+                sharedBuffer.imgDesc.type = this->type;
+                sharedBuffer.imgDesc.pid = this->pid;
+                sharedBuffer.imgDesc.validSize = this->validSize;
+                sharedBuffer.imgDesc.offset = this->offset;
+                sharedBuffer.imgDesc.format = this->format;
+                sharedBuffer.imgDesc.width = this->width;
+                sharedBuffer.imgDesc.height = this->height;
+                sharedBuffer.imgDesc.batchSize = this->batchSize;
+                std::copy( this->stride, this->stride + this->numPlanes,
+                           sharedBuffer.imgDesc.stride );
+                std::copy( this->actualHeight, this->actualHeight + this->numPlanes,
+                           sharedBuffer.imgDesc.actualHeight );
+                std::copy( this->planeBufSize, this->planeBufSize + this->numPlanes,
+                           sharedBuffer.imgDesc.planeBufSize );
+                sharedBuffer.imgDesc.numPlanes = this->numPlanes;
+                sharedBuffer.buffer = sharedBuffer.imgDesc;
+            }
         }
         else if ( QC_BUFFER_TYPE_TENSOR == this->type )
         {
-            sharedBuffer.tensorDesc.name = this->name;
-            sharedBuffer.tensorDesc.pBuf = mapped.pBuf;
-            sharedBuffer.tensorDesc.dmaHandle = mapped.dmaHandle;
-            sharedBuffer.tensorDesc.size = this->size;
-            sharedBuffer.tensorDesc.alignment = this->alignment;
-            sharedBuffer.tensorDesc.cache = this->cache;
-            sharedBuffer.tensorDesc.allocatorType = this->allocatorType;
-            sharedBuffer.tensorDesc.type = this->type;
-            sharedBuffer.tensorDesc.pid = this->pid;
-            sharedBuffer.tensorDesc.validSize = this->validSize;
-            sharedBuffer.tensorDesc.offset = this->offset;
-            sharedBuffer.tensorDesc.tensorType = this->tensorType;
-            std::copy( this->dims, this->dims + this->numDims, sharedBuffer.tensorDesc.dims );
-            sharedBuffer.tensorDesc.numDims = this->numDims;
-            sharedBuffer.buffer = sharedBuffer.tensorDesc;
+            status = sharedBuffer.tensorDesc.name.Assign( this->name );
+            if ( QC_STATUS_OK == status )
+            {
+                sharedBuffer.tensorDesc.pBuf = mapped.pBuf;
+                sharedBuffer.tensorDesc.dmaHandle = mapped.dmaHandle;
+                sharedBuffer.tensorDesc.size = this->size;
+                sharedBuffer.tensorDesc.alignment = this->alignment;
+                sharedBuffer.tensorDesc.cache = this->cache;
+                sharedBuffer.tensorDesc.allocatorType = this->allocatorType;
+                sharedBuffer.tensorDesc.type = this->type;
+                sharedBuffer.tensorDesc.pid = this->pid;
+                sharedBuffer.tensorDesc.validSize = this->validSize;
+                sharedBuffer.tensorDesc.offset = this->offset;
+                sharedBuffer.tensorDesc.tensorType = this->tensorType;
+                std::copy( this->dims, this->dims + this->numDims, sharedBuffer.tensorDesc.dims );
+                sharedBuffer.tensorDesc.numDims = this->numDims;
+                sharedBuffer.buffer = sharedBuffer.tensorDesc;
+            }
         }
         else
         {

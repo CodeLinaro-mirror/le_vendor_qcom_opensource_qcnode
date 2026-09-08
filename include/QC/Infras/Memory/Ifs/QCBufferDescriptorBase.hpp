@@ -5,6 +5,7 @@
 #define QC_BUFFER_DESCRIPTOR_BASE_HPP
 
 #include "QC/Common/QCDefs.hpp"
+#include "QC/Common/QCString.hpp"
 #include "QC/Infras/Memory/Ifs/QCMemoryDefs.hpp"
 #include <string>
 
@@ -95,16 +96,19 @@ public:
             result = allocatorType < other.allocatorType;
         }
         else
-        {}
+        {
+        }
         return result;
     }
 
     /**
      * @var name
      * @brief The name of the buffer.
-     * This string specifies the name of the buffer, which can be used for identification
-     * and debugging purposes. */
-    std::string name;
+     * A fixed-capacity string (QC_BUFFER_NAME_MAX_LEN characters, see
+     * QCMemoryDefs.hpp) used for identification and debugging purposes.
+     * `name = "..."` assigns silently; call Assign() instead to check the
+     * returned QCStatus_e, and CStr() to read. */
+    QCString<QC_BUFFER_NAME_MAX_LEN> name;
 
     /**
      * @var pBuf

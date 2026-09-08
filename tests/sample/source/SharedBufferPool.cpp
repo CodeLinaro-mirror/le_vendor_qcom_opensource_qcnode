@@ -111,7 +111,8 @@ QCStatus_e SharedBufferPool::Init( std::string name, QCNodeID_t nodeId, Logger_L
 
         QC_DEBUG( "%s buffer[%u] allocated with size=%u data=%p handle=%llu ret=%d", m_name.c_str(),
                   idx, bufferDesc.size, bufferDesc.pBuf, bufferDesc.dmaHandle, ret );
-        m_queue[idx].sharedBuffer.bufferDesc.name = name + "." + std::to_string( idx );
+        (void) m_queue[idx].sharedBuffer.bufferDesc.name.Assign(
+                ( name + "." + std::to_string( idx ) ).c_str() );
         m_queue[idx].sharedBuffer.buffer = m_queue[idx].sharedBuffer.bufferDesc;
     }
 
@@ -139,7 +140,8 @@ QCStatus_e SharedBufferPool::Init( std::string name, QCNodeID_t nodeId, Logger_L
         QC_DEBUG( "%s image[%u] %ux%u %d allocated with size=%u data=%p handle=%llu ret=%d",
                   m_name.c_str(), idx, width, height, format, imgDesc.size, imgDesc.pBuf,
                   imgDesc.dmaHandle, ret );
-        m_queue[idx].sharedBuffer.imgDesc.name = name + "." + std::to_string( idx );
+        (void) m_queue[idx].sharedBuffer.imgDesc.name.Assign(
+                ( name + "." + std::to_string( idx ) ).c_str() );
         m_queue[idx].sharedBuffer.buffer = m_queue[idx].sharedBuffer.imgDesc;
     }
 
@@ -168,7 +170,8 @@ QCStatus_e SharedBufferPool::Init( std::string name, QCNodeID_t nodeId, Logger_L
         QC_DEBUG( "%s image[%u] %u %ux%u %d allocated with size=%u data=%p handle=%llu ret=%d",
                   m_name.c_str(), idx, batchSize, width, height, format, imgDesc.size, imgDesc.pBuf,
                   imgDesc.dmaHandle, ret );
-        m_queue[idx].sharedBuffer.imgDesc.name = name + "." + std::to_string( idx );
+        (void) m_queue[idx].sharedBuffer.imgDesc.name.Assign(
+                ( name + "." + std::to_string( idx ) ).c_str() );
         m_queue[idx].sharedBuffer.buffer = m_queue[idx].sharedBuffer.imgDesc;
     }
 
@@ -193,7 +196,8 @@ QCStatus_e SharedBufferPool::Init( std::string name, QCNodeID_t nodeId, Logger_L
         QC_DEBUG( "%s image[%u] %u %ux%u %d allocated with size=%u data=%p handle=%llu ret=%d",
                   m_name.c_str(), idx, imgProp.batchSize, imgProp.width, imgProp.height,
                   imgProp.format, imgDesc.size, imgDesc.pBuf, imgDesc.dmaHandle, ret );
-        m_queue[idx].sharedBuffer.imgDesc.name = name + "." + std::to_string( idx );
+        (void) m_queue[idx].sharedBuffer.imgDesc.name.Assign(
+                ( name + "." + std::to_string( idx ) ).c_str() );
         m_queue[idx].sharedBuffer.buffer = m_queue[idx].sharedBuffer.imgDesc;
     }
 
@@ -218,7 +222,8 @@ QCStatus_e SharedBufferPool::Init( std::string name, QCNodeID_t nodeId, Logger_L
         QC_DEBUG( "%s tensor[%u] allocated with size=%u data=%p handle=%llu ret=%d\n",
                   m_name.c_str(), idx, tensorDesc.size, tensorDesc.pBuf, tensorDesc.dmaHandle,
                   ret );
-        m_queue[idx].sharedBuffer.tensorDesc.name = name + "." + std::to_string( idx );
+        (void) m_queue[idx].sharedBuffer.tensorDesc.name.Assign(
+                ( name + "." + std::to_string( idx ) ).c_str() );
         m_queue[idx].sharedBuffer.buffer = m_queue[idx].sharedBuffer.tensorDesc;
     }
 

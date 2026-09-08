@@ -987,9 +987,17 @@ QCStatus_e DepthFromStereo::RegisterMemory( const BufferDescriptor_t &bufferDesc
     }
     else
     {
-        auto it = m_memMap.find( bufferDesc.GetDataPtr() );
-        if ( it == m_memMap.end() )
+        const std::lock_guard<std::mutex> lock( m_memMapMutex );
+        Buffer *pFound = nullptr;
+
+        ret = m_memMap.Find( bufferDesc.GetDataPtr(), pFound );
+        if ( QC_STATUS_OK == ret )
         {
+            pBuff = *pFound;
+        }
+        else
+        {
+            ret = QC_STATUS_OK;
             QC_DEBUG( "DepthFromStereo: Buffer not found in map" );
             QC_DEBUG( "DepthFromStereo: Buffer size %d", bufferDesc.GetDataSize() );
             QC_DEBUG( "DepthFromStereo: Buffer offset %d", bufferDesc.offset );
@@ -1009,13 +1017,17 @@ QCStatus_e DepthFromStereo::RegisterMemory( const BufferDescriptor_t &bufferDesc
             }
             else
             {
-                m_memMap[bufferDesc.GetDataPtr()] = buff;
-                pBuff = m_memMap[bufferDesc.GetDataPtr()];
+                ret = m_memMap.Insert( bufferDesc.GetDataPtr(), buff );
+                if ( QC_STATUS_OK != ret )
+                {
+                    QC_ERROR( "DepthFromStereo: memory map insert failed (%u max entries): %d",
+                              QC_NODE_DFS_MAX_BUFFERS, ret );
+                }
+                else
+                {
+                    pBuff = buff;
+                }
             }
-        }
-        else
-        {
-            pBuff = it->second;
         }
     }
     return ret;
@@ -1318,18 +1330,23 @@ QCStatus_e DepthFromStereo::DeInitialize()
             QC_ERROR( "DepthFromStereo: Failed to destroy stereo disparity: %d", ret );
         }
 
-        for ( auto &it : m_memMap )
         {
-            Buffer mem = it.second;
-            status = BufferDeregister( m_session, mem );
-            if ( status != Status::SUCCESS )
+            const std::lock_guard<std::mutex> lock( m_memMapMutex );
+
+            for ( auto &entry : m_memMap )
             {
-                QC_ERROR( "DepthFromStereo: Mem Deregister(%p) failed: %d", mem.pAddress, status );
-                ret = QC_STATUS_FAIL;
+                status = BufferDeregister( m_session, entry.second );
+                if ( status != Status::SUCCESS )
+                {
+                    QC_ERROR( "DepthFromStereo: Mem Deregister(%p) failed: %d",
+                              entry.second.pAddress, status );
+                    ret = QC_STATUS_FAIL;
+                }
             }
+
+            (void) m_memMap.Clear();
         }
 
-        m_memMap.clear();
         status = m_session->Destroy();
         if ( status != Status::SUCCESS )
         {

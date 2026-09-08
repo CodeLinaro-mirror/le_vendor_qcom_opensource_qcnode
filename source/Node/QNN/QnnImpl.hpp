@@ -6,6 +6,8 @@
 
 #include "HTP/QnnHtpContext.h"
 #include "HTP/QnnHtpDevice.h"
+#include "QC/Common/QCMap.hpp"
+#include "QC/Common/QCVector.hpp"
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
 #include "QC/Infras/NodeTrace/NodeTrace.hpp"
 #include "QC/Node/QNN.hpp"
@@ -29,6 +31,18 @@ using namespace QC::Memory;
 #endif
 
 #define QNN_NOTIFY_MAGIC ( 0x464900544F4E4E51ull )
+
+#ifndef QNN_MAX_DMA_MEM_REF_MAP_ENTRIES
+#define QNN_MAX_DMA_MEM_REF_MAP_ENTRIES 1024u
+#endif
+
+#ifndef QNN_MAX_DMA_MEM_INFO_ENTRIES
+#define QNN_MAX_DMA_MEM_INFO_ENTRIES 128u
+#endif
+
+#ifndef QNN_MAX_TENSOR_NUM
+#define QNN_MAX_TENSOR_NUM 128u
+#endif
 
 #ifndef QNNIMPL_FRIEND_CLASS
 #define QNNIMPL_FRIEND_CLASS()
@@ -409,7 +423,8 @@ private:
 
     std::mutex m_lock;
     static std::mutex s_lock[QNN_PROCESSOR_MAX];
-    static std::map<void *, int> s_dmaMemRefMap[QNN_PROCESSOR_MAX];
+    static QCMap<void *, int, QNN_MAX_DMA_MEM_REF_MAP_ENTRIES>
+            s_dmaMemRefMap[QNN_PROCESSOR_MAX];
     static std::map<Qnn_ProcessorType_e, std::string> s_Backends;
     // Extended FastRPC domain id resolved once during Initialize() (from the first configured
     // core) and reused for every remote_register_buf_v2() register/deregister call.
@@ -455,7 +470,7 @@ private:
     const QnnDevice_PlatformInfo_t *m_platformInfo = nullptr;
 
     NotifyParamQueue_t m_notifyParamQ;
-    std::map<void *, DmaMemInfo_t> m_dmaMemInfoMap;
+    QCMap<void *, DmaMemInfo_t, QNN_MAX_DMA_MEM_INFO_ENTRIES> m_dmaMemInfoMap;
 
     uint32_t m_inputTensorNum;
     uint32_t m_outputTensorNum;
@@ -464,8 +479,8 @@ private:
     std::vector<uint32_t> m_powerConfigIds;
     QnnHtpDevice_PerfInfrastructure_t *m_perfInfra{ nullptr };
 
-    std::vector<Qnn_Tensor_t> m_inputs;
-    std::vector<Qnn_Tensor_t> m_outputs;
+    QCVector<Qnn_Tensor_t, QNN_MAX_TENSOR_NUM> m_inputs;
+    QCVector<Qnn_Tensor_t, QNN_MAX_TENSOR_NUM> m_outputs;
 
     QC_DECLARE_NODETRACE();
 

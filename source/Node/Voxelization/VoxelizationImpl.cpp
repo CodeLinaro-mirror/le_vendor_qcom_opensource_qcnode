@@ -84,6 +84,11 @@ VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
         m_gridYSize = ceil( ( m_config.voxelConfig.maxYRange - m_config.voxelConfig.minYRange ) /
                             m_config.voxelConfig.pillarYSize );
 
+        ret = ValidateBufferCount();
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
         if ( QC_PROCESSOR_GPU == m_processor )
         {
             ret = m_openCLSrvObj.Init( m_nodeId.name.c_str(), m_logger.GetLevel() );
@@ -304,7 +309,14 @@ VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
                     ret = m_openCLSrvObj.RegBufferDesc( bufDesc, m_clPlrPointsBuffer );
                     if ( QC_STATUS_OK == ret )
                     {
-                        m_bufferMap[bufDesc.dmaHandle] = { bufDesc, m_clPlrPointsBuffer, 0 };
+                        const std::lock_guard<std::mutex> lock( m_bufferMapMutex );
+                        ret = m_bufferMap.Insert( bufDesc.dmaHandle,
+                                                  MemInfo{ bufDesc, m_clPlrPointsBuffer, 0 } );
+                        if ( QC_STATUS_OK != ret )
+                        {
+                            QC_ERROR( "Failed to insert internal pillar points buffer into map: %d",
+                                      ret );
+                        }
                     }
                     else
                     {
@@ -342,7 +354,16 @@ VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
                     ret = m_openCLSrvObj.RegBufferDesc( bufDesc, m_clCoordToPlrIdxBuffer );
                     if ( QC_STATUS_OK == ret )
                     {
-                        m_bufferMap[bufDesc.dmaHandle] = { bufDesc, m_clCoordToPlrIdxBuffer, 0 };
+                        const std::lock_guard<std::mutex> lock( m_bufferMapMutex );
+                        if ( QC_STATUS_OK !=
+                             m_bufferMap.InsertOrAssign(
+                                     bufDesc.dmaHandle,
+                                     MemInfo{ bufDesc, m_clCoordToPlrIdxBuffer, 0 } ) )
+                        {
+                            ret = QC_STATUS_NO_RESOURCE;
+                            QC_ERROR( "Failed to insert internal coordinate to pillar index buffer "
+                                      "into map" );
+                        }
                     }
                     else
                     {
@@ -653,10 +674,12 @@ QCStatus_e VoxelizationImpl::ProcessCL( TensorDescriptor_t &inputTensorDesc,
     cl_mem clOutputPlrBufferMem;
     cl_mem clOutputFeatBufferMem;
 
-    auto inputIt = m_bufferMap.find( inputBufferHandle );
-    if ( inputIt != m_bufferMap.end() )
+    const std::lock_guard<std::mutex> lock( m_bufferMapMutex );
+
+    MemInfo *pInputInfo = nullptr;
+    if ( QC_STATUS_OK == m_bufferMap.Find( inputBufferHandle, pInputInfo ) )
     {
-        clInputBufferMem = inputIt->second.bufferCL;
+        clInputBufferMem = pInputInfo->bufferCL;
     }
     else
     {
@@ -666,10 +689,10 @@ QCStatus_e VoxelizationImpl::ProcessCL( TensorDescriptor_t &inputTensorDesc,
 
     if ( ret == QC_STATUS_OK )
     {
-        auto outputPlrIt = m_bufferMap.find( outputPlrBufferHandle );
-        if ( outputPlrIt != m_bufferMap.end() )
+        MemInfo *pOutputPlrInfo = nullptr;
+        if ( QC_STATUS_OK == m_bufferMap.Find( outputPlrBufferHandle, pOutputPlrInfo ) )
         {
-            clOutputPlrBufferMem = outputPlrIt->second.bufferCL;
+            clOutputPlrBufferMem = pOutputPlrInfo->bufferCL;
         }
         else
         {
@@ -680,10 +703,10 @@ QCStatus_e VoxelizationImpl::ProcessCL( TensorDescriptor_t &inputTensorDesc,
 
     if ( ret == QC_STATUS_OK )
     {
-        auto outputFeatIt = m_bufferMap.find( outputFeatBufferHandle );
-        if ( outputFeatIt != m_bufferMap.end() )
+        MemInfo *pOutputFeatInfo = nullptr;
+        if ( QC_STATUS_OK == m_bufferMap.Find( outputFeatBufferHandle, pOutputFeatInfo ) )
         {
-            clOutputFeatBufferMem = outputFeatIt->second.bufferCL;
+            clOutputFeatBufferMem = pOutputFeatInfo->bufferCL;
         }
         else
         {
@@ -780,7 +803,10 @@ QCStatus_e VoxelizationImpl::RegisterBuffer( QCBufferDescriptorBase_t &buffer,
 
     if ( QC_BUFFER_TYPE_TENSOR == buffer.type )
     {
-        if ( m_bufferMap.find( bufferHandle ) == m_bufferMap.end() )
+        const std::lock_guard<std::mutex> lock( m_bufferMapMutex );
+        const bool bAlreadyRegistered = m_bufferMap.Contains( bufferHandle );
+
+        if ( !bAlreadyRegistered )
         {
             if ( QC_PROCESSOR_GPU == m_processor )
             {
@@ -788,8 +814,16 @@ QCStatus_e VoxelizationImpl::RegisterBuffer( QCBufferDescriptorBase_t &buffer,
                 ret = m_openCLSrvObj.RegBufferDesc( buffer, bufferCL );
                 if ( QC_STATUS_OK == ret )
                 {
-                    m_bufferMap[bufferHandle] = { buffer, bufferCL, 0 };
-                    QC_INFO( "Buffer(%p) register as CL MEM %p", buffer.pBuf, bufferCL );
+                    if ( QC_STATUS_OK != m_bufferMap.InsertOrAssign(
+                                                 bufferHandle, MemInfo{ buffer, bufferCL, 0 } ) )
+                    {
+                        ret = QC_STATUS_NO_RESOURCE;
+                        QC_ERROR( "Failed to insert buffer(%p) into map", buffer.pBuf );
+                    }
+                    else
+                    {
+                        QC_INFO( "Buffer(%p) register as CL MEM %p", buffer.pBuf, bufferCL );
+                    }
                 }
                 else
                 {
@@ -806,8 +840,16 @@ QCStatus_e VoxelizationImpl::RegisterBuffer( QCBufferDescriptorBase_t &buffer,
                 }
                 else
                 {
-                    m_bufferMap[bufferHandle] = { buffer, nullptr, fd };
-                    QC_INFO( "Buffer(%p) register as Fadas FD %p", buffer.pBuf, fd );
+                    if ( QC_STATUS_OK != m_bufferMap.InsertOrAssign(
+                                                 bufferHandle, MemInfo{ buffer, nullptr, fd } ) )
+                    {
+                        ret = QC_STATUS_NO_RESOURCE;
+                        QC_ERROR( "Failed to insert buffer(%p) into map", buffer.pBuf );
+                    }
+                    else
+                    {
+                        QC_INFO( "Buffer(%p) register as Fadas FD %p", buffer.pBuf, fd );
+                    }
                 }
             }
         }
@@ -840,7 +882,10 @@ QCStatus_e VoxelizationImpl::DeRegisterBuffer( QCBufferDescriptorBase_t &buffer 
     }
     QC_INFO( "Buffer(%p) deregister", buffer.pBuf );
 
-    (void) m_bufferMap.erase( bufferHandle );
+    {
+        const std::lock_guard<std::mutex> lock( m_bufferMapMutex );
+        (void) m_bufferMap.Erase( bufferHandle );
+    }
 
     return ret;
 }
@@ -848,19 +893,54 @@ QCStatus_e VoxelizationImpl::DeRegisterBuffer( QCBufferDescriptorBase_t &buffer 
 QCStatus_e VoxelizationImpl::DeRegisterAllBuffers()
 {
     QCStatus_e status = QC_STATUS_OK;
-    while ( false == m_bufferMap.empty() )
+
+    std::array<QCBufferDescriptorBase_t, QC_NODE_VOXELIZATION_MAX_BUFFERS> bufDescs;
+    size_t count = 0;
+
+    // Snapshot all registered buffers first: DeRegisterBuffer takes m_bufferMapMutex
+    // itself, so it cannot be invoked while this function still holds the lock.
     {
-        auto it = m_bufferMap.begin();
-        QCBufferDescriptorBase_t bufDesc = it->second.bufDesc;
-        QCStatus_e ret = DeRegisterBuffer( bufDesc );
+        const std::lock_guard<std::mutex> lock( m_bufferMapMutex );
+        for ( const auto &entry : m_bufferMap )
+        {
+            bufDescs[count] = entry.second.bufDesc;
+            ++count;
+        }
+    }
+
+    for ( size_t i = 0; i < count; ++i )
+    {
+        QCStatus_e ret = DeRegisterBuffer( bufDescs[i] );
         if ( ret != QC_STATUS_OK )
         {
             status = ret;
         }
     }
+
     return status;
 }
 
+
+QCStatus_e VoxelizationImpl::ValidateBufferCount()
+{
+    QCStatus_e ret = QC_STATUS_OK;
+
+    size_t totalBuffers = m_config.inputPcdBufferIds.size() + m_config.outputPlrBufferIds.size() +
+                          m_config.outputFeatureBufferIds.size();
+    if ( QC_PROCESSOR_GPU == m_processor )
+    {
+        totalBuffers += 2;   // plrPoints + coordToPlrIdx internal GPU-path buffers
+    }
+
+    if ( totalBuffers > QC_NODE_VOXELIZATION_MAX_BUFFERS )
+    {
+        ret = QC_STATUS_BAD_ARGUMENTS;
+        QC_ERROR( "Voxelization: configured buffer count %zu exceeds max %zu", totalBuffers,
+                  QC_NODE_VOXELIZATION_MAX_BUFFERS );
+    }
+
+    return ret;
+}
 
 QCStatus_e VoxelizationImpl::SetupGlobalBufferIdMap()
 {

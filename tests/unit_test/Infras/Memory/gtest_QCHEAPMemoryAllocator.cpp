@@ -281,7 +281,7 @@ TEST_F( Test_MemoryIfs, SANITY_QCBufferDescriptorBase_default_constructor )
     ASSERT_EQ( desc.type, QC_BUFFER_TYPE_LAST );
     ASSERT_EQ( desc.dmaHandle, 0 );
     ASSERT_EQ( desc.pid, 0 );
-    ASSERT_TRUE( desc.name.empty() );   // std::string defaults to empty
+    ASSERT_TRUE( desc.name.IsEmpty() );   // QCString defaults to empty
 }
 
 TEST_F( Test_MemoryIfs, SANITY_QCBufferDescriptorBase_VirtualDestructorDoesNotCrash )
@@ -400,7 +400,7 @@ TEST_F( Test_MemoryIfs, SANITY_QCMemoryAllocatorIfs_default_constructor )
     ASSERT_EQ( desc.type, QC_BUFFER_TYPE_LAST );
     ASSERT_EQ( desc.dmaHandle, 0 );
     ASSERT_EQ( desc.pid, 0 );
-    ASSERT_TRUE( desc.name.empty() );   // std::string defaults to empty
+    ASSERT_TRUE( desc.name.IsEmpty() );   // QCString defaults to empty
 }
 
 // Test case for constructor initialization

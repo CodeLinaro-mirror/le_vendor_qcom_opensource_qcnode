@@ -130,7 +130,10 @@ public:
     TBuffer( TBufferAllocator &allocator, std::string name, size_t size )
         : TBuffer( allocator, size )
     {
-        tensor.name = name;
+        if ( QC_STATUS_OK == m_allocationStatus )
+        {
+            m_allocationStatus = tensor.name.Assign( name.c_str() );
+        }
     }
 
     ~TBuffer() { auto ret = m_allocator.free( tensor ); }

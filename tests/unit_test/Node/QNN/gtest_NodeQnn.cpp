@@ -373,7 +373,7 @@ protected:
             auto readSize = fread( buffer.get(), 1, bufferSize, pFile );
             ASSERT_EQ( readSize, bufferSize );
             fclose( pFile );
-            ctxBufDesc.name = modelPath;
+            (void) ctxBufDesc.name.Assign( modelPath.c_str() );
             ctxBufDesc.pBuf = buffer.get();
             ctxBufDesc.size = bufferSize;
             config.buffers.push_back( ctxBufDesc );

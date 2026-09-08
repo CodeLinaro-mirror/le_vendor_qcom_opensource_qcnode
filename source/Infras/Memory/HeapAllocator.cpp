@@ -70,7 +70,6 @@ QCStatus_e HeapAllocator::Allocate( const QCBufferPropBase_t &request,
             response.cache = request.cache;
             response.allocatorType = GetConfiguration().type;
             response.size = request.size;
-            response.name = GetConfiguration().name;
             QC_DEBUG( "%s: Allocated %zu bytes aligned at %lu byte boundary heap at %p",
                       GetConfiguration().name.c_str(), request.size, request.alignment,
                       response.pBuf );

@@ -661,7 +661,7 @@ TEST_F( DepthFromStereoCodeCoverageTest, ProcessFrameDescriptor_MissingBuffers )
     // Setup mem map so RegisterMemory doesn't fail
     Buffer buff;
     buff.pAddress = &data;
-    dfs.m_memMap[&data] = buff;
+    ASSERT_EQ( QC_STATUS_OK, dfs.m_memMap.InsertOrAssign( &data, buff ) );
 
     // Test missing conf map when confidenceOutputEn is true
     EXPECT_EQ( QC_STATUS_FAIL, dfs.ProcessFrameDescriptor( frameDesc ) );
@@ -711,7 +711,7 @@ TEST_F( DepthFromStereoCodeCoverageTest, ProcessFrameDescriptor_NoConfidenceBran
     // Deliberately DO NOT add &data to m_memMap. This forces RegisterMemory(*pPriImgDesc, ...) to
     // fail (m_session is nullptr), preventing a later null dereference of
     // m_stereoDisparity->SubmitSync().
-    dfs.m_memMap.clear();
+    (void) dfs.m_memMap.Clear();
     dfs.m_session = nullptr;
     dfs.m_stereoDisparity = nullptr;
 
