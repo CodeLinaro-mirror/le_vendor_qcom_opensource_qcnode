@@ -174,34 +174,41 @@ A camera instance is operated through a sequence of function calls for optimal p
 ## 3.2 QCNode Configuration Interfaces
 
 - [CameraConfig::GetOptions](../include/QC/Node/Camera.hpp#L170) Get Configuration Options
-  - Use this API to get the configuration options.
-    - Below was a example output for Camera request mode:
+  - Use this API to query the node's self-describing options document. The top-level structure is fixed by contract; only `config` is a JSON Schema, every other key is plain data:
+    - `version` — the node version (`QCNODE_CAMERA_VERSION`), `uint32_t`.
+    - `qcarcamVersion` — the QCarCam header version the node was compiled against, formatted `"major.minor.patch"` (value depends on the QCarCam header at build time).
+    - `config` — the self-contained Draft 2020-12 JSON Schema of the configuration surface (the fields documented in the [Camera Configuration](#2-camera-configuration) tables). A configuration that validates against it is one the node accepts, and its `examples` array carries ready-to-use `{ "static": { ... } }` documents.
+    - `buffers` — the buffers the node reports once it has been configured, split into `inputs` and `outputs`. Both arrays are empty until a configuration is set (and are reset to empty on `DeInitialize`). Each configured stream is reported as an `image` output named `<name>.stream<streamId>`; each metadata group contributes its `raw` metadata / ISP-injection buffers as `inputs` and its output-metadata buffer as an `output`. Every camera buffer must be allocated from the `dma_camera` allocator as `cacheable`.
+  - Below is an example output for the single-stream request-mode config above (`CAM0`, one `nv12` 3840x2160 stream). The `stride`, `actualHeight` and `planeBufSize` under `imageProps` are resolved by the platform plane-definition library and vary by SoC and format:
         ```json
         {
-            "static": {
-                "name": "CAM0",
-                "id": 0,
-                "inputId": 8,
-                "srcId": 0,
-                "clientId": 0,
-                "inputMode": 0,
-                "ispUseCase": 65,
-                "camFrameDropPattern": 0,
-                "camFrameDropPeriod": 0,
-                "opMode": 2,
-                "streamConfigs": [
+            "version": 132608,
+            "qcarcamVersion": "6.4.14",
+            "config": {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "title": "QCNode Camera configuration",
+                "type": "object",
+                "required": [ "static" ],
+                "...": "full configuration schema; see the field tables in section 2"
+            },
+            "buffers": {
+                "inputs": [],
+                "outputs": [
                     {
-                        "streamId": 1,
-                        "bufferIds": [0, 1, 2, 3],
-                        "format": "nv12",
-                        "height": 2160,
-                        "width": 3840,
-                        "submitRequestPattern": 0
+                        "name": "CAM0.stream1",
+                        "bufferType": "image",
+                        "imageProps": {
+                            "format": "nv12",
+                            "batchSize": 1,
+                            "width": 3840,
+                            "height": 2160,
+                            "numPlanes": 2,
+                            "stride": [ 3840, 3840 ],
+                            "actualHeight": [ 2160, 1080 ],
+                            "planeBufSize": [ 8294400, 4147200 ]
+                        }
                     }
-                ],
-                "requestMode": true,
-                "primary": false,
-                "recovery": false
+                ]
             }
         }
         ```

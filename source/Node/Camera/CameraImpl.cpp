@@ -4,6 +4,7 @@
 #include <cstring>
 #include <new>
 #include <stdint.h>
+#include <string>
 #include <thread>
 
 #include "CameraImpl.hpp"
@@ -14,12 +15,6 @@ namespace QC
 namespace Node
 {
 
-#if defined( __QNXNTO__ )
-using MemUtils = QC::Memory::PMEMUtils;
-#else
-using MemUtils = QC::Memory::DMABUFFUtils;
-#endif
-
 static int g_nCamInitRefCount = 0;
 static std::mutex g_camInitMutex;
 
@@ -29,7 +24,7 @@ static void FreeCameraInputsInfo( void )
 {
     if ( nullptr != s_cameraInputsInfo.pCameraInputs )
     {
-        delete ( s_cameraInputsInfo.pCameraInputs );
+        delete[] s_cameraInputsInfo.pCameraInputs;
         s_cameraInputsInfo.pCameraInputs = nullptr;
     }
     if ( nullptr != s_cameraInputsInfo.pCamInputModes )
@@ -38,11 +33,11 @@ static void FreeCameraInputsInfo( void )
         {
             if ( nullptr != s_cameraInputsInfo.pCamInputModes[i].pModes )
             {
-                delete ( s_cameraInputsInfo.pCamInputModes[i].pModes );
+                delete[] s_cameraInputsInfo.pCamInputModes[i].pModes;
                 s_cameraInputsInfo.pCamInputModes[i].pModes = nullptr;
             }
         }
-        delete ( s_cameraInputsInfo.pCamInputModes );
+        delete[] s_cameraInputsInfo.pCamInputModes;
         s_cameraInputsInfo.pCamInputModes = nullptr;
     }
 
@@ -96,6 +91,9 @@ CameraImpl::~CameraImpl()
 {
     QCStatus_e ret = QC_STATUS_OK;
     QCarCamRet_e status = QCARCAM_RET_OK;
+
+    ClearFrameBuffers();
+    ClearMetaDataBuffers();
 
     std::lock_guard<std::mutex> guard( g_camInitMutex );
     if ( 0 < g_nCamInitRefCount )

@@ -95,6 +95,8 @@ QCStatus_e Camera::DeInitialize()
             QC_ERROR( "Failed to deinitialize camera" );
         }
 
+        m_configIfs.Reset();
+
         status2 = NodeBase::DeInitialize();
         if ( QC_STATUS_OK != status2 )
         {
