@@ -2,6 +2,14 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "FadasRemap.hpp"
+#if defined( __linux__ )
+#include <sched.h> /* cpu_set_t, sched_getaffinity, CPU_ISSET */
+#elif defined( __QNXNTO__ )
+#include <cerrno>         /* errno */
+#include <sys/neutrino.h> /* ThreadCtl, _NTO_TCTL_RUNMASK_GET_AND_SET */
+#else
+#include <unistd.h>
+#endif
 
 namespace QC
 {
@@ -410,36 +418,107 @@ QCStatus_e FadasRemap::CreateRemapWorker( uint32_t inputId, QCImageFormat_e inpu
         }
         else
         {
-            std::vector<int32_t> threadsAffinity = m_cpuThreadsAffinity;
-            if ( threadsAffinity.empty() )
+            /* CPU processor: cpuThreadsAffinity is mandatory - no silent fallback.
+             * Silently falling back to a hardcoded list (e.g. {12,13,14,15}) is
+             * dangerous: the FADAS SDK maps worker threads using its own internal
+             * CPU enumeration, not the list values directly.  If any of those CPUs
+             * are offline, sched_setaffinity() returns EINVAL and
+             * FadasRemap_CreateWorkers() returns nullptr, causing a cryptic failure. */
+            if ( m_cpuThreadsAffinity.empty() )
             {
-/* Use platform default values if not configured via JSON */
-#if defined( __linux__ )
-                threadsAffinity = { 12, 13, 14, 15 };
-#else
-                threadsAffinity = { 0, 1, 2, 3 };
-#endif
-            }
-            FadasRemapPipeline_e pipeline = RemapGetPipelineCPU(
-                    m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
-            if ( FADAS_REMAP_PIPELINE_MAX == pipeline )
-            {
-                QC_ERROR( "Invalid remap pipelie for CPU!" );
+                QC_ERROR( "cpuThreadsAffinity must be provided for CPU processor. "
+                          "Set 'cpuThreadsAffinity' in the node config to a list of "
+                          "online CPU core IDs (e.g. [12,13,14,15])." );
                 ret = QC_STATUS_BAD_ARGUMENTS;
             }
             else
             {
-                void *workerPtr =
-                        FadasRemap_CreateWorkers( static_cast<int32_t>( threadsAffinity.size() ),
-                                                  threadsAffinity.data(), pipeline );
-                if ( workerPtr == nullptr )
+                /* Validate every requested core ID is currently online using
+                 * sched_getaffinity().  This catches offline CPUs early - before
+                 * the closed-source FADAS SDK issues sched_setaffinity() and gets
+                 * EINVAL, which only surfaces as a nullptr worker and a confusing
+                 * "Failed to create a remap worker" message. */
+#if defined( __linux__ )
+                cpu_set_t onlineCpus;
+                CPU_ZERO( &onlineCpus );
+                const int getAffinityRet = sched_getaffinity( 0, sizeof( cpu_set_t ), &onlineCpus );
+                if ( 0 != getAffinityRet )
                 {
-                    QC_ERROR( "Failed to create a remap worker for CPU!" );
+                    QC_ERROR( "sched_getaffinity() failed - cannot validate CPU affinity!" );
                     ret = QC_STATUS_FAIL;
                 }
                 else
                 {
-                    m_workerPtrsCPU[inputId] = workerPtr;
+                    for ( int32_t coreId : m_cpuThreadsAffinity )
+                    {
+                        if ( coreId < 0 || !CPU_ISSET( static_cast<int>( coreId ), &onlineCpus ) )
+                        {
+                            QC_ERROR( "CPU core %d is not online or out of range. ", coreId );
+                            ret = QC_STATUS_BAD_ARGUMENTS;
+                            break;
+                        }
+                    }
+                }
+#elif defined( __QNXNTO__ )
+                /* Query the calling thread's actual QNX runmask via ThreadCtl()
+                 * (_NTO_TCTL_RUNMASK_GET_AND_SET), mirroring the Linux
+                 * sched_getaffinity()/CPU_ISSET() check above rather than only
+                 * range-checking against sysconf(_SC_NPROCESSORS_ONLN). A core
+                 * can be online system-wide yet excluded from this thread's
+                 * runmask; only the runmask reflects what this thread can
+                 * actually be scheduled on. Passing 0 queries the mask without
+                 * altering it (per QNX docs), so no restore is needed. */
+                unsigned int onlineCpus = 0U;
+                const int threadCtlRet = ThreadCtl( _NTO_TCTL_RUNMASK_GET_AND_SET, &onlineCpus );
+                if ( -1 == threadCtlRet )
+                {
+                    QC_ERROR( "ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET) failed errno=%d - "
+                              "cannot validate CPU affinity!",
+                              errno );
+                    ret = QC_STATUS_FAIL;
+                }
+                else
+                {
+                    QC_INFO( "ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET) rc=0, "
+                             "onlineCpus=0x%x",
+                             onlineCpus );
+                    for ( int32_t coreId : m_cpuThreadsAffinity )
+                    {
+                        if ( coreId < 0 ||
+                             coreId >= static_cast<int32_t>( sizeof( onlineCpus ) * 8 ) ||
+                             0 == ( onlineCpus & ( 1U << static_cast<unsigned int>( coreId ) ) ) )
+                        {
+                            QC_ERROR( "CPU core %d is not online or out of range. ", coreId );
+                            ret = QC_STATUS_BAD_ARGUMENTS;
+                            break;
+                        }
+                    }
+                }
+#endif
+            }
+            if ( QC_STATUS_OK == ret )
+            {
+                FadasRemapPipeline_e pipeline = RemapGetPipelineCPU(
+                        m_inputFormats[inputId], m_outputFormat, m_bEnableNormalize );
+                if ( FADAS_REMAP_PIPELINE_MAX == pipeline )
+                {
+                    QC_ERROR( "Invalid remap pipelie for CPU!" );
+                    ret = QC_STATUS_BAD_ARGUMENTS;
+                }
+                else
+                {
+                    void *workerPtr = FadasRemap_CreateWorkers(
+                            static_cast<int32_t>( m_cpuThreadsAffinity.size() ),
+                            m_cpuThreadsAffinity.data(), pipeline );
+                    if ( workerPtr == nullptr )
+                    {
+                        QC_ERROR( "Failed to create a remap worker for CPU!" );
+                        ret = QC_STATUS_FAIL;
+                    }
+                    else
+                    {
+                        m_workerPtrsCPU[inputId] = workerPtr;
+                    }
                 }
             }
         }

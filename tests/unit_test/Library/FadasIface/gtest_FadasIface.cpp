@@ -34,11 +34,15 @@ protected:
     {
         MockApi_ResetAll();
         MockRemoteSystemRequest_Reset();
+        MockThreadCtl_Reset();
+        MockSchedGetaffinity_Reset();
     }
     void TearDown() override
     {
         MockApi_ResetAll();
         MockRemoteSystemRequest_Reset();
+        MockThreadCtl_Reset();
+        MockSchedGetaffinity_Reset();
     }
 };
 
@@ -1022,7 +1026,21 @@ static void SetupRemapForRunWithInitNoCT( FadasRemapTestable &r, QCProcessorType
 {
     r.Init( proc, "t", LOGGER_LEVEL_ERROR );
     FadasNormlzParams_t n = { 0, 1, 0 };
-    r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm );
+    /* cpuThreadsAffinity is mandatory for CPU processor (see FadasRemap::CreateRemapWorker). */
+    std::vector<int32_t> cpuThreadsAffinity;
+    if ( QC_PROCESSOR_CPU == proc )
+    {
+#if defined( __linux__ )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
+        cpuThreadsAffinity = { 8, 9, 10, 11 };
+#else
+        cpuThreadsAffinity = { 12, 13, 14, 15 };
+#endif
+#else
+        cpuThreadsAffinity = { 0, 1, 2, 3 };
+#endif
+    }
+    r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm, cpuThreadsAffinity );
     r.SetProcessor( proc );
     /* Fix: use the processor's own handle index so that Deinit() decrements the
      * correct s_useRef slot.  Hardcoding 0 here caused Init(GPU/CPU) to increment
@@ -1045,7 +1063,21 @@ static void SetupRemapForRunWithInitFull( FadasRemapTestable &r, QCProcessorType
 {
     r.Init( proc, "t", LOGGER_LEVEL_ERROR );
     FadasNormlzParams_t n = { 0, 1, 0 };
-    r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm );
+    /* cpuThreadsAffinity is mandatory for CPU processor (see FadasRemap::CreateRemapWorker). */
+    std::vector<int32_t> cpuThreadsAffinity;
+    if ( QC_PROCESSOR_CPU == proc )
+    {
+#if defined( __linux__ )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
+        cpuThreadsAffinity = { 8, 9, 10, 11 };
+#else
+        cpuThreadsAffinity = { 12, 13, 14, 15 };
+#endif
+#else
+        cpuThreadsAffinity = { 0, 1, 2, 3 };
+#endif
+    }
+    r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm, cpuThreadsAffinity );
     r.SetProcessor( proc );
     /* Fix: use the processor's own handle index so that Deinit() decrements the
      * correct s_useRef slot.  Hardcoding 0 here caused Init(HTP0) to increment
@@ -2475,6 +2507,126 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NV12UBWC_RGB888 )
 }
 
 /* ================================================================
+ * CreateRemapWorker: cpuThreadsAffinity validation (MC/DC coverage)
+ * Targets the per-condition gaps in FadasRemap::CreateRemapWorker's
+ * affinity-validation loop, on both the Linux (sched_getaffinity/
+ * CPU_ISSET) and QNX (ThreadCtl/_NTO_TCTL_RUNMASK_GET_AND_SET) branches.
+ * ================================================================ */
+
+/* coreId < 0 → rejected before the platform-specific membership check runs.
+ * Exercises the first condition of the compound `if` on whichever platform
+ * this test binary is built for. */
+TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NegativeCoreId )
+{
+    FadasRemapTestable r;
+    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasNormlzParams_t n = { 0, 1, 0 };
+    std::vector<int32_t> cpuThreadsAffinity = { -1, 1, 2, 3 };
+    r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
+                      cpuThreadsAffinity );
+    r.SetProcessor( QC_PROCESSOR_CPU );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_CPU ) );
+    FadasROI_t roi = { 0, 0, 64, 64 };
+    QCStatus_e ret = r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_UYVY, 64, 64, roi );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    r.Deinit();
+}
+
+#if defined( __QNXNTO__ )
+/* ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET) failing outright → cannot validate
+ * affinity → QC_STATUS_FAIL. A real ThreadCtl call can't be made to fail on
+ * demand, so this exercises the true branch of `-1 == threadCtlRet` via the
+ * __wrap_ThreadCtl mock. */
+TEST_F( FadasIfaceTest, CreateRemapWorker_QNX_ThreadCtlFails )
+{
+    MockThreadCtl_Set( -1, 0U );
+
+    FadasRemapTestable r;
+    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasNormlzParams_t n = { 0, 1, 0 };
+    std::vector<int32_t> cpuThreadsAffinity = { 0, 1, 2, 3 };
+    r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
+                      cpuThreadsAffinity );
+    r.SetProcessor( QC_PROCESSOR_CPU );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_CPU ) );
+    FadasROI_t roi = { 0, 0, 64, 64 };
+    QCStatus_e ret = r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_UYVY, 64, 64, roi );
+    EXPECT_EQ( QC_STATUS_FAIL, ret );
+    r.Deinit();
+}
+
+/* Core ID is in-range (< 32) but not set in the thread's actual runmask →
+ * rejected. Exercises the third condition of the compound `if`
+ * (`0 == (onlineCpus & (1U << coreId))`) independently of the first two,
+ * which a real runmask can't reliably be shaped to hit. */
+TEST_F( FadasIfaceTest, CreateRemapWorker_QNX_CoreNotInRunmask )
+{
+    /* Runmask only allows cores 0-3 (0x0F); request core 10, which is
+     * in-range (< 32) but not part of the mask. */
+    MockThreadCtl_Set( 0, 0x0FU );
+
+    FadasRemapTestable r;
+    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasNormlzParams_t n = { 0, 1, 0 };
+    std::vector<int32_t> cpuThreadsAffinity = { 10 };
+    r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
+                      cpuThreadsAffinity );
+    r.SetProcessor( QC_PROCESSOR_CPU );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_CPU ) );
+    FadasROI_t roi = { 0, 0, 64, 64 };
+    QCStatus_e ret = r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_UYVY, 64, 64, roi );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    r.Deinit();
+}
+
+/* Core ID is in-range and IS set in the runmask → accepted (drives the
+ * false/false/false combination needed for MC/DC on the compound `if`). */
+TEST_F( FadasIfaceTest, CreateRemapWorker_QNX_CoreInRunmask_Accepted )
+{
+    /* Runmask allows cores 0-3; request core 2, which is in the mask. */
+    MockThreadCtl_Set( 0, 0x0FU );
+
+    FadasRemapTestable r;
+    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasNormlzParams_t n = { 0, 1, 0 };
+    std::vector<int32_t> cpuThreadsAffinity = { 2 };
+    r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
+                      cpuThreadsAffinity );
+    r.SetProcessor( QC_PROCESSOR_CPU );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_CPU ) );
+    FadasROI_t roi = { 0, 0, 64, 64 };
+    QCStatus_e ret = r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_UYVY, 64, 64, roi );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    r.DestroyWorkers();
+    r.Deinit();
+}
+#endif   // defined( __QNXNTO__ )
+
+#if defined( __linux__ )
+/* sched_getaffinity() failing outright → cannot validate affinity →
+ * QC_STATUS_FAIL. A real sched_getaffinity call can't be made to fail on
+ * demand, so this exercises the true branch of `0 != getAffinityRet` via
+ * the __wrap_sched_getaffinity mock. */
+TEST_F( FadasIfaceTest, CreateRemapWorker_Linux_SchedGetaffinityFails )
+{
+    MockSchedGetaffinity_SetFail( 1 );
+
+    FadasRemapTestable r;
+    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasNormlzParams_t n = { 0, 1, 0 };
+    std::vector<int32_t> cpuThreadsAffinity = { 0, 1, 2, 3 };
+    r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
+                      cpuThreadsAffinity );
+    r.SetProcessor( QC_PROCESSOR_CPU );
+    r.SetHandleIndex( static_cast<uint32_t>( QC_PROCESSOR_CPU ) );
+    FadasROI_t roi = { 0, 0, 64, 64 };
+    QCStatus_e ret = r.CreateRemapWorker( 0, QC_IMAGE_FORMAT_UYVY, 64, 64, roi );
+    EXPECT_EQ( QC_STATUS_FAIL, ret );
+    r.Deinit();
+}
+#endif   // defined( __linux__ )
+
+/* ================================================================
  * RemapGetPipelineDSP: missing rows
  * ================================================================ */
 
@@ -2866,8 +3018,8 @@ static FadasError_e LocalFadasRegBufGPU_Fail( FadasBufType_e, void *, uint32_t )
     return FADAS_ERROR_FAIL;
 }
 
-static FadasError_e LocalFadasRegBufGPU_BatchSuccess( FadasBufType_e, const void *, size_t,
-                                                      int32_t, int32_t )
+static FadasError_e LocalFadasRegBufGPU_BatchSuccess( FadasBufType_e, const void *, size_t, int32_t,
+                                                      int32_t )
 {
     return FADAS_ERROR_NONE;
 }

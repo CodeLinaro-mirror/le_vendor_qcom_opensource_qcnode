@@ -574,8 +574,8 @@ int32_t FadasSrv::FadasMemMap( const QCBufferDescriptorBase_t &bufDesc )
     }
     else if ( QC_PROCESSOR_GPU == m_processor )
     {
-#if defined( QNXNTO )
-        fd = 1
+#if defined( __QNXNTO__ )
+        fd = 1;
 
 #else
         fd = static_cast<int32_t>( bufDesc.dmaHandle );
