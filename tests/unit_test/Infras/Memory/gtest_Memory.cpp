@@ -17,6 +17,9 @@
 #include <queue>
 #include <stdio.h>
 #include <thread>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #if defined( __QNXNTO__ )
 using MemUtils = QC::Memory::PMEMUtils;
@@ -1622,6 +1625,30 @@ TEST( Memory, L2_Import )
     zeroSizeDesc.dmaHandle = 0;
     status = memUtils.MemoryUnMap( zeroSizeDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* Cover MemoryMap with pid == 0 and mmap failure */
+    ImageDescriptor_t pidZeroDesc = imgDesc;
+    pidZeroDesc.pid = 0;
+    pidZeroDesc.dmaHandle = -1;
+    status = memUtils.MemoryMap( pidZeroDesc, importedEmptyImgDesc );
+    ASSERT_EQ( QC_STATUS_FAIL, status );
+
+    /* Cover MemoryUnMap with invalid pBuf for munmap failure */
+    ImageDescriptor_t invalidMunmapDesc = imgDesc;
+    invalidMunmapDesc.pBuf = (void*)0x12345678; // invalid pointer for munmap
+    int dummyFd = open("/dev/null", O_RDONLY);
+    invalidMunmapDesc.dmaHandle = dummyFd;
+    status = memUtils.MemoryUnMap( invalidMunmapDesc );
+    ASSERT_EQ( QC_STATUS_FAIL, status ); // munmap fails, dummyFd is closed by Close()
+
+    /* Cover MemoryUnMap with invalid close fd */
+    ImageDescriptor_t invalidCloseDesc = imgDesc;
+    void* dummyPtr = mmap(NULL, 4096, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    invalidCloseDesc.pBuf = dummyPtr;
+    invalidCloseDesc.size = 4096;
+    invalidCloseDesc.dmaHandle = dummyFd; // dummyFd was already closed in previous step!
+    status = memUtils.MemoryUnMap( invalidCloseDesc );
+    ASSERT_EQ( QC_STATUS_FAIL, status ); // munmap succeeds, close fails
 }
 
 
