@@ -444,7 +444,7 @@ void *FadasVM_PointPillar_Create( FadasPt_3Df32_t plrSize, FadasPt_3Df32_t minRa
     if ( MOCK_CONTROL_RETURN == s_MockParams[MOCK_API_FADAS_VM_POINTPILLAR_CREATE].action )
     {
         if ( ret ) free( ret );
-        ret = s_MockParams[MOCK_API_FADAS_VM_POINTPILLAR_CREATE].param;
+        ret = *(void **)s_MockParams[MOCK_API_FADAS_VM_POINTPILLAR_CREATE].param;
         s_MockParams[MOCK_API_FADAS_VM_POINTPILLAR_CREATE].action = MOCK_CONTROL_NONE;
     }
     return ret;
@@ -869,4 +869,3 @@ extern "C" void *__wrap_dlsym( void *handle, const char *symbol )
     }
     return __real_dlsym( handle, symbol );
 }
-
