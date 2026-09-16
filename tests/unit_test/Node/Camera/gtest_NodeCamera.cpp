@@ -4027,6 +4027,7 @@ TEST( Camera, SANITY_Test_Init_TuningFeatureIspSettings_Mock )
     (void) DeinitBuffers();
 }
 
+#ifdef ENABLE_CAMERA_ISP_SETTINGS
 TEST( Camera, EXCEPTION_Test_Init_IspSettings_Fail_Mock )
 {
     QCNodeInit_t config;
@@ -4059,6 +4060,7 @@ TEST( Camera, EXCEPTION_Test_Init_IspSettings_Fail_Mock )
 
     (void) DeinitBuffers();
 }
+#endif  // ENABLE_CAMERA_ISP_SETTINGS
 
 // QCarCamRelease fails during DeInitialize -> CameraImpl::DeInitialize error
 // branch.

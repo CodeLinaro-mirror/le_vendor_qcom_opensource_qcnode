@@ -47,6 +47,14 @@ if ! [[ -v ENABLE_SDP8 ]] ; then
   fi
 fi
 
+if ! [[ -v ENABLE_CAMERA_ISP_SETTINGS ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
+    export ENABLE_CAMERA_ISP_SETTINGS=ON
+  else
+    export ENABLE_CAMERA_ISP_SETTINGS=OFF
+  fi
+fi
+
 if ! [[ -v ENABLE_TINYVIZ ]] ; then
   export ENABLE_TINYVIZ=ON
 fi
@@ -465,6 +473,7 @@ cmake \
     -DCMAKE_INSTALL_PREFIX=/opt/qcnode \
     -DCMAKE_PREFIX_PATH=$destdir/opt/qcnode \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    -DENABLE_CAMERA_ISP_SETTINGS=${ENABLE_CAMERA_ISP_SETTINGS} \
     -DENABLE_GCOV=${ENABLE_GCOV} \
     -DENABLE_CTC=${ENABLE_CTC} \
     -DENABLE_SIMNODE=${ENABLE_SIMNODE} \

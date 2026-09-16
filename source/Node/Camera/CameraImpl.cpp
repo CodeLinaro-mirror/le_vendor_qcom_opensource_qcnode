@@ -629,6 +629,10 @@ CameraImpl::Initialize( QCNodeEventCallBack_t callback,
 
             if ( CAMERA_METADATA_TYPE_TUNING_FEATURE_MODE == metaDataConfig.metaDataType )
             {
+                // QCarCamIspSettings_t / QCARCAM_STREAM_CONFIG_PARAM_ISP_SETTINGS
+                // requires ENABLE_CAMERA_ISP_SETTINGS=ON (set by CMake when the target
+                // platform supports it, e.g. QNX SDP8 / SOC 8797); skipped otherwise.
+            #ifdef ENABLE_CAMERA_ISP_SETTINGS
                 QCarCamIspSettings_t ispSettings = { 0 };
                 ispSettings.settingsId = (uint32_t) i;
                 ispSettings.inputCommonMetadata.bufferlistId = metaDataConfig.bufferListId;
@@ -650,6 +654,12 @@ CameraImpl::Initialize( QCNodeEventCallBack_t callback,
                              "metaDataType=%d, bufferlistId=%u",
                              (int) metaDataConfig.metaDataType, metaDataConfig.bufferListId );
                 }
+            #else
+                QC_ERROR( "QCARCAM_STREAM_CONFIG_PARAM_ISP_SETTINGS is not supported "
+                         "(ENABLE_CAMERA_ISP_SETTINGS=OFF); skipping ISP settings for "
+                         "metaDataIdx=%u, bufferlistId=%u",
+                         (uint32_t) i, metaDataConfig.bufferListId );
+            #endif
             }
         }
     }
