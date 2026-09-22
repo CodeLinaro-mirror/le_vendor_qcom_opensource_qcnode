@@ -108,6 +108,8 @@ QCStatus_e HeteroSchedulerWrapper::RegisterVertex( const std::vector<SampleIF *>
     }
     else
     {
+        std::vector<std::uint32_t> registeredVids;
+
         for ( auto const &name : m_vertNames )
         {
             // Resolve vertex ID from task name
@@ -160,6 +162,8 @@ QCStatus_e HeteroSchedulerWrapper::RegisterVertex( const std::vector<SampleIF *>
                         break;
                     }
 
+                    registeredVids.push_back( vid );
+
                     QC_DEBUG( "[HeteroSchedulerClient] Registered vertex: %s (VID: %u)",
                               name.c_str(), vid );
                 }
@@ -188,6 +192,22 @@ QCStatus_e HeteroSchedulerWrapper::RegisterVertex( const std::vector<SampleIF *>
                           "error: %d",
                           m_clientName.c_str(), static_cast<int>( orchClientRegResult ) );
                 status = QC_STATUS_FAIL;
+            }
+        }
+
+        // Roll back any vertices we already registered so the orchestrator does
+        // not keep dangling callbacks for a client that will not proceed.
+        if ( status != QC_STATUS_OK )
+        {
+            for ( auto vid : registeredVids )
+            {
+                QcHS::QsoStatus unregResult = cf::OrchVertUnregister( vid );
+                if ( unregResult != QcHS::QsoStatus::SUCCESS )
+                {
+                    QC_ERROR( "[HeteroSchedulerClient] OrchVertUnregister rollback failed for "
+                              "VID %u, error: %d",
+                              vid, static_cast<int>( unregResult ) );
+                }
             }
         }
     }
@@ -330,14 +350,21 @@ void HeteroSchedulerWrapper::Cleanup()
         Stop();
     }
 
-    // Note: OrchDeinit is now called via the public deinit() API
-    // The destructor will not call OrchDeinit to allow explicit control
+    // Safety net: if Deinit() was not called explicitly (e.g. main() took an
+    // early return path after a successful Initialize()), tear down the
+    // orchestrator here. Skipping OrchDeinit leaves SHM segments and lease
+    // keepers attached, which on the QNX SHM plane can turn a clean failure
+    // into a hang or crash at process exit.
     if ( m_bInitialized )
     {
+        QcHS::QsoStatus result = cf::OrchDeinit();
+        if ( result != QcHS::QsoStatus::SUCCESS )
+        {
+            QC_ERROR( "[HeteroSchedulerClient] OrchDeinit failed during destructor cleanup "
+                      "for client: %s, error: %d",
+                      m_clientName.c_str(), static_cast<int>( result ) );
+        }
         m_bInitialized = false;
-        QC_DEBUG( "[HeteroSchedulerClient] Cleaned up for client: %s (OrchDeinit not called - use "
-                  "deinit() explicitly)",
-                  m_clientName.c_str() );
     }
 }
 
