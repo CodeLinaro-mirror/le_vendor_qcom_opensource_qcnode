@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Common/QCMap.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/ImageDescriptor.hpp"
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
@@ -18,6 +19,10 @@
 #ifndef CL_DEVICE_TYPE_SECOND_QCOM
 /* For Nordy specific 2xGPU OpenCL support */
 #define CL_DEVICE_TYPE_SECOND_QCOM ( (cl_device_type) ( 1ULL << 33 ) )
+#endif
+
+#ifndef OPENCLIFACE_MAX_REGISTERED_BUFFERS
+#define OPENCLIFACE_MAX_REGISTERED_BUFFERS 128U
 #endif
 
 using namespace QC;
@@ -216,9 +221,12 @@ private:
     cl_command_queue m_commandQueue;                     /**OpenCL command queue*/
     cl_context m_context;                                /**OpenCL context*/
     cl_program m_program;                                /**OpenCL program*/
-    std::map<void *, OpenclIface_MemInfo_t> m_bufferMap; /**OpenCL buffer memory map*/
-    std::map<void *, OpenclIface_MemInfo_t> m_imageMap;  /**OpenCL image memory map*/
-    std::map<std::pair<void *, uint32_t>, OpenclIface_MemInfo_t>
+    QCMap<void *, OpenclIface_MemInfo_t, OPENCLIFACE_MAX_REGISTERED_BUFFERS>
+            m_bufferMap; /**OpenCL buffer memory map*/
+    QCMap<void *, OpenclIface_MemInfo_t, OPENCLIFACE_MAX_REGISTERED_BUFFERS>
+            m_imageMap; /**OpenCL image memory map*/
+    QCMap<std::pair<void *, uint32_t>, OpenclIface_MemInfo_t,
+          OPENCLIFACE_MAX_REGISTERED_BUFFERS>
             m_planeMap;                           /**OpenCL plane memory map*/
     std::map<std::string, cl_kernel> m_kernelMap; /**OpenCL kernel map*/
 

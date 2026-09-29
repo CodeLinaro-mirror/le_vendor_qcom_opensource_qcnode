@@ -356,7 +356,7 @@ QCStatus_e OpenclSrv::Deinit()
                 QC_ERROR( "Failed to release buffer memory object, retCL = %d", retCL );
             }
         }
-        m_bufferMap.clear();
+        (void) m_bufferMap.Clear();
 
         for ( auto &it : m_imageMap )
         {
@@ -367,7 +367,7 @@ QCStatus_e OpenclSrv::Deinit()
                 QC_ERROR( "Failed to release image memory object, retCL = %d", retCL );
             }
         }
-        m_imageMap.clear();
+        (void) m_imageMap.Clear();
 
         for ( auto &it : m_planeMap )
         {
@@ -378,7 +378,7 @@ QCStatus_e OpenclSrv::Deinit()
                 QC_ERROR( "Failed to release plane memory object, retCL = %d", retCL );
             }
         }
-        m_planeMap.clear();
+        (void) m_planeMap.Clear();
 
         retCL = clReleaseProgram( m_program );
         if ( CL_SUCCESS != retCL )
@@ -438,8 +438,9 @@ QCStatus_e OpenclSrv::RegBufferDesc( QCBufferDescriptorBase_t &buffer, cl_mem &b
         }
         else
         {
-            auto it = m_bufferMap.find( buffer.pBuf );
-            if ( it == m_bufferMap.end() )
+            OpenclIface_MemInfo_t *pInfo = nullptr;
+            QCStatus_e findStatus = m_bufferMap.Find( buffer.pBuf, pInfo );
+            if ( QC_STATUS_OK != findStatus )
             {
 #if defined( __QNXNTO__ )
                 cl_mem_pmem_host_ptr clBufHostPtr = { 0 };
@@ -468,12 +469,20 @@ QCStatus_e OpenclSrv::RegBufferDesc( QCBufferDescriptorBase_t &buffer, cl_mem &b
                 }
                 else
                 {
-                    m_bufferMap[buffer.pBuf] = { bufferCL };
+                    OpenclIface_MemInfo_t info = { bufferCL };
+                    QCStatus_e insertStatus = m_bufferMap.Insert( buffer.pBuf, info );
+                    if ( QC_STATUS_OK != insertStatus )
+                    {
+                        (void) clReleaseMemObject( bufferCL );
+                        bufferCL = nullptr;
+                        QC_ERROR( "OpenCL buffer registration cache is full" );
+                        ret = QC_STATUS_NO_RESOURCE;
+                    }
                 }
             }
             else
             {
-                bufferCL = it->second.clMem;
+                bufferCL = pInfo->clMem;
             }
         }
     }
@@ -501,8 +510,9 @@ QCStatus_e OpenclSrv::RegImage( void *pData, uint64_t dmaHandle, cl_mem *pBuffer
         }
         else
         {
-            auto it = m_imageMap.find( pData );
-            if ( it == m_imageMap.end() )
+            OpenclIface_MemInfo_t *pInfo = nullptr;
+            QCStatus_e findStatus = m_imageMap.Find( pData, pInfo );
+            if ( QC_STATUS_OK != findStatus )
             {
 #if defined( __QNXNTO__ )
                 cl_mem_pmem_host_ptr clBufHostPtr = { { 0 } };
@@ -535,13 +545,24 @@ QCStatus_e OpenclSrv::RegImage( void *pData, uint64_t dmaHandle, cl_mem *pBuffer
                 }
                 else
                 {
-                    m_imageMap[pData] = { bufferCL };
-                    *pBufferCL = bufferCL;
+                    OpenclIface_MemInfo_t info = { bufferCL };
+                    QCStatus_e insertStatus = m_imageMap.Insert( pData, info );
+                    if ( QC_STATUS_OK == insertStatus )
+                    {
+                        *pBufferCL = bufferCL;
+                    }
+                    else
+                    {
+                        (void) clReleaseMemObject( bufferCL );
+                        *pBufferCL = nullptr;
+                        QC_ERROR( "OpenCL image registration cache is full" );
+                        ret = QC_STATUS_NO_RESOURCE;
+                    }
                 }
             }
             else
             {
-                *pBufferCL = it->second.clMem;
+                *pBufferCL = pInfo->clMem;
             }
         }
     }
@@ -572,8 +593,9 @@ QCStatus_e OpenclSrv::RegPlane( void *pData, cl_mem *pBufferCL, cl_image_format 
             std::pair<void *, uint32_t> key;
             key.first = pData;
             key.second = pFormat->image_channel_order;
-            auto it = m_planeMap.find( key );
-            if ( it == m_planeMap.end() )
+            OpenclIface_MemInfo_t *pInfo = nullptr;
+            QCStatus_e findStatus = m_planeMap.Find( key, pInfo );
+            if ( QC_STATUS_OK != findStatus )
             {
                 cl_mem bufferCL = clCreateImage( m_context, CL_MEM_READ_WRITE, pFormat, pDesc,
                                                  nullptr, &retCL );
@@ -585,13 +607,24 @@ QCStatus_e OpenclSrv::RegPlane( void *pData, cl_mem *pBufferCL, cl_image_format 
                 }
                 else
                 {
-                    m_planeMap[key] = { bufferCL };
-                    *pBufferCL = bufferCL;
+                    OpenclIface_MemInfo_t info = { bufferCL };
+                    QCStatus_e insertStatus = m_planeMap.Insert( key, info );
+                    if ( QC_STATUS_OK == insertStatus )
+                    {
+                        *pBufferCL = bufferCL;
+                    }
+                    else
+                    {
+                        (void) clReleaseMemObject( bufferCL );
+                        *pBufferCL = nullptr;
+                        QC_ERROR( "OpenCL plane registration cache is full" );
+                        ret = QC_STATUS_NO_RESOURCE;
+                    }
                 }
             }
             else
             {
-                *pBufferCL = it->second.clMem;
+                *pBufferCL = pInfo->clMem;
             }
         }
     }
@@ -617,11 +650,12 @@ QCStatus_e OpenclSrv::DeregImage( void *pData )
         }
         else
         {
-            auto it = m_imageMap.find( pData );
-            if ( it != m_imageMap.end() )
+            OpenclIface_MemInfo_t *pInfo = nullptr;
+            QCStatus_e findStatus = m_imageMap.Find( pData, pInfo );
+            if ( QC_STATUS_OK == findStatus )
             {
-                (void) clReleaseMemObject( it->second.clMem );
-                (void) m_imageMap.erase( it );
+                (void) clReleaseMemObject( pInfo->clMem );
+                (void) m_imageMap.Erase( pData );
             }
         }
     }
@@ -650,11 +684,12 @@ QCStatus_e OpenclSrv::DeregPlane( void *pData, cl_image_format *pFormat )
             std::pair<void *, uint32_t> key;
             key.first = pData;
             key.second = pFormat->image_channel_order;
-            auto it = m_planeMap.find( key );
-            if ( it != m_planeMap.end() )
+            OpenclIface_MemInfo_t *pInfo = nullptr;
+            QCStatus_e findStatus = m_planeMap.Find( key, pInfo );
+            if ( QC_STATUS_OK == findStatus )
             {
-                (void) clReleaseMemObject( it->second.clMem );
-                (void) m_planeMap.erase( it );
+                (void) clReleaseMemObject( pInfo->clMem );
+                (void) m_planeMap.Erase( key );
             }
         }
     }
@@ -680,11 +715,12 @@ QCStatus_e OpenclSrv::DeregBufferDesc( QCBufferDescriptorBase_t &buffer )
         }
         else
         {
-            auto it = m_bufferMap.find( buffer.pBuf );
-            if ( it != m_bufferMap.end() )
+            OpenclIface_MemInfo_t *pInfo = nullptr;
+            QCStatus_e findStatus = m_bufferMap.Find( buffer.pBuf, pInfo );
+            if ( QC_STATUS_OK == findStatus )
             {
-                (void) clReleaseMemObject( it->second.clMem );
-                (void) m_bufferMap.erase( it );
+                (void) clReleaseMemObject( pInfo->clMem );
+                (void) m_bufferMap.Erase( buffer.pBuf );
             }
         }
     }
@@ -762,7 +798,7 @@ QCStatus_e OpenclSrv::DeregAllBuffers()
                 QC_ERROR( "Failed to release buffer memory object, retCL = %d", retCL );
             }
         }
-        m_bufferMap.clear();
+        (void) m_bufferMap.Clear();
 
         for ( auto &it : m_imageMap )
         {
@@ -773,7 +809,7 @@ QCStatus_e OpenclSrv::DeregAllBuffers()
                 QC_ERROR( "Failed to release image memory object, retCL = %d", retCL );
             }
         }
-        m_imageMap.clear();
+        (void) m_imageMap.Clear();
 
         for ( auto &it : m_planeMap )
         {
@@ -784,7 +820,7 @@ QCStatus_e OpenclSrv::DeregAllBuffers()
                 QC_ERROR( "Failed to release plane memory object, retCL = %d", retCL );
             }
         }
-        m_planeMap.clear();
+        (void) m_planeMap.Clear();
     }
     else
     {

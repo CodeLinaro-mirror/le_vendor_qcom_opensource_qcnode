@@ -15,12 +15,12 @@
 #include <vidc_client.h>
 #endif
 
+#include "QC/Common/QCMap.hpp"
 #include "QC/Infras/Memory/VideoFrameDescriptor.hpp"
 #include "QC/Node/NodeBase.hpp"
 #include <mutex>
-#include <queue>
 #include <sys/uio.h>
-#include <unordered_map>
+#include <vector>
 
 using std::string;
 
@@ -35,6 +35,8 @@ typedef enum
     VIDEO_CODEC_BUF_OUTPUT
 } VideoCodec_BufType_e;
 #define VIDEO_CODEC_BUF_TYPE_NUM 2
+
+static constexpr uint32_t VIDEO_CODEC_MAX_BUFFER_REQ = 128U;
 
 typedef enum
 {
@@ -220,26 +222,58 @@ private:
     static int DeviceCallback( uint8_t *pMsg, uint32_t length, void *pCdata );
     int DeviceCbHandler( uint8_t *pMsg, uint32_t length );
 
-    typedef struct
+    struct VideoCodec_InputInfo_t
     {
         VideoFrameDescriptor_t inFrameDesc;
         bool bUsedFlag =
                 false; /**< indicate whether sharedBuffer is using by driver or available */
-    } VideoCodec_InputInfo_t;
 
-    typedef struct
+        VideoCodec_InputInfo_t() = default;
+        VideoCodec_InputInfo_t( const VideoCodec_InputInfo_t &other ) noexcept
+            : inFrameDesc( other.inFrameDesc ),
+              bUsedFlag( other.bUsedFlag )
+        {}
+        VideoCodec_InputInfo_t &operator=( const VideoCodec_InputInfo_t &other ) noexcept
+        {
+            if ( this != &other )
+            {
+                inFrameDesc = other.inFrameDesc;
+                bUsedFlag = other.bUsedFlag;
+            }
+            return *this;
+        }
+    };
+
+    struct VideoCodec_OutputInfo_t
     {
         VideoFrameDescriptor_t outFrameDesc;
         bool bUsedFlag =
                 false; /**< indicate whether sharedBuffer is using by driver or available */
-    } VideoCodec_OutputInfo_t;
+
+        VideoCodec_OutputInfo_t() = default;
+        VideoCodec_OutputInfo_t( const VideoCodec_OutputInfo_t &other ) noexcept
+            : outFrameDesc( other.outFrameDesc ),
+              bUsedFlag( other.bUsedFlag )
+        {}
+        VideoCodec_OutputInfo_t &operator=( const VideoCodec_OutputInfo_t &other ) noexcept
+        {
+            if ( this != &other )
+            {
+                outFrameDesc = other.outFrameDesc;
+                bUsedFlag = other.bUsedFlag;
+            }
+            return *this;
+        }
+    };
 
     uint32_t m_bufNum[VIDEO_CODEC_BUF_TYPE_NUM] = { 0, 0 };
 
     std::mutex m_inLock;
-    std::unordered_map<uint64_t, VideoCodec_InputInfo_t> m_inputMap; /**< store input info */
+    QCMap<uint64_t, VideoCodec_InputInfo_t, VIDEO_CODEC_MAX_BUFFER_REQ>
+            m_inputMap; /**< store input info */
     std::mutex m_outLock;
-    std::unordered_map<uint64_t, VideoCodec_OutputInfo_t> m_outputMap; /**< store output info */
+    QCMap<uint64_t, VideoCodec_OutputInfo_t, VIDEO_CODEC_MAX_BUFFER_REQ>
+            m_outputMap; /**< store output info */
 
     VideoCodec_InFrameCallback_t m_inputDoneCb = nullptr;
     VideoCodec_OutFrameCallback_t m_outputDoneCb = nullptr;
@@ -253,9 +287,6 @@ public:
     static int CallDeviceCallback( uint8_t *pMsg, uint32_t length, void *pCdata );
 };
 
-//#if !defined NDEBUG
-extern void vidc_print_all_error_messages();
-//#endif
 }   // namespace Node
 }   // namespace QC
 
