@@ -192,7 +192,7 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
 
     if ( QC_STATUS_OK == status )
     {
-        m_drvClient.Init( m_name.c_str(), m_logger.GetLevel(), VIDEO_ENC, *m_pConfig );
+        m_drvClient.Init( VIDEO_ENC, *m_pConfig );
         status = m_drvClient.OpenDriver( InFrameCallback, OutFrameCallback, EventCallback, this );
     }
     else

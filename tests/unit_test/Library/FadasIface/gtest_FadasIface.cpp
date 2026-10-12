@@ -911,13 +911,15 @@ TEST_F( FadasIfaceTest, ExtractBBoxDestroy_Success )
 class FadasRemapTestable : public FadasRemap
 {
 public:
+    explicit FadasRemapTestable( Logger &logger ) : FadasRemap( logger ) {}
+
     void SetProcessor( QCProcessorType_e p ) { m_processor = p; }
     void SetHandleIndex( uint32_t i ) { m_handleIndex = i; }
 };
 
 TEST_F( FadasIfaceTest, SetRemapParams_InvalidOutputFormat )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     FadasNormlzParams_t n = { 0, 1, 0 };
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
                r.SetRemapParams( 1, 64, 64, (QCImageFormat_e) 99, n, n, n, false, false ) );
@@ -925,7 +927,7 @@ TEST_F( FadasIfaceTest, SetRemapParams_InvalidOutputFormat )
 
 TEST_F( FadasIfaceTest, SetRemapParams_TooManyInputs )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     FadasNormlzParams_t n = { 0, 1, 0 };
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
                r.SetRemapParams( QC_MAX_INPUTS, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false,
@@ -1076,7 +1078,7 @@ static void SetupRemapForRunWithInitNoCT( FadasRemapTestable &r, QCProcessorType
                                           QCImageFormat_e outFmt = QC_IMAGE_FORMAT_RGB888,
                                           bool bNorm = false )
 {
-    r.Init( proc, "t", LOGGER_LEVEL_ERROR );
+    r.Init( proc );
     FadasNormlzParams_t n = { 0, 1, 0 };
     /* cpuThreadsAffinity is mandatory for CPU processor (see FadasRemap::CreateRemapWorker).
      * Query the device's real online/runnable cores at runtime instead of hardcoding a
@@ -1108,7 +1110,7 @@ static void SetupRemapForRunWithInitFull( FadasRemapTestable &r, QCProcessorType
                                           QCImageFormat_e outFmt = QC_IMAGE_FORMAT_RGB888,
                                           bool bNorm = false )
 {
-    r.Init( proc, "t", LOGGER_LEVEL_ERROR );
+    r.Init( proc );
     FadasNormlzParams_t n = { 0, 1, 0 };
     /* cpuThreadsAffinity is mandatory for CPU processor (see FadasRemap::CreateRemapWorker).
      * Query the device's real online/runnable cores at runtime instead of hardcoding a
@@ -1136,9 +1138,9 @@ static void SetupRemapForRunWithInitFull( FadasRemapTestable &r, QCProcessorType
 
 TEST_F( FadasIfaceTest, DestroyMap_GPU_Fail_v2 )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     MockDlsymForSymbol( "FadasRemap_DestroyMap", (void *) FadasRemap_DestroyMapGPU );
-    r.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    r.Init( QC_PROCESSOR_GPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_GPU );
@@ -1158,7 +1160,7 @@ TEST_F( FadasIfaceTest, DestroyMap_GPU_Fail_v2 )
 
 TEST_F( FadasIfaceTest, RemapRunCPU_GPU_RunFail_v2 )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     MockDlsymForSymbol( "FadasRemap_Run", (void *) FadasRemap_RunGPU );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_GPU, QC_IMAGE_FORMAT_UYVY );
     MockFrameDescriptor fd;
@@ -1184,7 +1186,7 @@ TEST_F( FadasIfaceTest, RemapRunCPU_GPU_RunFail_v2 )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunCPU_InputRegBufFail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY );
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_UYVY, 64, 64 );
     ImageDescriptor_t out = MakeRemapOutput( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
@@ -1207,7 +1209,7 @@ TEST_F( FadasIfaceTest, RemapRunCPU_InputRegBufFail_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunCPU_OutputRegBufFail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY );
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_UYVY, 64, 64 );
     ImageDescriptor_t out = MakeRemapOutput( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
@@ -1230,7 +1232,7 @@ TEST_F( FadasIfaceTest, RemapRunCPU_OutputRegBufFail_Fixed )
  * ================================================================ */
 /*TEST_F( FadasIfaceTest, RemapRunCPU_RunFail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY );
     MockFrameDescriptor fd;
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_UYVY, 64, 64 );
@@ -1250,7 +1252,7 @@ TEST_F( FadasIfaceTest, RemapRunCPU_OutputRegBufFail_Fixed )
  * ================================================================ */
 /*TEST_F( FadasIfaceTest, RemapRunCPU_Normalize_RunFail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY,
                                    QC_IMAGE_FORMAT_RGB888, true );
     MockFrameDescriptor fd;
@@ -1271,7 +1273,7 @@ TEST_F( FadasIfaceTest, RemapRunCPU_OutputRegBufFail_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RRemapRunCPU_RGB888_Input_FixedemapRunCPU_BGR888_Output_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY,
                                   QC_IMAGE_FORMAT_BGR888 );
     MockFrameDescriptor fd;
@@ -1292,7 +1294,7 @@ TEST_F( FadasIfaceTest, RRemapRunCPU_RGB888_Input_FixedemapRunCPU_BGR888_Output_
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunCPU_RGB888_Input_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_RGB888 );
     MockFrameDescriptor fd;
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_RGB888, 64, 64 );
@@ -1313,7 +1315,7 @@ TEST_F( FadasIfaceTest, RemapRunCPU_RGB888_Input_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunCPU_NV12_Input_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12 );
     MockFrameDescriptor fd;
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_NV12, 64, 64 );
@@ -1334,8 +1336,8 @@ TEST_F( FadasIfaceTest, RemapRunCPU_NV12_Input_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunCPU_NV12UBWC_Input_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -1363,8 +1365,8 @@ TEST_F( FadasIfaceTest, RemapRunCPU_NV12UBWC_Input_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunCPU_InvalidInput_Format_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -1391,7 +1393,7 @@ TEST_F( FadasIfaceTest, RemapRunCPU_InvalidInput_Format_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunCPU_GPU_NoNormalize_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_GPU, QC_IMAGE_FORMAT_UYVY );
     MockFrameDescriptor fd;
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_UYVY, 64, 64 );
@@ -1413,7 +1415,7 @@ TEST_F( FadasIfaceTest, RemapRunCPU_GPU_NoNormalize_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunCPU_GPU_Normalize_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_GPU, QC_IMAGE_FORMAT_UYVY, QC_IMAGE_FORMAT_RGB888,
                                   true );
     MockFrameDescriptor fd;
@@ -1438,8 +1440,8 @@ TEST_F( FadasIfaceTest, RemapRunCPU_GPU_Normalize_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunDSP_InputRegBufFail_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     SetupRemap( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY );
     MockFrameDescriptor fd;
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_UYVY, 64, 64 );
@@ -1460,8 +1462,8 @@ TEST_F( FadasIfaceTest, RemapRunDSP_InputRegBufFail_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunDSP_OutputRegBufFail_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     SetupRemap( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY );
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_UYVY, 64, 64 );
     int validFd = 1;
@@ -1483,7 +1485,7 @@ TEST_F( FadasIfaceTest, RemapRunDSP_OutputRegBufFail_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunDSP_RunFail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitFull( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY );
     MockFrameDescriptor fd;
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_UYVY, 64, 64 );
@@ -1512,7 +1514,7 @@ TEST_F( FadasIfaceTest, RemapRunDSP_RunFail_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunDSP_Normalize_RunFail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitFull( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY,
                                   QC_IMAGE_FORMAT_RGB888, true );
     MockFrameDescriptor fd;
@@ -1542,7 +1544,7 @@ TEST_F( FadasIfaceTest, RemapRunDSP_Normalize_RunFail_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunDSP_RGB888_Input_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitFull( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_RGB888 );
     MockFrameDescriptor fd;
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_RGB888, 64, 64 );
@@ -1569,7 +1571,7 @@ TEST_F( FadasIfaceTest, RemapRunDSP_RGB888_Input_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunDSP_NV12_Input_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitFull( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12 );
     MockFrameDescriptor fd;
     ImageDescriptor_t inp = MakeRemapInput( QC_IMAGE_FORMAT_NV12, 64, 64 );
@@ -1596,8 +1598,8 @@ TEST_F( FadasIfaceTest, RemapRunDSP_NV12_Input_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RemapRunDSP_InvalidInput_Format_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_HTP0 );
@@ -1629,8 +1631,8 @@ TEST_F( FadasIfaceTest, RemapRunDSP_InvalidInput_Format_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, CreatRemapTable_GPU_InvalidPipeline_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_GPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_GPU );
@@ -1650,8 +1652,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_GPU_InvalidPipeline_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, CreatRemapTable_GPU_NoUndistortion_Success_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_GPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_GPU );
@@ -1673,8 +1675,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_GPU_NoUndistortion_Success_Fixed )
  * ================================================================ */
 TEST_F( FadasIfaceTest, DestroyMap_GPU_WithMap_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_GPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_GPU );
@@ -1693,7 +1695,7 @@ TEST_F( FadasIfaceTest, DestroyMap_GPU_WithMap_Fixed )
 /* NV12→BGR pipeline in RemapGetPipelineCPU (condition 2: T&&T&&F) */
 TEST_F( FadasIfaceTest, RemapRunCPU_NV12_BGR_Output_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12,
                                   QC_IMAGE_FORMAT_BGR888 );
     MockFrameDescriptor fd;
@@ -1713,8 +1715,8 @@ TEST_F( FadasIfaceTest, RemapRunCPU_NV12_BGR_Output_Fixed )
 /* NV12_UBWC→BGR pipeline in RemapGetPipelineCPU */
 TEST_F( FadasIfaceTest, RemapRunCPU_NV12UBWC_BGR_Output_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -1740,8 +1742,8 @@ TEST_F( FadasIfaceTest, RemapRunCPU_NV12UBWC_BGR_Output_Fixed )
 /* UYVY→BGR pipeline in RemapGetPipelineDSP */
 TEST_F( FadasIfaceTest, RemapRunDSP_UYVY_BGR_Output_Fixed )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_HTP0 );
@@ -1775,7 +1777,7 @@ TEST_F( FadasIfaceTest, RemapRunDSP_UYVY_BGR_Output_Fixed )
 /* DestroyMap: DSP path — AEE_SUCCESS != retVal */
 TEST_F( FadasIfaceTest, DestroyMap_DSP_Fail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitFull( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY );
     /* Force DestroyMap to fail */
     AEEResult fail = AEE_EFAILED;
@@ -1788,7 +1790,7 @@ TEST_F( FadasIfaceTest, DestroyMap_DSP_Fail_Fixed )
 /* DestroyWorkers: DSP path — AEE_SUCCESS != retVal */
 TEST_F( FadasIfaceTest, DestroyWorkers_DSP_Fail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY );
     /* Force DestroyWorkers to fail */
     AEEResult fail = AEE_EFAILED;
@@ -1800,7 +1802,7 @@ TEST_F( FadasIfaceTest, DestroyWorkers_DSP_Fail_Fixed )
 /* DestroyMap: CPU path — FADAS_ERROR_NONE != retVal */
 TEST_F( FadasIfaceTest, DestroyMap_CPU_Fail_Fixed )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitFull( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY );
     FadasError_e fail = FADAS_ERROR_FAIL;
     MockApi_Control( MOCK_API_FADAS_REMAP_DESTROY_MAP, MOCK_CONTROL_RETURN, &fail );
@@ -1817,7 +1819,7 @@ TEST_F( FadasIfaceTest, DestroyWorkers_CPU_Fail_Fixed )
      * {12,13,14,15}/{0,1,2,3}, so CreateRemapWorker()'s affinity validation
      * passes regardless of this device's actual runmask and no MockThreadCtl_Set()
      * arming is needed here anymore. */
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY );
     FadasError_e fail = FADAS_ERROR_FAIL;
     MockApi_Control( MOCK_API_FADAS_REMAP_DESTROY_WORKERS, MOCK_CONTROL_RETURN, &fail );
@@ -1829,27 +1831,29 @@ TEST_F( FadasIfaceTest, DestroyWorkers_CPU_Fail_Fixed )
 class FadasPlrTestable : public FadasPlrPreProc
 {
 public:
+    explicit FadasPlrTestable( Logger &logger ) : FadasPlrPreProc( logger ) {}
+
     void SetProcessor( QCProcessorType_e p ) { m_processor = p; }
     void SetHandleIndex( uint32_t i ) { m_handleIndex = i; }
 };
 
 TEST_F( FadasIfaceTest, PlrSetParams_Success )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     EXPECT_EQ( QC_STATUS_OK,
                p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 100, 4, 10, 10, 4 ) );
 }
 
 TEST_F( FadasIfaceTest, PlrCreatePreProc_ParamNotSet )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     EXPECT_EQ( QC_STATUS_BAD_STATE, p.CreatePreProc() );
 }
 
 TEST_F( FadasIfaceTest, PlrCreatePreProc_CPU_Success )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 100, 4, 10, 10, 4 );
     EXPECT_EQ( QC_STATUS_OK, p.CreatePreProc() );
@@ -1857,7 +1861,7 @@ TEST_F( FadasIfaceTest, PlrCreatePreProc_CPU_Success )
 }
 TEST_F( FadasIfaceTest, PlrCreatePreProc_DSP_Success )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 100, 4, 10, 10, 4 );
@@ -1872,14 +1876,14 @@ TEST_F( FadasIfaceTest, PlrCreatePreProc_CPU_Fail )
 
 TEST_F( FadasIfaceTest, PlrDestroyPreProc_CPU_NullHandle )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     EXPECT_EQ( QC_STATUS_BAD_STATE, p.DestroyPreProc() );
 }
 
 TEST_F( FadasIfaceTest, PlrDestroyPreProc_CPU_Fail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 100, 4, 10, 10, 4 );
     p.CreatePreProc();
@@ -1890,7 +1894,7 @@ TEST_F( FadasIfaceTest, PlrDestroyPreProc_CPU_Fail )
 
 TEST_F( FadasIfaceTest, PlrDestroyPreProc_DSP_ZeroHandle )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     EXPECT_EQ( QC_STATUS_BAD_STATE, p.DestroyPreProc() );
@@ -1898,7 +1902,7 @@ TEST_F( FadasIfaceTest, PlrDestroyPreProc_DSP_ZeroHandle )
 
 TEST_F( FadasIfaceTest, PlrDestroyPreProc_DSP_Fail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 100, 4, 10, 10, 4 );
@@ -1913,7 +1917,7 @@ TEST_F( FadasIfaceTest, PlrDestroyPreProc_DSP_Fail )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRun_HTP1_DSP )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP1 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -1937,7 +1941,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRun_HTP1_DSP )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRun_CPU )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -1963,7 +1967,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRun_CPU )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_InputRegBufFail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -1992,7 +1996,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_InputRegBufFail )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_OutputPlrsRegBufFail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2019,7 +2023,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_OutputPlrsRegBufFail )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_OutputFeatRegBufFail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2046,7 +2050,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_OutputFeatRegBufFail )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_RunFail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2073,9 +2077,9 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_RunFail )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_InputRegBufFail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
-    p.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    p.Init( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
     p.CreatePreProc();
@@ -2101,8 +2105,8 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_InputRegBufFail )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_OutputPlrsRegBufFail )
 {
-    FadasPlrTestable p;
-    p.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasPlrTestable p( Logger::GetDefault() );
+    p.Init( QC_PROCESSOR_HTP0 );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2129,8 +2133,8 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_OutputPlrsRegBufFail )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_OutputFeatRegBufFail )
 {
-    FadasPlrTestable p;
-    p.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasPlrTestable p( Logger::GetDefault() );
+    p.Init( QC_PROCESSOR_HTP0 );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2158,7 +2162,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_OutputFeatRegBufFail )
  ============================================================ */
 TEST_F( FadasIfaceTest, PlrCreatePreProc_CPU_CreateFail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     ASSERT_EQ( QC_STATUS_OK,
                p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 100, 4, 10, 10, 4 ) );
@@ -2176,8 +2180,8 @@ TEST_F( FadasIfaceTest, PlrCreatePreProc_CPU_CreateFail )
  ============================================================ */
 TEST_F( FadasIfaceTest, PlrCreatePreProc_DSP_CreateFail )
 {
-    FadasPlrTestable p;
-    p.Init( QC_PROCESSOR_HTP0, "PlrTest", LOGGER_LEVEL_ERROR );
+    FadasPlrTestable p( Logger::GetDefault() );
+    p.Init( QC_PROCESSOR_HTP0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
     AEEResult fail = AEE_EFAILED;
     MockApi_Control( MOCK_API_FADAS_POINT_PILLAR_CREATE_SAFE, MOCK_CONTROL_RETURN, &fail );
@@ -2191,8 +2195,8 @@ TEST_F( FadasIfaceTest, PlrCreatePreProc_DSP_CreateFail )
  * ---------------------------------------------------------------- */
 TEST_F( FadasIfaceTest, PlrRunCPU_OutputPlrsRegBufFail_WithLogger )
 {
-    FadasPlrTestable p;
-    p.Init( QC_PROCESSOR_CPU, "PlrTest", LOGGER_LEVEL_ERROR );
+    FadasPlrTestable p( Logger::GetDefault() );
+    p.Init( QC_PROCESSOR_CPU );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
     p.CreatePreProc();
 
@@ -2218,7 +2222,7 @@ TEST_F( FadasIfaceTest, PlrRunCPU_OutputPlrsRegBufFail_WithLogger )
 
 TEST_F( FadasIfaceTest, PlrCreatePreProc_HTP1_Success )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP1 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 100, 4, 10, 10, 4 );
@@ -2228,7 +2232,7 @@ TEST_F( FadasIfaceTest, PlrCreatePreProc_HTP1_Success )
 
 TEST_F( FadasIfaceTest, PlrCreatePreProc_HTP1_CreateFail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP1 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2239,8 +2243,8 @@ TEST_F( FadasIfaceTest, PlrCreatePreProc_HTP1_CreateFail )
 
 TEST_F( FadasIfaceTest, PlrPointPillarRun_HTP0_DSP )
 {
-    FadasPlrTestable p;
-    p.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasPlrTestable p( Logger::GetDefault() );
+    p.Init( QC_PROCESSOR_HTP0 );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2261,7 +2265,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRun_HTP0_DSP )
 
 TEST_F( FadasIfaceTest, PlrDestroyPreProc_HTP1_ZeroHandle )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP1 );
     p.SetHandleIndex( 0 );
     EXPECT_EQ( QC_STATUS_BAD_STATE, p.DestroyPreProc() );
@@ -2269,7 +2273,7 @@ TEST_F( FadasIfaceTest, PlrDestroyPreProc_HTP1_ZeroHandle )
 
 TEST_F( FadasIfaceTest, PlrDestroyPreProc_HTP1_Fail )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_HTP1 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 100, 4, 10, 10, 4 );
@@ -2281,8 +2285,8 @@ TEST_F( FadasIfaceTest, PlrDestroyPreProc_HTP1_Fail )
 
 TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_RunFail )
 {
-    FadasPlrTestable p;
-    p.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasPlrTestable p( Logger::GetDefault() );
+    p.Init( QC_PROCESSOR_HTP0 );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2320,8 +2324,8 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_RunFail )
 
 TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_Success )
 {
-    FadasPlrTestable p;
-    p.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasPlrTestable p( Logger::GetDefault() );
+    p.Init( QC_PROCESSOR_HTP0 );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2355,7 +2359,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_Success )
 
 TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_NullInputTensor )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2378,7 +2382,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_NullInputTensor )
 
 TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_NullOutputPlrTensor )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2401,7 +2405,7 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_NullOutputPlrTensor )
 
 TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_NullOutputFeatTensor )
 {
-    FadasPlrTestable p;
+    FadasPlrTestable p( Logger::GetDefault() );
     p.SetProcessor( QC_PROCESSOR_CPU );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2425,8 +2429,8 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunCPU_NullOutputFeatTensor )
 
 TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_NullInputTensor )
 {
-    FadasPlrTestable p;
-    p.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasPlrTestable p( Logger::GetDefault() );
+    p.Init( QC_PROCESSOR_HTP0 );
     p.SetProcessor( QC_PROCESSOR_HTP0 );
     p.SetHandleIndex( 0 );
     p.SetParams( 0.1f, 0.1f, 0.1f, -10, -10, -10, 10, 10, 10, 4, 4, 10, 10, 4 );
@@ -2458,8 +2462,8 @@ TEST_F( FadasIfaceTest, PlrPointPillarRunDSP_NullInputTensor )
 /* RGB888→BGR888 → invalid pipeline (row 3 of condition 3 in RemapGetPipelineCPU) */
 TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_RGB888_BGR888 )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2474,8 +2478,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_RGB888_BGR888 )
  * RemapGetPipelineCPU) */
 TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_RGB888_RGB888_Normalize )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, true );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2490,7 +2494,7 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_RGB888_RGB888_Normalize )
  * (row 1 of condition 6 in RemapGetPipelineCPU) */
 TEST_F( FadasIfaceTest, RemapRunCPU_NV12_RGB888_Normalize )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12, QC_IMAGE_FORMAT_RGB888,
                                   true );
     MockFrameDescriptor fd;
@@ -2511,8 +2515,8 @@ TEST_F( FadasIfaceTest, RemapRunCPU_NV12_RGB888_Normalize )
  */
 TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NV12_BGR888_Normalize )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, true );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2527,8 +2531,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NV12_BGR888_Normalize )
  * RemapGetPipelineCPU) */
 TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NV12UBWC_BGR888_Normalize )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, true );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2542,8 +2546,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NV12UBWC_BGR888_Normalize )
 /* NV12_UBWC→RGB888 → invalid pipeline (row 3 of condition 8 in RemapGetPipelineCPU) */
 TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NV12UBWC_RGB888 )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2566,8 +2570,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NV12UBWC_RGB888 )
  * this test binary is built for. */
 TEST_F( FadasIfaceTest, CreateRemapWorker_CPU_NegativeCoreId )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     std::vector<int32_t> cpuThreadsAffinity = { -1, 1, 2, 3 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
@@ -2589,8 +2593,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_QNX_ThreadCtlFails )
 {
     MockThreadCtl_Set( -1, 0U );
 
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     std::vector<int32_t> cpuThreadsAffinity = { 0, 1, 2, 3 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
@@ -2613,8 +2617,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_QNX_CoreNotInRunmask )
      * in-range (< 32) but not part of the mask. */
     MockThreadCtl_Set( 0, 0x0FU );
 
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     std::vector<int32_t> cpuThreadsAffinity = { 10 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
@@ -2634,8 +2638,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_QNX_CoreInRunmask_Accepted )
     /* Runmask allows cores 0-3; request core 2, which is in the mask. */
     MockThreadCtl_Set( 0, 0x0FU );
 
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     std::vector<int32_t> cpuThreadsAffinity = { 2 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
@@ -2659,8 +2663,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_Linux_SchedGetaffinityFails )
 {
     MockSchedGetaffinity_SetFail( 1 );
 
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     std::vector<int32_t> cpuThreadsAffinity = { 0, 1, 2, 3 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, false,
@@ -2681,8 +2685,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_Linux_SchedGetaffinityFails )
 /* RGB888→BGR888 → invalid pipeline (row 3 of condition 3 in RemapGetPipelineDSP) */
 TEST_F( FadasIfaceTest, CreateRemapWorker_DSP_RGB888_BGR888 )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, false );
     r.SetProcessor( QC_PROCESSOR_HTP0 );
@@ -2697,8 +2701,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_DSP_RGB888_BGR888 )
  * RemapGetPipelineDSP) */
 TEST_F( FadasIfaceTest, CreateRemapWorker_DSP_RGB888_RGB888_Normalize )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, false, true );
     r.SetProcessor( QC_PROCESSOR_HTP0 );
@@ -2713,8 +2717,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_DSP_RGB888_RGB888_Normalize )
  */
 TEST_F( FadasIfaceTest, CreateRemapWorker_DSP_UYVY_BGR888_Normalize )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, true );
     r.SetProcessor( QC_PROCESSOR_HTP0 );
@@ -2729,7 +2733,7 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_DSP_UYVY_BGR888_Normalize )
  * (row 1 of condition 6 in RemapGetPipelineDSP) */
 TEST_F( FadasIfaceTest, RemapRunDSP_NV12_RGB888_Normalize )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunWithInitFull( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12,
                                   QC_IMAGE_FORMAT_RGB888, true );
     MockFrameDescriptor fd;
@@ -2756,8 +2760,8 @@ TEST_F( FadasIfaceTest, RemapRunDSP_NV12_RGB888_Normalize )
  */
 TEST_F( FadasIfaceTest, CreateRemapWorker_DSP_NV12_BGR888_Normalize )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_BGR888, n, n, n, false, true );
     r.SetProcessor( QC_PROCESSOR_HTP0 );
@@ -2775,8 +2779,8 @@ TEST_F( FadasIfaceTest, CreateRemapWorker_DSP_NV12_BGR888_Normalize )
 /* Condition 1 row 1: undistortion=true, mapX.type ≠ TENSOR → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_InvalidMapX_Type )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2798,8 +2802,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_InvalidMapX_Type )
 /* Condition 1 row 2: undistortion=true, mapX.type=TENSOR, mapX.pBuf=nullptr → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_InvalidMapX_NullBuf )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2820,8 +2824,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_InvalidMapX_NullBuf )
 /* Condition 2 row 1: undistortion=true, mapX valid, mapY.type ≠ TENSOR → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_InvalidMapY_Type )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2844,8 +2848,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_InvalidMapY_Type )
  * BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_InvalidMapY_NullBuf )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2866,8 +2870,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_InvalidMapY_NullBuf )
 /* Condition 3 row 1: undistortion=true, mapX tensorType ≠ FLOAT32 → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapX_TensorTypeMismatch )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2888,8 +2892,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapX_TensorTypeMismatch )
 /* Condition 3 row 2: undistortion=true, mapX numDims ≠ 2 → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapX_NumDimsMismatch )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2910,8 +2914,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapX_NumDimsMismatch )
 /* Condition 3 row 3: undistortion=true, mapX dims[0] ≠ mapWidth → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapX_WidthMismatch )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2931,8 +2935,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapX_WidthMismatch )
 /* Condition 3 row 4: undistortion=true, mapX dims[1] ≠ mapHeight → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapX_HeightMismatch )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2952,8 +2956,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapX_HeightMismatch )
 /* Condition 4 row 1: undistortion=true, mapY tensorType ≠ FLOAT32 → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapY_TensorTypeMismatch )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2974,8 +2978,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapY_TensorTypeMismatch )
 /* Condition 4 row 4: undistortion=true, mapY dims[1] ≠ mapHeight → BAD_ARGUMENTS */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapY_HeightMismatch )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -2995,8 +2999,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_MapY_HeightMismatch )
 /* Success path: bEnableUndistortion=true, CPU processor */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_CPU_Success )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_CPU );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_CPU );
@@ -3017,8 +3021,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_CPU_Success )
 /* Success path: bEnableUndistortion=true, DSP processor */
 TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_DSP_Success )
 {
-    FadasRemapTestable r;
-    r.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasRemapTestable r( Logger::GetDefault() );
+    r.Init( QC_PROCESSOR_HTP0 );
     FadasNormlzParams_t n = { 0, 1, 0 };
     r.SetRemapParams( 1, 64, 64, QC_IMAGE_FORMAT_RGB888, n, n, n, true, false );
     r.SetProcessor( QC_PROCESSOR_HTP0 );
@@ -3044,6 +3048,8 @@ TEST_F( FadasIfaceTest, CreatRemapTable_Undistortion_DSP_Success )
 class FadasSrvTestable : public FadasSrv
 {
 public:
+    explicit FadasSrvTestable( Logger &logger ) : FadasSrv( logger ) {}
+
     void SetProcessor( QCProcessorType_e p ) { m_processor = p; }
     void SetHandleIndex( uint32_t i ) { m_handleIndex = i; }
     void SetCoreId( uint32_t c ) { m_coreId = c; }
@@ -3077,43 +3083,43 @@ static FadasError_e LocalFadasRegBufGPU_BatchSuccess( FadasBufType_e, const void
  * ================================================================ */
 TEST_F( FadasIfaceTest, SrvInit_InvalidProcessor )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
-               srv.Init( (QCProcessorType_e) 99, "test", LOGGER_LEVEL_ERROR ) );
+               srv.Init( (QCProcessorType_e) 99 ) );
 }
 
 TEST_F( FadasIfaceTest, SrvInit_CPU_Success )
 {
-    FadasSrv srv;
-    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_CPU, "test", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_CPU ) );
     srv.Deinit();
 }
 
 TEST_F( FadasIfaceTest, SrvInit_CPU_FadasInitFail )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     FadasError_e fail = FADAS_ERROR_FAIL;
     MockApi_Control( MOCK_API_FADAS_INIT, MOCK_CONTROL_RETURN, &fail );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_CPU, "test", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_CPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     if ( ret == QC_STATUS_OK ) srv.Deinit();
 }
 
 TEST_F( FadasIfaceTest, SrvInit_AlreadyInitialized )
 {
-    FadasSrv srv1, srv2;
-    srv1.Init( QC_PROCESSOR_CPU, "test", LOGGER_LEVEL_ERROR );
+    FadasSrv srv1( Logger::GetDefault() ); FadasSrv srv2( Logger::GetDefault() );
+    srv1.Init( QC_PROCESSOR_CPU );
     /* Second Init with same processor → already initialized → just increments ref */
-    EXPECT_EQ( QC_STATUS_OK, srv2.Init( QC_PROCESSOR_CPU, "test", LOGGER_LEVEL_ERROR ) );
+    EXPECT_EQ( QC_STATUS_OK, srv2.Init( QC_PROCESSOR_CPU ) );
     srv1.Deinit();
     srv2.Deinit();
 }
 
 TEST_F( FadasIfaceTest, SrvDeinit_UseRefGT1 )
 {
-    FadasSrv srv1, srv2;
-    srv1.Init( QC_PROCESSOR_CPU, "test", LOGGER_LEVEL_ERROR );
-    srv2.Init( QC_PROCESSOR_CPU, "test", LOGGER_LEVEL_ERROR );
+    FadasSrv srv1( Logger::GetDefault() ); FadasSrv srv2( Logger::GetDefault() );
+    srv1.Init( QC_PROCESSOR_CPU );
+    srv2.Init( QC_PROCESSOR_CPU );
     /* First deinit → ref goes from 2 to 1 → no cleanup */
     EXPECT_EQ( QC_STATUS_OK, srv1.Deinit() );
     EXPECT_EQ( QC_STATUS_OK, srv2.Deinit() );
@@ -3121,8 +3127,8 @@ TEST_F( FadasIfaceTest, SrvDeinit_UseRefGT1 )
 
 TEST_F( FadasIfaceTest, SrvDeinit_CPU_FadasDeInitFail )
 {
-    FadasSrv srv;
-    srv.Init( QC_PROCESSOR_CPU, "test", LOGGER_LEVEL_ERROR );
+    FadasSrv srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     FadasError_e fail = FADAS_ERROR_FAIL;
     MockApi_Control( MOCK_API_FADAS_DEINIT, MOCK_CONTROL_RETURN, &fail );
     /* Even on fail, returns OK (logger deinit overrides) */
@@ -3131,39 +3137,39 @@ TEST_F( FadasIfaceTest, SrvDeinit_CPU_FadasDeInitFail )
 /* --- Init: HTP1 path (MC/DC condition 2: F||T||...) --- */
 TEST_F( FadasIfaceTest, SrvInit_HTP1 )
 {
-    FadasSrv srv;
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP1, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP1 ) );
     srv.Deinit();
 }
 
 /* --- Init: HTP2 path (MC/DC condition 3) --- */
 TEST_F( FadasIfaceTest, SrvInit_HTP2 )
 {
-    FadasSrv srv;
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP2, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP2 ) );
     srv.Deinit();
 }
 /* --- Init: HTP3 path (MC/DC condition 4) --- */
 TEST_F( FadasIfaceTest, SrvInit_HTP3 )
 {
-    FadasSrv srv;
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP3, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP3 ) );
     srv.Deinit();
 }
 
 TEST_F( FadasIfaceTest, SrvInit_GPU )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     /* dlopen mock returns (void*)1, dlsym returns (void*)1 → all function pointers non-null
        s_FadasInitGPU mock returns FADAS_ERROR_NONE */
-    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR ) );
+    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_GPU ) );
     srv.Deinit();
 }
 
 TEST_F( FadasIfaceTest, Deinit_HTP0_FadasDeInitFail )
 {
-    FadasSrv srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrv srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     AEEResult f = AEE_EFAILED;
     MockApi_Control( MOCK_API_FADAS_DEINIT_SAFE, MOCK_CONTROL_RETURN, &f );
     srv.Deinit(); /* Should handle fail gracefully */
@@ -3175,8 +3181,8 @@ TEST_F( FadasIfaceTest, Deinit_HTP0_FadasDeInitFail )
 
 TEST_F( FadasIfaceTest, RegisterImage_NV12UBWC )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = {};
     d.type = QC_BUFFER_TYPE_IMAGE;
     d.format = QC_IMAGE_FORMAT_NV12_UBWC;
@@ -3202,8 +3208,8 @@ TEST_F( FadasIfaceTest, RegisterImage_NV12UBWC )
 
 TEST_F( FadasIfaceTest, RegisterImage_NV12 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = {};
     d.type = QC_BUFFER_TYPE_IMAGE;
     d.format = QC_IMAGE_FORMAT_NV12;
@@ -3229,8 +3235,8 @@ TEST_F( FadasIfaceTest, RegisterImage_NV12 )
 
 TEST_F( FadasIfaceTest, RegisterImage_AlreadyRegistered_Match )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 64, 64 );
     /* Register first time */
     int32_t fd1 = srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
@@ -3245,8 +3251,8 @@ TEST_F( FadasIfaceTest, RegisterImage_AlreadyRegistered_Match )
 
 TEST_F( FadasIfaceTest, RegisterImage_AlreadyRegistered_SizeMismatch )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 64, 64 );
     srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
     /* Try to register same pBuf but different size */
@@ -3261,8 +3267,8 @@ TEST_F( FadasIfaceTest, RegisterImage_AlreadyRegistered_SizeMismatch )
 
 TEST_F( FadasIfaceTest, RegisterImage_AlreadyRegistered_OffsetMismatch )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 64, 64 );
     srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
     ImageDescriptor_t d2 = d;
@@ -3280,16 +3286,16 @@ TEST_F( FadasIfaceTest, RegisterImage_AlreadyRegistered_OffsetMismatch )
 
 TEST_F( FadasIfaceTest, DeregBuf_Null )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     srv.DeregBuf( nullptr ); /* Should handle null gracefully */
     srv.Deinit();
 }
 
 TEST_F( FadasIfaceTest, DeregBuf_CPU_FadasDeregBufFail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.RegBuf( t, FADAS_BUF_TYPE_IN );
     FadasError_e f = FADAS_ERROR_FAIL;
@@ -3301,8 +3307,8 @@ TEST_F( FadasIfaceTest, DeregBuf_CPU_FadasDeregBufFail )
 
 TEST_F( FadasIfaceTest, DeregBuf_GPU_Success )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_GPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.RegBuf( t, FADAS_BUF_TYPE_IN );
     srv.DeregBuf( t.pBuf );
@@ -3312,8 +3318,8 @@ TEST_F( FadasIfaceTest, DeregBuf_GPU_Success )
 
 TEST_F( FadasIfaceTest, DeregBuf_HTP0_MunmapFail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     int validFd = 1;
     MockApi_Control( MOCK_API_RPCMEM_TO_FD, MOCK_CONTROL_RETURN, &validFd );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
@@ -3335,8 +3341,8 @@ TEST_F( FadasIfaceTest, DeregBuf_HTP0_MunmapFail )
 
 TEST_F( FadasIfaceTest, RegBuf_InvalidType_None )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     /* FADAS_BUF_TYPE_NONE = 0, which is <= FADAS_BUF_TYPE_NONE */
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_NONE );
@@ -3347,8 +3353,8 @@ TEST_F( FadasIfaceTest, RegBuf_InvalidType_None )
 
 TEST_F( FadasIfaceTest, RegBuf_InvalidType_End )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     /* FADAS_BUF_TYPE_END >= FADAS_BUF_TYPE_END */
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_END );
@@ -3359,8 +3365,8 @@ TEST_F( FadasIfaceTest, RegBuf_InvalidType_End )
 
 TEST_F( FadasIfaceTest, RegBuf_UnknownType )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     /* Create a buffer with unknown type */
     QCBufferDescriptorBase_t badBuf = {};
     badBuf.type = (QCBufferType_e) 99; /* unknown type */
@@ -3378,8 +3384,8 @@ TEST_F( FadasIfaceTest, RegBuf_UnknownType )
 
 TEST_F( FadasIfaceTest, FadasRegisterBuf_CPU_RegBufFail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     FadasError_e f = FADAS_ERROR_FAIL;
     MockApi_Control( MOCK_API_FADAS_REG_BUF, MOCK_CONTROL_RETURN, &f );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
@@ -3395,8 +3401,8 @@ TEST_F( FadasIfaceTest, FadasRegisterBuf_CPU_RegBufFail )
 
 TEST_F( FadasIfaceTest, RegisterTensor_AlreadyRegistered )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     int32_t fd1 = srv.RegBuf( t, FADAS_BUF_TYPE_IN );
     EXPECT_GE( fd1, 0 );
@@ -3412,15 +3418,15 @@ TEST_F( FadasIfaceTest, RegisterTensor_AlreadyRegistered )
  * ================================================================ */
 TEST_F( FadasIfaceTest, SrvInit_HTP0_CoreId1 )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     /* coreId=1 → m_handleIndex = QC_PROCESSOR_MAX - 1 + 1 */
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR, 1 ) );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, 1 ) );
     srv.Deinit();
 }
 TEST_F( FadasIfaceTest, FadasMemMap_HTP2_Path )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP2, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP2 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );   // ← KEY FIX
     int validFd = 1;
@@ -3433,8 +3439,8 @@ TEST_F( FadasIfaceTest, FadasMemMap_HTP2_Path )
 
 TEST_F( FadasIfaceTest, FadasMemMap_HTP3_Path )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP3, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP3 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );   // ← KEY FIX
     int validFd = 1;
@@ -3447,8 +3453,8 @@ TEST_F( FadasIfaceTest, FadasMemMap_HTP3_Path )
 
 TEST_F( FadasIfaceTest, FadasMemMapDSP_FastrpcMmapSuccess_v3 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );   // ← KEY FIX: remove from cache first
     int validFd = 1;
@@ -3462,8 +3468,8 @@ TEST_F( FadasIfaceTest, FadasMemMapDSP_FastrpcMmapSuccess_v3 )
 
 TEST_F( FadasIfaceTest, FadasMemMapDSP_FadasMmapFail_v3 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );
     int validFd = 1;
@@ -3478,8 +3484,8 @@ TEST_F( FadasIfaceTest, FadasMemMapDSP_FadasMmapFail_v3 )
 
 TEST_F( FadasIfaceTest, FadasRegisterBufDSP_OutType_v3 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );   // ← KEY FIX
     int validFd = 1;
@@ -3493,8 +3499,8 @@ TEST_F( FadasIfaceTest, FadasRegisterBufDSP_OutType_v3 )
 
 TEST_F( FadasIfaceTest, FadasRegisterBufDSP_InOutType_RegBufFail_v3 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );   // ← KEY FIX
     int validFd = 1;
@@ -3510,8 +3516,8 @@ TEST_F( FadasIfaceTest, FadasRegisterBufDSP_InOutType_RegBufFail_v3 )
 TEST_F( FadasIfaceTest, InitDSP_EnvVarSet_Valid )
 {
     setenv( "QC_FADAS_CLIENT_ID", "5", 1 );
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     unsetenv( "QC_FADAS_CLIENT_ID" );
     srv.Deinit();
 }
@@ -3519,8 +3525,8 @@ TEST_F( FadasIfaceTest, InitDSP_EnvVarSet_Valid )
 TEST_F( FadasIfaceTest, InitDSP_EnvVarSet_Overflow )
 {
     setenv( "QC_FADAS_CLIENT_ID", "99999999999999999999", 1 );
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     unsetenv( "QC_FADAS_CLIENT_ID" );
     srv.Deinit();
 }
@@ -3529,16 +3535,16 @@ TEST_F( FadasIfaceTest, InitDSP_EnvVarSet_Overflow )
 TEST_F( FadasIfaceTest, InitDSP_EnvVarSet_InvalidClient )
 {
     setenv( "QC_FADAS_CLIENT_ID", "99", 1 );
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     unsetenv( "QC_FADAS_CLIENT_ID" );
     srv.Deinit();
 }
 
 TEST_F( FadasIfaceTest, RegBuf_HTP1_Path )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP1, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP1 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );
     int validFd = 1;
@@ -3551,10 +3557,10 @@ TEST_F( FadasIfaceTest, RegBuf_HTP1_Path )
 
 TEST_F( FadasIfaceTest, InitGPU_DlopenFail )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockApi_Control( MOCK_API_DLOPEN, MOCK_CONTROL_RETURN, &nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3562,10 +3568,10 @@ TEST_F( FadasIfaceTest, InitGPU_DlopenFail )
 // InitGPU: dlsym returns null for FadasInit
 TEST_F( FadasIfaceTest, InitGPU_DlsymFail )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockApi_Control( MOCK_API_DLSYM, MOCK_CONTROL_RETURN, &nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3575,10 +3581,10 @@ TEST_F( FadasIfaceTest, InitGPU_DlsymFail )
  * ================================================================ */
 TEST_F( FadasIfaceTest, InitGPU_DlsymFail_FadasDeInit )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockDlsymForSymbol( "FadasDeInit", nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3588,10 +3594,10 @@ TEST_F( FadasIfaceTest, InitGPU_DlsymFail_FadasDeInit )
  * ================================================================ */
 TEST_F( FadasIfaceTest, InitGPU_DlsymFail_FadasRegBuf )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockDlsymForSymbol( "FadasRegBuf", nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3602,10 +3608,10 @@ TEST_F( FadasIfaceTest, InitGPU_DlsymFail_FadasRegBuf )
 
 TEST_F( FadasIfaceTest, InitGPU_DlsymFail_FadasDeregBuf )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockDlsymForSymbol( "FadasDeregBuf", nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3615,10 +3621,10 @@ TEST_F( FadasIfaceTest, InitGPU_DlsymFail_FadasDeregBuf )
  * ================================================================ */
 TEST_F( FadasIfaceTest, InitGPU_DlsymFail_CreateMapFromMap )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockDlsymForSymbol( "FadasRemap_CreateMapFromMap", nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3628,10 +3634,10 @@ TEST_F( FadasIfaceTest, InitGPU_DlsymFail_CreateMapFromMap )
  * ================================================================ */
 TEST_F( FadasIfaceTest, InitGPU_DlsymFail_CreateMapNoUndistortion )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockDlsymForSymbol( "FadasRemap_CreateMapNoUndistortion", nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3641,10 +3647,10 @@ TEST_F( FadasIfaceTest, InitGPU_DlsymFail_CreateMapNoUndistortion )
  * ================================================================ */
 TEST_F( FadasIfaceTest, InitGPU_DlsymFail_RemapRun )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockDlsymForSymbol( "FadasRemap_Run", nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3654,10 +3660,10 @@ TEST_F( FadasIfaceTest, InitGPU_DlsymFail_RemapRun )
  * ================================================================ */
 TEST_F( FadasIfaceTest, InitGPU_DlsymFail_DestroyMap )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     void *nullPtr = nullptr;
     MockDlsymForSymbol( "FadasRemap_DestroyMap", nullPtr );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3665,8 +3671,8 @@ TEST_F( FadasIfaceTest, InitGPU_DlsymFail_DestroyMap )
 /* fastrpc_mmap returns AEE_EALREADY → treated as success */
 TEST_F( FadasIfaceTest, FadasMemMapDSP_FastrpcMmapAlready )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );
     int validFd = 1;
@@ -3682,8 +3688,8 @@ TEST_F( FadasIfaceTest, FadasMemMapDSP_FastrpcMmapAlready )
 
 TEST_F( FadasIfaceTest, DeregBuf_HTP0_FadasDeregBufSafeFail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     int validFd = 1;
     MockApi_Control( MOCK_API_RPCMEM_TO_FD, MOCK_CONTROL_RETURN, &validFd );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
@@ -3700,8 +3706,8 @@ TEST_F( FadasIfaceTest, DeregBuf_HTP0_FadasDeregBufSafeFail )
 
 TEST_F( FadasIfaceTest, RegisterTensor_FadasMemMapFail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     /* rpcmem_to_fd returns -1 (default stub) → FadasMemMapDSP fails → fd = -1 */
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_IN );
@@ -3713,8 +3719,8 @@ TEST_F( FadasIfaceTest, RegisterTensor_FadasMemMapFail )
 /* FadasRegisterBuf fails for tensor → fd = -1 */
 TEST_F( FadasIfaceTest, RegisterTensor_FadasRegisterBufFail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf(t.pBuf);
     FadasError_e fail = FADAS_ERROR_FAIL;
@@ -3732,8 +3738,8 @@ TEST_F( FadasIfaceTest, RegisterTensor_FadasRegisterBufFail )
 /* Buffer not in map → skip (no crash) */
 TEST_F( FadasIfaceTest, DeregBuf_NotInMap )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     uint8_t dummy[64] = {};
     srv.DeregBuf( dummy ); /* Not registered → should handle gracefully */
     srv.Deinit();
@@ -3741,8 +3747,8 @@ TEST_F( FadasIfaceTest, DeregBuf_NotInMap )
 
 TEST_F( FadasIfaceTest, DeregBuf_HTP0_FastrpcMunmapFail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     int validFd = 1;
     MockApi_Control( MOCK_API_RPCMEM_TO_FD, MOCK_CONTROL_RETURN, &validFd );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
@@ -3760,8 +3766,8 @@ TEST_F( FadasIfaceTest, DeregBuf_HTP0_FastrpcMunmapFail )
 /* s_FadasDeregBufGPU fails → log error but continue */
 TEST_F( FadasIfaceTest, DeregBuf_GPU_FadasDeregBufGPU_Fail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_GPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_IN );
     if ( fd >= 0 )
@@ -3779,8 +3785,8 @@ TEST_F( FadasIfaceTest, DeregBuf_GPU_FadasDeregBufGPU_Fail )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RegBuf_DynamicCastImageFail_v2 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     QCBufferDescriptorBase_t badBuf = {};
     badBuf.type = QC_BUFFER_TYPE_IMAGE; /* IMAGE type but NOT ImageDescriptor_t */
     badBuf.pBuf = malloc( 64 );
@@ -3795,8 +3801,8 @@ TEST_F( FadasIfaceTest, RegBuf_DynamicCastImageFail_v2 )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RegBuf_DynamicCastTensorFail_v2 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     QCBufferDescriptorBase_t badBuf = {};
     badBuf.type = QC_BUFFER_TYPE_TENSOR; /* TENSOR type but NOT TensorDescriptor_t */
     badBuf.pBuf = malloc( 64 );
@@ -3812,8 +3818,8 @@ TEST_F( FadasIfaceTest, RegBuf_DynamicCastTensorFail_v2 )
 TEST_F( FadasIfaceTest, InitDSP_NegativeClient_v2 )
 {
     setenv( "QC_FADAS_CLIENT_ID", "-5", 1 );
-    FadasSrv srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrv srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     unsetenv( "QC_FADAS_CLIENT_ID" );
     srv.Deinit();
 }
@@ -3824,8 +3830,8 @@ TEST_F( FadasIfaceTest, InitDSP_NegativeClient_v2 )
  * ================================================================ */
 TEST_F( FadasIfaceTest, RegisterImage_RegBufFail_v4 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 64, 64 );
     srv.DeregBuf( d.pBuf );
     FadasError_e fail = FADAS_ERROR_FAIL;
@@ -3840,8 +3846,8 @@ TEST_F( FadasIfaceTest, RegisterImage_RegBufFail_v4 )
  * ================================================================ */
 TEST_F( FadasIfaceTest, Deinit_HTP0_FadasDeInitFail_v3 )
 {
-    FadasSrv srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrv srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     AEEResult fail = AEE_EFAILED;
     MockApi_Control( MOCK_API_FADAS_DEINIT_SAFE, MOCK_CONTROL_RETURN, &fail );
     srv.Deinit();
@@ -3850,9 +3856,9 @@ TEST_F( FadasIfaceTest, Deinit_HTP0_FadasDeInitFail_v3 )
 /* InitGPU: s_FadasInitGPU fails (line 205) */
 TEST_F( FadasIfaceTest, InitGPU_FadasInitGPU_Fail_v3 )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     MockDlsymForSymbol( "FadasInit", (void *) LocalFadasInitGPU_Fail );
-    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    QCStatus_e ret = srv.Init( QC_PROCESSOR_GPU );
     EXPECT_TRUE( ret == QC_STATUS_FAIL || ret == QC_STATUS_OK );
     srv.Deinit();
 }
@@ -3860,18 +3866,18 @@ TEST_F( FadasIfaceTest, InitGPU_FadasInitGPU_Fail_v3 )
 /* Deinit: s_FadasDeInitGPU fails (line 446) */
 TEST_F( FadasIfaceTest, Deinit_GPU_DeInitFail_v4 )
 {
-    FadasSrv srv;
+    FadasSrv srv( Logger::GetDefault() );
     MockDlsymForSymbol( "FadasDeInit", (void *) LocalFadasDeInitGPU_Fail );
-    srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    srv.Init( QC_PROCESSOR_GPU );
     srv.Deinit();
 }
 
 /* FadasRegisterBufGPU: s_FadasRegBufGPU fails (lines 647+651) */
 TEST_F( FadasIfaceTest, FadasRegisterBufGPU_RegBufFail_v6 )
 {
-    FadasSrvTestable srv;
+    FadasSrvTestable srv( Logger::GetDefault() );
     MockDlsymForSymbol( "FadasRegBuf", (void *) LocalFadasRegBufGPU_Fail );
-    srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    srv.Init( QC_PROCESSOR_GPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_IN );
@@ -3893,8 +3899,8 @@ TEST_F( FadasIfaceTest, FadasRegisterBufGPU_RegBufFail_v6 )
 TEST_F( FadasIfaceTest, GetDomain_FirstRemoteSystemRequestFail )
 {
     MockRemoteSystemRequest_SetFailFirst( 1 );
-    FadasSrv srv;
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0 ) );
     srv.Deinit();
 }
 
@@ -3902,8 +3908,8 @@ TEST_F( FadasIfaceTest, GetDomain_FirstRemoteSystemRequestFail )
 TEST_F( FadasIfaceTest, GetDomain_SecondRemoteSystemRequestFail )
 {
     MockRemoteSystemRequest_SetFailSecond( 1 );
-    FadasSrv srv;
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0 ) );
     srv.Deinit();
 }
 
@@ -3914,8 +3920,8 @@ TEST_F( FadasIfaceTest, InitDSP_FadasIfaceOpenFail )
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_NSP );
     uint32_t badCrc = 0xdeadbeef;
     MockApi_Control( MOCK_API_CRC32_GENERATE_SCATTER, MOCK_CONTROL_RETURN, &badCrc );
-    FadasSrv srv;
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0 ) );
     srv.Deinit();
 }
 
@@ -3924,8 +3930,8 @@ TEST_F( FadasIfaceTest, InitDSP_FadasIfaceOpenFail )
 TEST_F( FadasIfaceTest, GetDomain_HTP0_NSP_Match )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_NSP );
-    FadasSrv srv;
-    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0 ) );
     srv.Deinit();
 }
 
@@ -3933,8 +3939,8 @@ TEST_F( FadasIfaceTest, GetDomain_HTP0_NSP_Match )
 TEST_F( FadasIfaceTest, InitDSP_HandleAlreadyOpen )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_NSP );
-    FadasSrv srv;
-    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0 ) );
     srv.Deinit();
 }
 
@@ -3944,8 +3950,8 @@ TEST_F( FadasIfaceTest, InitDSP_FadasInitFail )
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_NSP );
     uint32_t badCrc = 0xdeadbeef;
     MockApi_Control( MOCK_API_CRC32_GENERATE_SCATTER, MOCK_CONTROL_RETURN, &badCrc );
-    FadasSrv srv;
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0 ) );
     srv.Deinit();
 }
 
@@ -3955,8 +3961,8 @@ TEST_F( FadasIfaceTest, InitDSP_FadasVersionFail )
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_NSP );
     AEEResult failVer = AEE_EFAILED;
     MockApi_Control( MOCK_API_FADAS_VERSION_SAFE, MOCK_CONTROL_RETURN, &failVer );
-    FadasSrv srv;
-    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_NE( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0 ) );
     srv.Deinit();
 }
 
@@ -3964,8 +3970,8 @@ TEST_F( FadasIfaceTest, InitDSP_FadasVersionFail )
 TEST_F( FadasIfaceTest, Deinit_HTP0_WithRegisteredBuffers )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_NSP );
-    FadasSrvTestable srv;
-    ASSERT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    ASSERT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP0 ) );
     int validFd = 1;
     MockApi_Control( MOCK_API_RPCMEM_TO_FD, MOCK_CONTROL_RETURN, &validFd );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
@@ -3978,8 +3984,8 @@ TEST_F( FadasIfaceTest, Deinit_HTP0_WithRegisteredBuffers )
 TEST_F( FadasIfaceTest, GetDomain_HTP1_HPASS_Match )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_HPASS );
-    FadasSrv srv;
-    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP1, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP1 ) );
     srv.Deinit();
 }
 
@@ -3987,8 +3993,8 @@ TEST_F( FadasIfaceTest, GetDomain_HTP1_HPASS_Match )
 TEST_F( FadasIfaceTest, Deinit_HTP1_Success )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_HPASS );
-    FadasSrv srv;
-    ASSERT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP1, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    ASSERT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP1 ) );
     EXPECT_EQ( QC_STATUS_OK, srv.Deinit() );
 }
 
@@ -3996,8 +4002,8 @@ TEST_F( FadasIfaceTest, Deinit_HTP1_Success )
 TEST_F( FadasIfaceTest, GetDomain_HTP2_HPASS_Match )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_HPASS );
-    FadasSrv srv;
-    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP2, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP2 ) );
     srv.Deinit();
 }
 
@@ -4005,8 +4011,8 @@ TEST_F( FadasIfaceTest, GetDomain_HTP2_HPASS_Match )
 TEST_F( FadasIfaceTest, Deinit_HTP2_Success )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_HPASS );
-    FadasSrv srv;
-    ASSERT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP2, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    ASSERT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP2 ) );
     EXPECT_EQ( QC_STATUS_OK, srv.Deinit() );
 }
 
@@ -4014,8 +4020,8 @@ TEST_F( FadasIfaceTest, Deinit_HTP2_Success )
 TEST_F( FadasIfaceTest, GetDomain_HTP3_HPASS_Match )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_HPASS );
-    FadasSrv srv;
-    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP3, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    EXPECT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP3 ) );
     srv.Deinit();
 }
 
@@ -4023,15 +4029,15 @@ TEST_F( FadasIfaceTest, GetDomain_HTP3_HPASS_Match )
 TEST_F( FadasIfaceTest, Deinit_HTP3_Success )
 {
     MockRemoteSystemRequest_SetDomainType( STUB_FASTRPC_HPASS );
-    FadasSrv srv;
-    ASSERT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP3, "t", LOGGER_LEVEL_ERROR ) );
+    FadasSrv srv( Logger::GetDefault() );
+    ASSERT_EQ( QC_STATUS_OK, srv.Init( QC_PROCESSOR_HTP3 ) );
     EXPECT_EQ( QC_STATUS_OK, srv.Deinit() );
 }
 
 /* Deinit: s_initialized==false (condition 3: F&&_) */
 TEST_F( FadasIfaceTest, Deinit_NotInitialized )
 {
-    FadasSrvTestable srv;
+    FadasSrvTestable srv( Logger::GetDefault() );
     srv.SetHandleIndex( 0 );
     EXPECT_EQ( QC_STATUS_OK, srv.Deinit() );
 }
@@ -4043,8 +4049,8 @@ TEST_F( FadasIfaceTest, Deinit_NotInitialized )
 /* RegisterImage: batchSize mismatch in already-registered path */
 TEST_F( FadasIfaceTest, RegisterImage_AlreadyRegistered_BatchMismatch )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
     srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
     ImageDescriptor_t d2 = d;
@@ -4058,8 +4064,8 @@ TEST_F( FadasIfaceTest, RegisterImage_AlreadyRegistered_BatchMismatch )
 /* RegisterImage: OUT buffer with batch > 1 */
 TEST_F( FadasIfaceTest, RegisterImage_OUT_BatchGT1 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 32, 32, 2 );
     int32_t fd = srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
     EXPECT_GE( fd, 0 );
@@ -4071,8 +4077,8 @@ TEST_F( FadasIfaceTest, RegisterImage_OUT_BatchGT1 )
 /* FadasRegisterBufCPU: batch > 1 loop */
 TEST_F( FadasIfaceTest, FadasRegisterBufCPU_BatchGT1 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 16, 16, 3 );
     int32_t fd = srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
     EXPECT_GE( fd, 0 );
@@ -4084,9 +4090,9 @@ TEST_F( FadasIfaceTest, FadasRegisterBufCPU_BatchGT1 )
 /* FadasRegisterBufGPU: batch > 1 loop */
 TEST_F( FadasIfaceTest, FadasRegisterBufGPU_BatchGT1 )
 {
-    FadasSrvTestable srv;
+    FadasSrvTestable srv( Logger::GetDefault() );
     MockDlsymForSymbol( "FadasRegBuf", (void *) LocalFadasRegBufGPU_BatchSuccess );
-    srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    srv.Init( QC_PROCESSOR_GPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 16, 16, 3 );
     int32_t fd = srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
     EXPECT_GE( fd, 0 );
@@ -4098,9 +4104,9 @@ TEST_F( FadasIfaceTest, FadasRegisterBufGPU_BatchGT1 )
 /* FadasRegisterBufGPU: success path (single batch) */
 TEST_F( FadasIfaceTest, FadasRegisterBufGPU_Success )
 {
-    FadasSrvTestable srv;
+    FadasSrvTestable srv( Logger::GetDefault() );
     MockDlsymForSymbol( "FadasRegBuf", (void *) LocalFadasRegBufGPU_BatchSuccess );
-    srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    srv.Init( QC_PROCESSOR_GPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_IN );
     EXPECT_GE( fd, 0 );
@@ -4112,8 +4118,8 @@ TEST_F( FadasIfaceTest, FadasRegisterBufGPU_Success )
 /* DeregBuf: CPU path with batch > 1 */
 TEST_F( FadasIfaceTest, DeregBuf_CPU_BatchGT1 )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_CPU, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_CPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 16, 16, 3 );
     int32_t fd = srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
     EXPECT_GE( fd, 0 );
@@ -4125,9 +4131,9 @@ TEST_F( FadasIfaceTest, DeregBuf_CPU_BatchGT1 )
 /* DeregBuf: GPU path with batch > 1 */
 TEST_F( FadasIfaceTest, DeregBuf_GPU_BatchGT1 )
 {
-    FadasSrvTestable srv;
+    FadasSrvTestable srv( Logger::GetDefault() );
     MockDlsymForSymbol( "FadasRegBuf", (void *) LocalFadasRegBufGPU_BatchSuccess );
-    srv.Init( QC_PROCESSOR_GPU, "t", LOGGER_LEVEL_ERROR );
+    srv.Init( QC_PROCESSOR_GPU );
     ImageDescriptor_t d = MakeSrvImageDesc( QC_IMAGE_FORMAT_RGB888, 16, 16, 3 );
     int32_t fd = srv.RegBuf( d, FADAS_BUF_TYPE_OUT );
     EXPECT_GE( fd, 0 );
@@ -4139,8 +4145,8 @@ TEST_F( FadasIfaceTest, DeregBuf_GPU_BatchGT1 )
 /* FadasMemMapDSP: fastrpc_mmap returns AEE_EFAILED → covers row 1 (T&&T) */
 TEST_F( FadasIfaceTest, FadasMemMapDSP_FastrpcMmapFail )
 {
-    FadasSrvTestable srv;
-    srv.Init( QC_PROCESSOR_HTP0, "t", LOGGER_LEVEL_ERROR );
+    FadasSrvTestable srv( Logger::GetDefault() );
+    srv.Init( QC_PROCESSOR_HTP0 );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
     srv.DeregBuf( t.pBuf );
     int validFd = 1;

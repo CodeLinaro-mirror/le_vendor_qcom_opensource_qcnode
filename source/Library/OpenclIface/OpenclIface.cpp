@@ -11,23 +11,13 @@ namespace libs
 namespace OpenclIface
 {
 
-QCStatus_e OpenclSrv::Init( const char *pName, Logger_Level_e level, OpenclIfcae_Perf_e priority,
-                            uint32_t deviceId )
+QCStatus_e OpenclSrv::Init( OpenclIfcae_Perf_e priority, uint32_t deviceId )
 {
     QCStatus_e ret = QC_STATUS_OK;
     cl_int retCL = CL_SUCCESS;
 
     if ( false == m_initialized )
     {
-        ret = QC_LOGGER_INIT( pName, level );
-        if ( QC_STATUS_OK != ret )
-        {
-            (void) fprintf( stderr,
-                            "WARINING: failed to create logger for OpenclSrv %s: ret = %d\n", pName,
-                            ret );
-            ret = QC_STATUS_OK; /* ignore logger init error */
-        }
-
         retCL = clGetPlatformIDs( 1, &m_platformID, NULL );
         if ( CL_SUCCESS != retCL )
         {
@@ -408,12 +398,6 @@ QCStatus_e OpenclSrv::Deinit()
             QC_ERROR( "Failed to release sampler, retCL = %d", retCL );
         }
 
-        QCStatus_e retVal = QC_LOGGER_DEINIT();
-        if ( QC_STATUS_OK != retVal )
-        {
-            (void) fprintf( stderr, "WARINING: failed to deinit logger for OpenclSrv: ret = %d\n",
-                            retVal );
-        }
     }
     else
     {

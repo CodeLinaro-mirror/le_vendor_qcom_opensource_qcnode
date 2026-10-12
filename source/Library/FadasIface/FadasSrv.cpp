@@ -338,18 +338,9 @@ QCStatus_e FadasSrv::InitDSP( QCProcessorType_e processor, uint32_t coreId )
     return ret;
 }
 
-QCStatus_e FadasSrv::Init( QCProcessorType_e processor, const char *pName, Logger_Level_e level,
-                           uint32_t coreId )
+QCStatus_e FadasSrv::Init( QCProcessorType_e processor, uint32_t coreId )
 {
     QCStatus_e ret = QC_STATUS_OK;
-
-    ret = QC_LOGGER_INIT( pName, level );
-    if ( QC_STATUS_OK != ret )
-    {
-        (void) fprintf( stderr, "WARINING: failed to create logger for FadasSrv %s: ret = %d\n",
-                        pName, ret );
-        ret = QC_STATUS_OK; /* ignore logger init error */
-    }
 
     std::lock_guard<std::mutex> l( s_FadasLock );
     if ( ( QC_PROCESSOR_HTP0 == processor ) || ( QC_PROCESSOR_HTP1 == processor ) ||
@@ -406,11 +397,6 @@ QCStatus_e FadasSrv::Init( QCProcessorType_e processor, const char *pName, Logge
     {
         s_useRef[m_handleIndex]++;
     }
-    else
-    {
-        (void) QC_LOGGER_DEINIT();
-    }
-
     return ret;
 }
 
@@ -466,13 +452,6 @@ QCStatus_e FadasSrv::Deinit()
             (void) memMap.Clear();
             s_initialized[m_handleIndex] = false;
         }
-    }
-
-    ret = QC_LOGGER_DEINIT();
-    if ( QC_STATUS_OK != ret )
-    {
-        (void) fprintf( stderr, "WARINING: failed to deinit logger for FadasSrv: ret = %d\n", ret );
-        ret = QC_STATUS_OK; /* ignore logger deinit error */
     }
 
     return ret;

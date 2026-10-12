@@ -78,10 +78,10 @@ class OpenclSrv
     =================================================================================================*/
 
 public:
+    explicit OpenclSrv( Logger &logger ) : m_logger( logger ) {}
+
     /**
      * @brief Initialize the OpenclIface object
-     * @param[in] pName the OpenclIface unique instance name
-     * @param[in] level the logger message level
      * @param[in] priority the desired performance priority level, default one is normal
      * @param[in] deviceId the device ID to be used, default one is 0
      * @return QC_STATUS_OK on success, others on failure
@@ -89,8 +89,7 @@ public:
      * ID, create context, create command queue, get device info. Must be called at the beginning of
      * pipeline.
      */
-    QCStatus_e Init( const char *pName, Logger_Level_e level,
-                     OpenclIfcae_Perf_e priority = OPENCLIFACE_PERF_NORMAL, uint32_t deviceId = 0 );
+    QCStatus_e Init( OpenclIfcae_Perf_e priority = OPENCLIFACE_PERF_NORMAL, uint32_t deviceId = 0 );
 
     /**
      * @brief Load OpenCL program from source file
@@ -234,7 +233,7 @@ public:
     cl_sampler m_sampler; /**OpenCL sampler*/
 
 protected:
-    QC_DECLARE_LOGGER();
+    Logger &m_logger;
 };
 
 }   // namespace OpenclIface

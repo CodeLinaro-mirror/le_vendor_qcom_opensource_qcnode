@@ -86,8 +86,9 @@ typedef FadasError_e ( *FuncFadasRemap_DestroyMapGPU_t )( FadasRemapMap_t *map )
 class FadasSrv
 {
 public:
-    QCStatus_e Init( QCProcessorType_e processor, const char *pName, Logger_Level_e level,
-                     uint32_t coreId = 0 );
+    explicit FadasSrv( Logger &logger ) : m_logger( logger ) {}
+
+    QCStatus_e Init( QCProcessorType_e processor, uint32_t coreId = 0 );
     QCStatus_e Deinit();
     int32_t RegBuf( const QCBufferDescriptorBase_t &bufDesc, FadasBufType_e bufferType );
     void DeregBuf( void *pBuffer );
@@ -150,7 +151,7 @@ protected:
 
 
 protected:
-    QC_DECLARE_LOGGER();
+    Logger &m_logger;
 };
 
 

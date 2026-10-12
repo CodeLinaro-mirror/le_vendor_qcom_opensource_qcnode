@@ -11,7 +11,7 @@ namespace libs
 namespace FadasIface
 {
 
-FadasPlrPreProc::FadasPlrPreProc()
+FadasPlrPreProc::FadasPlrPreProc( Logger &logger ) : FadasSrv( logger )
 {
     m_plrHandler.hHandle = nullptr;
 }

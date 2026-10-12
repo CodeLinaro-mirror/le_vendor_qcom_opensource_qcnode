@@ -16,7 +16,9 @@ namespace Node
 VoxelizationImpl::VoxelizationImpl( QCNodeID_t &nodeId, Logger &logger )
     : m_nodeId( nodeId ),
       m_logger( logger ),
-      m_state( QC_OBJECT_STATE_INITIAL )
+      m_state( QC_OBJECT_STATE_INITIAL ),
+      m_plrPre( logger ),
+      m_openCLSrvObj( logger )
 {}
 
 VoxelizationImpl::~VoxelizationImpl() = default;
@@ -91,7 +93,7 @@ VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
     {
         if ( QC_PROCESSOR_GPU == m_processor )
         {
-            ret = m_openCLSrvObj.Init( m_nodeId.name.c_str(), m_logger.GetLevel() );
+            ret = m_openCLSrvObj.Init();
             if ( QC_STATUS_OK != ret )
             {
                 ret = QC_STATUS_FAIL;
@@ -167,8 +169,7 @@ VoxelizationImpl::Initialize( QCNodeEventCallBack_t callback,
             }
             else
             {
-                ret = m_plrPre.Init( m_processor, m_nodeId.name.c_str(), m_logger.GetLevel(),
-                                     m_config.voxelConfig.coreId );
+                ret = m_plrPre.Init( m_processor, m_config.voxelConfig.coreId );
                 if ( QC_STATUS_OK != ret )
                 {
                     QC_ERROR( "Failed to init FadasPlrPre" );

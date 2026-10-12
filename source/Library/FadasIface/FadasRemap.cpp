@@ -18,7 +18,7 @@ namespace libs
 namespace FadasIface
 {
 
-FadasRemap::FadasRemap() {}
+FadasRemap::FadasRemap( Logger &logger ) : FadasSrv( logger ) {}
 
 FadasRemap::~FadasRemap() {}
 

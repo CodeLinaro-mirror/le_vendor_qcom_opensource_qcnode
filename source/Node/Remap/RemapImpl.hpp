@@ -56,7 +56,8 @@ public:
     RemapImpl( QCNodeID_t &nodeId, Logger &logger )
         : m_nodeId( nodeId ),
           m_logger( logger ),
-          m_state( QC_OBJECT_STATE_INITIAL ) {};
+          m_state( QC_OBJECT_STATE_INITIAL ),
+          m_fadasRemapObj( logger ) {};
     RemapImplConfig_t &GetConifg() { return m_config; }
 
     QCStatus_e Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers );

@@ -13,11 +13,51 @@
 #include "pipeline/CL2DPipelineResize.hpp"
 #include "pipeline/CL2DPipelineResizeMultiple.hpp"
 #include <new>
+#include <string>
 
 namespace QC
 {
 namespace Node
 {
+
+CL2DFlexImpl::~CL2DFlexImpl()
+{
+    (void)Cleanup();
+}
+
+QCStatus_e CL2DFlexImpl::Cleanup()
+{
+    QCStatus_e status = QC_STATUS_OK;
+
+    for ( uint32_t inputId = 0; inputId < QC_MAX_INPUTS; inputId++ )
+    {
+        if ( nullptr != m_pCL2DPipeline[inputId] )
+        {
+            const QCStatus_e status2 = m_pCL2DPipeline[inputId]->Deinit();
+            if ( ( QC_STATUS_OK == status ) && ( QC_STATUS_OK != status2 ) )
+            {
+                status = status2;
+            }
+            m_pCL2DPipeline[inputId]->DeinitLogger();
+            delete m_pCL2DPipeline[inputId];
+            m_pCL2DPipeline[inputId] = nullptr;
+            m_kernel[inputId] = nullptr;
+        }
+    }
+
+    if ( m_openclInitialized )
+    {
+        const QCStatus_e status2 = m_OpenclSrvObj.Deinit();
+        if ( ( QC_STATUS_OK == status ) && ( QC_STATUS_OK != status2 ) )
+        {
+            status = status2;
+        }
+        m_openclInitialized = false;
+    }
+
+    m_state = QC_OBJECT_STATE_INITIAL;
+    return status;
+}
 
 QCStatus_e CL2DFlexImpl::Start()
 {
@@ -90,8 +130,7 @@ CL2DFlexImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorB
         QC_INFO( "CL2DFLEX node version: %u.%u.%u", QCNODE_CL2DFLEX_VERSION_MAJOR,
                  QCNODE_CL2DFLEX_VERSION_MINOR, QCNODE_CL2DFLEX_VERSION_PATCH );
 
-        status = m_OpenclSrvObj.Init( "Opencl", LOGGER_LEVEL_ERROR, m_config.params.priority,
-                                      m_config.params.deviceId );
+        status = m_OpenclSrvObj.Init( m_config.params.priority, m_config.params.deviceId );
         if ( QC_STATUS_OK != status )
         {
             QC_ERROR( "Init OpenCL failed!" );
@@ -99,6 +138,7 @@ CL2DFlexImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorB
         }
         else
         {
+            m_openclInitialized = true;
             status = m_OpenclSrvObj.LoadFromSource( s_pSourceCL2DFlex );
         }
 
@@ -150,7 +190,9 @@ CL2DFlexImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorB
 
                 if ( nullptr != m_pCL2DPipeline[inputId] )
                 {
-                    m_pCL2DPipeline[inputId]->InitLogger( "CL2DPipeline", LOGGER_LEVEL_ERROR );
+                    const std::string loggerName =
+                        "CL2DPipeline_" + std::to_string( inputId );
+                    m_pCL2DPipeline[inputId]->InitLogger( loggerName.c_str(), LOGGER_LEVEL_ERROR );
                     status = m_pCL2DPipeline[inputId]->Init( inputId, &m_kernel[inputId],
                                                              &m_config.params, &m_OpenclSrvObj,
                                                              buffers );
@@ -206,6 +248,10 @@ CL2DFlexImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorB
         {
             m_state = QC_OBJECT_STATE_READY;
         }
+        else
+        {
+            (void)Cleanup();
+        }
     }
     QC_TRACE_END( "Init", {} );
 
@@ -215,7 +261,6 @@ CL2DFlexImpl::Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorB
 QCStatus_e CL2DFlexImpl::DeInitialize()
 {
     QCStatus_e status = QC_STATUS_OK;
-    QCStatus_e status2;
 
     QC_TRACE_BEGIN( "DeInit", {} );
     if ( QC_OBJECT_STATE_READY != m_state )
@@ -225,28 +270,7 @@ QCStatus_e CL2DFlexImpl::DeInitialize()
     }
     else
     {
-        status2 = m_OpenclSrvObj.Deinit();
-        if ( QC_STATUS_OK != status2 )
-        {
-            QC_ERROR( "Release CL resources failed!" );
-            status = status2;
-        }
-
-        for ( uint32_t inputId = 0; inputId < m_config.params.numOfInputs; inputId++ )
-        {
-            if ( nullptr != m_pCL2DPipeline[inputId] )
-            {
-                m_pCL2DPipeline[inputId]->DeinitLogger();
-                status2 = m_pCL2DPipeline[inputId]->Deinit();
-                if ( QC_STATUS_OK != status2 )
-                {
-                    QC_ERROR( "Deinit pipeline failed for inputId=%d!", inputId );
-                    status = status2;
-                }
-                delete m_pCL2DPipeline[inputId];
-            }
-        }
-        m_state = QC_OBJECT_STATE_INITIAL;
+        status = Cleanup();
     }
     QC_TRACE_END( "DeInit", {} );
 

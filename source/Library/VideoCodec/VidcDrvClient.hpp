@@ -22,8 +22,6 @@
 #include <sys/uio.h>
 #include <vector>
 
-using std::string;
-
 namespace QC
 {
 namespace Node
@@ -100,13 +98,11 @@ typedef struct VidcNodeBase_Config VidcNodeBase_Config_t;
 class VidcDrvClient
 {
 public:
-    /** @brief Default constructor */
-    VidcDrvClient() = default;
+    explicit VidcDrvClient( Logger &logger ) : m_logger( logger ) {}
     /** @brief Default destructor */
     ~VidcDrvClient() = default;
 
-    void Init( const string &name, Logger_Level_e level, VideoEncDecType_e type,
-               const VidcNodeBase_Config_t &config );
+    void Init( VideoEncDecType_e type, const VidcNodeBase_Config_t &config );
 
     /**
      * @brief open driver and register callback
@@ -281,7 +277,7 @@ private:
     void *m_pAppPriv = nullptr;
 
 private:
-    QC_DECLARE_LOGGER();
+    Logger &m_logger;
 
 public:
     static int CallDeviceCallback( uint8_t *pMsg, uint32_t length, void *pCdata );

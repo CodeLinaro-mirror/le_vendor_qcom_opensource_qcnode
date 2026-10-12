@@ -129,10 +129,8 @@ static const char *VidcErrToStr( vidc_status_type err )
     return ret;
 }
 
-void VidcDrvClient::Init( const string &name, Logger_Level_e level, VideoEncDecType_e type,
-                          const VidcNodeBase_Config_t &nodeConfig )
+void VidcDrvClient::Init( VideoEncDecType_e type, const VidcNodeBase_Config_t &nodeConfig )
 {
-    (void) QC_LOGGER_INIT( name.c_str(), level );
     m_bufNum[VIDEO_CODEC_BUF_INPUT] = nodeConfig.numInputBufferReq;
     m_bufNum[VIDEO_CODEC_BUF_OUTPUT] = nodeConfig.numOutputBufferReq;
     m_encDecType = type;

@@ -2721,6 +2721,8 @@ TEST( FadasRemapCreatRemapTable, MapY_WrongDims1 )
 class FadasRemapTestable : public QC::libs::FadasIface::FadasRemap
 {
 public:
+    explicit FadasRemapTestable( Logger &logger ) : FadasRemap( logger ) {}
+
     void SetProcessor( QCProcessorType_e p ) { m_processor = p; }
     void SetHandleIndex( uint32_t i ) { m_handleIndex = i; }
 };
@@ -2827,7 +2829,7 @@ static void SetupRemapForRunDirect( FadasRemapTestable &r, QCProcessorType_e pro
                                     QCImageFormat_e outFmt = QC_IMAGE_FORMAT_RGB888,
                                     bool bNorm = false )
 {
-    r.Init( proc, "RemapTest", LOGGER_LEVEL_ERROR );
+    r.Init( proc );
     FadasNormlzParams_t n = { 0, 1, 0 };
     // SetRemapParams sets m_numOfInputs=1, m_outputFormat, m_outputWidth, m_outputHeight
     r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm );
@@ -2847,7 +2849,7 @@ static void SetupRemapForRunDirect( FadasRemapTestable &r, QCProcessorType_e pro
 // ============================================================================
 TEST( FadasRemapRunCPU_Direct, NV12_Input )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12 );
 
     MockFrameDescriptorForRemap fd;
@@ -2872,7 +2874,7 @@ TEST( FadasRemapRunCPU_Direct, NV12_Input )
 // ============================================================================
 TEST( FadasRemapRunCPU_Direct, NV12UBWC_Input )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_NV12_UBWC,
                             QC_IMAGE_FORMAT_BGR888 );
 
@@ -2898,7 +2900,7 @@ TEST( FadasRemapRunCPU_Direct, NV12UBWC_Input )
 // ============================================================================
 TEST( FadasRemapRunCPU_Direct, BGR888_Output )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY, QC_IMAGE_FORMAT_BGR888 );
 
     MockFrameDescriptorForRemap fd;
@@ -2929,7 +2931,7 @@ TEST( FadasRemapRunCPU_Direct, BGR888_Output )
 // ============================================================================
 TEST( FadasRemapRunCPU_Direct, CPU_Normalize )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY, QC_IMAGE_FORMAT_RGB888,
                             true );
 
@@ -2953,7 +2955,7 @@ TEST( FadasRemapRunCPU_Direct, CPU_Normalize )
 // ============================================================================
 TEST( FadasRemapRunDSP_Direct, RGB888_Input )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_RGB888 );
 
     MockFrameDescriptorForRemap fd;
@@ -2976,7 +2978,7 @@ TEST( FadasRemapRunDSP_Direct, RGB888_Input )
 // ============================================================================
 TEST( FadasRemapRunDSP_Direct, NV12_Input )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_NV12 );
 
     MockFrameDescriptorForRemap fd;
@@ -2999,7 +3001,7 @@ TEST( FadasRemapRunDSP_Direct, NV12_Input )
 // ============================================================================
 TEST( FadasRemapRunDSP_Direct, DSP_Normalize )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY, QC_IMAGE_FORMAT_RGB888,
                             true );
 
@@ -3020,7 +3022,7 @@ TEST( FadasRemapRunDSP_Direct, DSP_Normalize )
 
 TEST( FadasRemapRunCPU_Direct, OutputRegBufFail )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY );
     ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_UYVY, 64, 64 );
     ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
@@ -3040,7 +3042,7 @@ TEST( FadasRemapRunCPU_Direct, OutputRegBufFail )
 
 TEST( FadasRemapRunDSP_Direct, InputRegBufFail )
 {
-    FadasRemapTestable r;
+    FadasRemapTestable r( Logger::GetDefault() );
     SetupRemapForRunDirect( r, QC_PROCESSOR_HTP0, QC_IMAGE_FORMAT_UYVY );
     ImageDescriptor_t inp = MakeRemapInputDesc( QC_IMAGE_FORMAT_UYVY, 64, 64 );
     ImageDescriptor_t out = MakeRemapOutputDesc( QC_IMAGE_FORMAT_RGB888, 64, 64, 1 );
