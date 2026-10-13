@@ -135,7 +135,8 @@ public:
 
     /**
      * @brief Get Configuration Options
-     * @return A reference string to the JSON configuration options.
+     * @param[out] options JSON configuration options string.
+     * @return QCStatus_e indicating success or failure.
      */
     QCStatus_e GetOptions( std::string &options ) override;
 
@@ -171,6 +172,9 @@ private:
 private:
     SimulationNodeConfig_t m_config; /**< Configuration data */
     std::string m_options;           /**< Configuration options string */
+    bool        m_bSchemaLoaded = false;
+    bool        m_bStateAdded   = false;
+    DataTree    m_optionsTree;
 };
 
 /**
@@ -211,7 +215,8 @@ public:
 
     /**
      * @brief Get monitoring options
-     * @return Reference to options string
+     * @param[out] options JSON monitoring options string.
+     * @return QCStatus_e indicating success or failure.
      */
     QCStatus_e GetOptions( std::string &options ) override;
 

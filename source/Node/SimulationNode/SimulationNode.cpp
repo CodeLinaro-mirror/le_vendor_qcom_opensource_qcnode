@@ -4,7 +4,6 @@
 #include "QC/Node/SimulationNode.hpp"
 #include "QC/Infras/Memory/ImageDescriptor.hpp"
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
-#include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <thread>
@@ -422,6 +421,9 @@ QCStatus_e SimulationNode::ProcessBuffers( QCFrameDescriptorNodeIfs &frameDesc )
         BufferDescriptor_t *pInputBuffer = dynamic_cast<BufferDescriptor_t *>( &inputBuffer );
         BufferDescriptor_t *pOutputBuffer = dynamic_cast<BufferDescriptor_t *>( &outputBuffer );
 
+        // Propagate the input's buffer type and valid payload size to the output so
+        // downstream nodes and tests see the correct type (e.g. TENSOR) and validSize
+        // after a conversion transition.
         pOutputBuffer->type      = pInputBuffer->type;
         pOutputBuffer->size      = pInputBuffer->size;
         pOutputBuffer->validSize = pInputBuffer->validSize;
@@ -441,6 +443,10 @@ QCStatus_e SimulationNode::ProcessBuffers( QCFrameDescriptorNodeIfs &frameDesc )
             QC_WARN( "Null buffer pointer detected for buffer pair %u", i );
         }
 
+        // If both input and output are TensorDescriptor_t, propagate tensor metadata
+        // (tensorType, numDims, dims[]) so the output carries a fully-formed tensor
+        // descriptor that downstream nodes and tests can inspect without a separate
+        // capture mechanism.
         const Memory::TensorDescriptor_t *pTensorIn =
                 dynamic_cast<const Memory::TensorDescriptor_t *>( &inputBuffer );
         Memory::TensorDescriptor_t *pTensorOut =
@@ -456,6 +462,8 @@ QCStatus_e SimulationNode::ProcessBuffers( QCFrameDescriptorNodeIfs &frameDesc )
                        pTensorOut->dims );
         }
 
+        // Same for ImageDescriptor_t: propagate format/batchSize/width/height and the
+        // per-plane stride/actualHeight/planeBufSize arrays.
         const Memory::ImageDescriptor_t *pImageIn =
                 dynamic_cast<const Memory::ImageDescriptor_t *>( &inputBuffer );
         Memory::ImageDescriptor_t *pImageOut =

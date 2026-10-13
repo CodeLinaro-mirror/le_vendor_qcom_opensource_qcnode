@@ -165,7 +165,8 @@ public:
 
     /**
      * @brief Get the configuration options as a string.
-     * @return A reference to the configuration options string.
+     * @param[out] options JSON configuration options string.
+     * @return QCStatus_e indicating success or failure.
      */
     virtual QCStatus_e GetOptions( std::string &options );
 
@@ -229,7 +230,8 @@ public:
 
     /**
      * @brief Get the QCNode monitor options as a string.
-     * @return A reference to the QCNode monitor options string.
+     * @param[out] options JSON monitoring options string.
+     * @return QCStatus_e indicating success or failure.
      */
     virtual QCStatus_e GetOptions( std::string &options );
 
