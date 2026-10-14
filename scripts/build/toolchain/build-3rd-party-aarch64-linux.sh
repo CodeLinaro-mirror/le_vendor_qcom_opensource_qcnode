@@ -125,7 +125,7 @@ if [ ! -d $destdir/include/gtest ]; then
   else
     tar -xf googletest-1.10.0.tar.gz -C $workdir
     cd $workdir/googletest-release-1.10.0
-    patch -p1 < $homedir/patches/gtest-qnx.patch
+    patch -p1 < $homedir/patches/gtest-linux.patch
     mkdir -p build
     cd build
     cmake \

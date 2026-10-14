@@ -27,6 +27,12 @@ static uint32_t OpaqueIndex( uint32_t index )
     return opaque;
 }
 
+static const char *OpaqueCString( const char *cstr )
+{
+    const char *volatile opaque = cstr;
+    return opaque;
+}
+
 // ---------------------------------------------------------------------------
 // QCString<T> unit tests.
 //
@@ -131,7 +137,7 @@ TEST( QCString, Append_CStringOverloadScansBounded )
     EXPECT_STREQ( "hi", str.CStr() );
 
     // A C string longer than capacity is rejected, not truncated.
-    EXPECT_EQ( QC_STATUS_NOMEM, str.Append( "0123456789" ) );
+    EXPECT_EQ( QC_STATUS_NOMEM, str.Append( OpaqueCString( "0123456789" ) ) );
     EXPECT_STREQ( "hi", str.CStr() );
 }
 
