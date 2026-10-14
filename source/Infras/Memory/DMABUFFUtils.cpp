@@ -10,15 +10,9 @@ namespace QC
 namespace Memory
 {
 
-DMABUFFUtils::DMABUFFUtils()
-{
-    (void) QC_LOGGER_INIT( "DMABUFFUtils", LOGGER_LEVEL_ERROR );
-}
+DMABUFFUtils::DMABUFFUtils() : UtilsBase( "DMABUFFUtils" ) {}
 
-DMABUFFUtils::~DMABUFFUtils()
-{
-    (void) (void) QC_LOGGER_DEINIT();
-}
+DMABUFFUtils::~DMABUFFUtils() = default;
 
 QCStatus_e DMABUFFUtils::MemoryMap( const QCBufferDescriptorBase_t &orig,
                                     QCBufferDescriptorBase_t &mapped )
@@ -59,7 +53,7 @@ QCStatus_e DMABUFFUtils::MemoryMap( const QCBufferDescriptorBase_t &orig,
 
     if ( QC_STATUS_OK == status )
     {
-        void *pAddr = mmap( NULL, orig.size, static_cast<int>( static_cast<uint32_t>( PROT_READ ) | static_cast<uint32_t>( PROT_WRITE ) ), MAP_SHARED,
+        void *pAddr = mmap( nullptr, orig.size, static_cast<int>( static_cast<uint32_t>( PROT_READ ) | static_cast<uint32_t>( PROT_WRITE ) ), MAP_SHARED,
                             static_cast<int>( mapped.dmaHandle ), 0 );
         if ( ( nullptr == pAddr ) || ( MAP_FAILED == pAddr ) )
         {

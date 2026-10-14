@@ -17,87 +17,11 @@ namespace Memory
       (uint32_t) WFD_USAGE_CAPTURE | (uint32_t) WFD_USAGE_VIDEO | (uint32_t) WFD_USAGE_DISPLAY |   \
       (uint32_t) WFD_USAGE_NATIVE )
 
-const char *UtilsBase::s_qcFormatToString[QC_IMAGE_FORMAT_MAX] = {
-        "RGB888",    /* QC_IMAGE_FORMAT_RGB888 */
-        "BGR888",    /* QC_IMAGE_FORMAT_BGR888 */
-        "UYVY",      /* QC_IMAGE_FORMAT_UYVY */
-        "NV12",      /* QC_IMAGE_FORMAT_NV12 */
-        "P010",      /* QC_IMAGE_FORMAT_P010 */
-        "NV12_UBWC", /* QC_IMAGE_FORMAT_NV12_UBWC */
-        "TP_UBWC"    /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
+UtilsBase::UtilsBase() : UtilsBase( "UtilsBase" ) {}
 
-const PDColorFormat_e UtilsBase::s_qcFormatToApdfFormat[QC_IMAGE_FORMAT_MAX] = {
-        PD_FORMAT_RGB888, /* QC_IMAGE_FORMAT_RGB888 */
-        PD_FORMAT_RGB888, /* QC_IMAGE_FORMAT_BGR888 */
-        PD_FORMAT_UYVY,   /* QC_IMAGE_FORMAT_UYVY */
-        PD_FORMAT_NV12,   /* QC_IMAGE_FORMAT_NV12 */
-        PD_FORMAT_P010,   /* QC_IMAGE_FORMAT_P010 */
-        PD_FORMAT_NV12,   /* QC_IMAGE_FORMAT_NV12_UBWC */
-        PD_FORMAT_TP10    /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
-
-const uint32_t UtilsBase::s_qcTensorTypeToDataSize[QC_TENSOR_TYPE_MAX] = {
-        1, /* QC_TENSOR_TYPE_INT_8 */
-        2, /* QC_TENSOR_TYPE_INT_16 */
-        4, /* QC_TENSOR_TYPE_INT_32 */
-        8, /* QC_TENSOR_TYPE_INT_64 */
-
-        1, /* QC_TENSOR_TYPE_UINT_8 */
-        2, /* QC_TENSOR_TYPE_UINT_16 */
-        4, /* QC_TENSOR_TYPE_UINT_32 */
-        8, /* QC_TENSOR_TYPE_UINT_64 */
-
-        2, /* QC_TENSOR_TYPE_FLOAT_16 */
-        4, /* QC_TENSOR_TYPE_FLOAT_32 */
-        8, /* QC_TENSOR_TYPE_FLOAT_64 */
-
-        1, /* QC_TENSOR_TYPE_SFIXED_POINT_8 */
-        2, /* QC_TENSOR_TYPE_SFIXED_POINT_16 */
-        4, /* QC_TENSOR_TYPE_SFIXED_POINT_32 */
-
-        1, /* QC_TENSOR_TYPE_UFIXED_POINT_8 */
-        2, /* QC_TENSOR_TYPE_UFIXED_POINT_16 */
-        4, /* QC_TENSOR_TYPE_UFIXED_POINT_32 */
-
-        1 /* QC_TENSOR_TYPE_BOOL_8 */
-};
-
-const uint32_t UtilsBase::s_qcFormatToBytesPerPixel[QC_IMAGE_FORMAT_MAX] = {
-        3, /* QC_IMAGE_FORMAT_RGB888 */
-        3, /* QC_IMAGE_FORMAT_BGR888 */
-        2, /* QC_IMAGE_FORMAT_UYVY */
-        1, /* QC_IMAGE_FORMAT_NV12 */
-        2, /* QC_IMAGE_FORMAT_P010 */
-        1, /* QC_IMAGE_FORMAT_NV12_UBWC */
-        2  /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
-
-const uint32_t UtilsBase::s_qcFormatToNumPlanes[QC_IMAGE_FORMAT_MAX] = {
-        1, /* QC_IMAGE_FORMAT_RGB888 */
-        1, /* QC_IMAGE_FORMAT_BGR888 */
-        1, /* QC_IMAGE_FORMAT_UYVY */
-        2, /* QC_IMAGE_FORMAT_NV12 */
-        2, /* QC_IMAGE_FORMAT_P010 */
-        4, /* QC_IMAGE_FORMAT_NV12_UBWC */
-        4  /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
-
-const uint32_t
-        UtilsBase::s_qcFormatToHeightDividerPerPlanes[QC_IMAGE_FORMAT_MAX][QC_NUM_IMAGE_PLANES] = {
-                { 1, 1, 1, 1 }, /* QC_IMAGE_FORMAT_RGB888 */
-                { 1, 1, 1, 1 }, /* QC_IMAGE_FORMAT_BGR888 */
-                { 1, 1, 1, 1 }, /* QC_IMAGE_FORMAT_UYVY */
-                { 1, 2, 1, 1 }, /* QC_IMAGE_FORMAT_NV12 */
-                { 1, 2, 1, 1 }, /* QC_IMAGE_FORMAT_P010 */
-                { 1, 1, 2, 2 }, /* QC_IMAGE_FORMAT_NV12_UBWC */
-                { 1, 1, 2, 2 }  /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
-
-
-UtilsBase::UtilsBase()
+UtilsBase::UtilsBase( const char *loggerName )
 {
-    (void) QC_LOGGER_INIT( "UtilsBase", LOGGER_LEVEL_ERROR );
+    (void) QC_LOGGER_INIT( loggerName, LOGGER_LEVEL_ERROR );
 }
 
 UtilsBase::~UtilsBase()
@@ -152,7 +76,7 @@ QCStatus_e UtilsBase::SetTensorDescFromTensorProp( TensorProps_t &prop, TensorDe
         {
             size *= prop.dims[i];
         }
-        size *= s_qcTensorTypeToDataSize[prop.tensorType];
+        size *= GetTensorTypeDataSize( prop.tensorType );
     }
 
     if ( QC_STATUS_OK == status )
@@ -193,7 +117,7 @@ QCStatus_e UtilsBase::SetImageDescFromImageBasicProp( ImageBasicProps_t &prop,
     }
     else
     {
-        eColorFormat = s_qcFormatToApdfFormat[format];
+        eColorFormat = GetApdfFormat( format );
     }
 
     if ( QC_STATUS_OK == status )
@@ -222,7 +146,7 @@ QCStatus_e UtilsBase::SetImageDescFromImageBasicProp( ImageBasicProps_t &prop,
             desc.numPlanes = numPlanes;
 
             QC_VERBOSE( "PlaneDef for image %ux%u format %s\n", width, height,
-                        s_qcFormatToString[format] );
+                        GetImageFormatString( format ) );
         }
     }
 
@@ -304,10 +228,10 @@ QCStatus_e UtilsBase::SetImageDescFromImageProp( ImageProps_t &prop, ImageDescri
     {
         if ( prop.format < QC_IMAGE_FORMAT_MAX )
         { /* check properties for uncompressed image */
-            if ( s_qcFormatToNumPlanes[prop.format] != prop.numPlanes )
+            if ( GetNumberOfPlanes( prop.format ) != prop.numPlanes )
             {
                 QC_ERROR( "plane number %u != expected %u for format %d", prop.numPlanes,
-                          s_qcFormatToNumPlanes[prop.format], prop.format );
+                          GetNumberOfPlanes( prop.format ), prop.format );
                 status = QC_STATUS_BAD_ARGUMENTS;
             }
         }
@@ -334,11 +258,11 @@ QCStatus_e UtilsBase::SetImageDescFromImageProp( ImageProps_t &prop, ImageDescri
     {
         if ( prop.format < QC_IMAGE_FORMAT_MAX )
         {
-            bpp = s_qcFormatToBytesPerPixel[prop.format];
+            bpp = GetBytesPerPixel( prop.format );
             /* check each plane def is reasonable */
             for ( i = 0; i < prop.numPlanes; i++ )
             {
-                divider = s_qcFormatToHeightDividerPerPlanes[prop.format][i];
+                divider = GetPlaneHeightDivider( prop.format, i );
                 if ( ( prop.width * bpp ) > prop.stride[i] )
                 {
                     QC_ERROR( "given stride %u(<%u) too small for plane %u for format %d",

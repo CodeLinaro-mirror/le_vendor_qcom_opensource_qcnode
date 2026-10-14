@@ -42,12 +42,14 @@ public:
      */
     DMABUFFAllocator( const QCMemoryAllocatorConfigInit_t &config,
                       const QCMemoryAllocator_e allocator );
+    DMABUFFAllocator( const DMABUFFAllocator & ) = delete;
+    DMABUFFAllocator &operator=( const DMABUFFAllocator & ) = delete;
 
     /**
      * @brief Destructor for the DMABUFFAllocator class.
      * This destructor releases any resources allocated by the DMABUFFAllocator object.
      */
-    ~DMABUFFAllocator();
+    ~DMABUFFAllocator() override;
 
     /**
      * @brief Allocate a buffer with the specified properties.
@@ -55,14 +57,15 @@ public:
      * @param response The descriptor of the allocated buffer.
      * @return The status of the allocation operation.
      */
-    QCStatus_e Allocate( const QCBufferPropBase_t &request, QCBufferDescriptorBase_t &response );
+    QCStatus_e Allocate( const QCBufferPropBase_t &request,
+                         QCBufferDescriptorBase_t &response ) override;
 
     /**
      * @brief Free a buffer with the specified descriptor.
      * @param BufferDescriptor The descriptor of the buffer to free.
      * @return The status of the free operation.
      */
-    virtual QCStatus_e Free( const QCBufferDescriptorBase_t &BufferDescriptor );
+    QCStatus_e Free( const QCBufferDescriptorBase_t &BufferDescriptor ) override;
 
 private:
     /**

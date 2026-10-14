@@ -13,6 +13,195 @@ namespace Memory
 {
 
 /**
+ * @brief Returns the number of bytes per pixel for an uncompressed image format.
+ *
+ * @return The bytes per pixel, or zero when the format is unsupported or compressed.
+ */
+constexpr uint32_t GetBytesPerPixel( QCImageFormat_e format ) noexcept
+{
+    uint32_t bytesPerPixel = 0U;
+
+    switch ( format )
+    {
+        case QC_IMAGE_FORMAT_RGB888:
+        case QC_IMAGE_FORMAT_BGR888:
+            bytesPerPixel = 3U;
+            break;
+        case QC_IMAGE_FORMAT_UYVY:
+        case QC_IMAGE_FORMAT_P010:
+        case QC_IMAGE_FORMAT_TP10_UBWC:
+            bytesPerPixel = 2U;
+            break;
+        case QC_IMAGE_FORMAT_NV12:
+        case QC_IMAGE_FORMAT_NV12_UBWC:
+            bytesPerPixel = 1U;
+            break;
+        default:
+            break;
+    }
+
+    return bytesPerPixel;
+}
+
+constexpr const char *GetImageFormatString( QCImageFormat_e format ) noexcept
+{
+    const char *formatString = "UNKNOWN";
+
+    switch ( format )
+    {
+        case QC_IMAGE_FORMAT_RGB888:
+            formatString = "RGB888";
+            break;
+        case QC_IMAGE_FORMAT_BGR888:
+            formatString = "BGR888";
+            break;
+        case QC_IMAGE_FORMAT_UYVY:
+            formatString = "UYVY";
+            break;
+        case QC_IMAGE_FORMAT_NV12:
+            formatString = "NV12";
+            break;
+        case QC_IMAGE_FORMAT_P010:
+            formatString = "P010";
+            break;
+        case QC_IMAGE_FORMAT_NV12_UBWC:
+            formatString = "NV12_UBWC";
+            break;
+        case QC_IMAGE_FORMAT_TP10_UBWC:
+            formatString = "TP_UBWC";
+            break;
+        default:
+            break;
+    }
+
+    return formatString;
+}
+
+constexpr PDColorFormat_e GetApdfFormat( QCImageFormat_e format ) noexcept
+{
+    PDColorFormat_e apdfFormat = PD_FORMAT_MAX;
+
+    switch ( format )
+    {
+        case QC_IMAGE_FORMAT_RGB888:
+        case QC_IMAGE_FORMAT_BGR888:
+            apdfFormat = PD_FORMAT_RGB888;
+            break;
+        case QC_IMAGE_FORMAT_UYVY:
+            apdfFormat = PD_FORMAT_UYVY;
+            break;
+        case QC_IMAGE_FORMAT_NV12:
+        case QC_IMAGE_FORMAT_NV12_UBWC:
+            apdfFormat = PD_FORMAT_NV12;
+            break;
+        case QC_IMAGE_FORMAT_P010:
+            apdfFormat = PD_FORMAT_P010;
+            break;
+        case QC_IMAGE_FORMAT_TP10_UBWC:
+            apdfFormat = PD_FORMAT_TP10;
+            break;
+        default:
+            break;
+    }
+
+    return apdfFormat;
+}
+
+constexpr uint32_t GetTensorTypeDataSize( QCTensorType_e type ) noexcept
+{
+    uint32_t dataSize = 0U;
+
+    switch ( type )
+    {
+        case QC_TENSOR_TYPE_INT_8:
+        case QC_TENSOR_TYPE_UINT_8:
+        case QC_TENSOR_TYPE_SFIXED_POINT_8:
+        case QC_TENSOR_TYPE_UFIXED_POINT_8:
+        case QC_TENSOR_TYPE_BOOL_8:
+            dataSize = 1U;
+            break;
+        case QC_TENSOR_TYPE_INT_16:
+        case QC_TENSOR_TYPE_UINT_16:
+        case QC_TENSOR_TYPE_FLOAT_16:
+        case QC_TENSOR_TYPE_SFIXED_POINT_16:
+        case QC_TENSOR_TYPE_UFIXED_POINT_16:
+            dataSize = 2U;
+            break;
+        case QC_TENSOR_TYPE_INT_32:
+        case QC_TENSOR_TYPE_UINT_32:
+        case QC_TENSOR_TYPE_FLOAT_32:
+        case QC_TENSOR_TYPE_SFIXED_POINT_32:
+        case QC_TENSOR_TYPE_UFIXED_POINT_32:
+            dataSize = 4U;
+            break;
+        case QC_TENSOR_TYPE_INT_64:
+        case QC_TENSOR_TYPE_UINT_64:
+        case QC_TENSOR_TYPE_FLOAT_64:
+            dataSize = 8U;
+            break;
+        default:
+            break;
+    }
+
+    return dataSize;
+}
+
+constexpr uint32_t GetNumberOfPlanes( QCImageFormat_e format ) noexcept
+{
+    uint32_t numberOfPlanes = 0U;
+
+    switch ( format )
+    {
+        case QC_IMAGE_FORMAT_RGB888:
+        case QC_IMAGE_FORMAT_BGR888:
+        case QC_IMAGE_FORMAT_UYVY:
+            numberOfPlanes = 1U;
+            break;
+        case QC_IMAGE_FORMAT_NV12:
+        case QC_IMAGE_FORMAT_P010:
+            numberOfPlanes = 2U;
+            break;
+        case QC_IMAGE_FORMAT_NV12_UBWC:
+        case QC_IMAGE_FORMAT_TP10_UBWC:
+            numberOfPlanes = 4U;
+            break;
+        default:
+            break;
+    }
+
+    return numberOfPlanes;
+}
+
+constexpr uint32_t GetPlaneHeightDivider( QCImageFormat_e format, uint32_t planeIndex ) noexcept
+{
+    uint32_t heightDivider = 0U;
+
+    if ( planeIndex < QC_NUM_IMAGE_PLANES )
+    {
+        switch ( format )
+        {
+            case QC_IMAGE_FORMAT_NV12:
+            case QC_IMAGE_FORMAT_P010:
+                heightDivider = ( 1U == planeIndex ) ? 2U : 1U;
+                break;
+            case QC_IMAGE_FORMAT_NV12_UBWC:
+            case QC_IMAGE_FORMAT_TP10_UBWC:
+                heightDivider = ( planeIndex >= 2U ) ? 2U : 1U;
+                break;
+            case QC_IMAGE_FORMAT_RGB888:
+            case QC_IMAGE_FORMAT_BGR888:
+            case QC_IMAGE_FORMAT_UYVY:
+                heightDivider = 1U;
+                break;
+            default:
+                break;
+        }
+    }
+
+    return heightDivider;
+}
+
+/**
  * @class UtilsBase
  * @brief A concrete implementation of the QCMemoryUtilsIfs interface for PMEM allocation.
  *
@@ -35,6 +224,13 @@ public:
      * This destructor releases any resources allocated by the ManagerLocal object.
      */
     virtual ~UtilsBase();
+
+protected:
+    explicit UtilsBase( const char *loggerName );
+
+    QC_DECLARE_LOGGER();
+
+public:
 
     /**
      * @brief Maps a buffer into memory.
@@ -118,54 +314,6 @@ public:
      * @return QC_STATUS_OK on success.
      */
     virtual QCStatus_e GetSupportedBufferTransitionTypesJson( std::string &outJson ) override;
-
-private:
-    /**
-     * @var s_qcFormatToString
-     * @brief Array mapping QC format to string.
-     * This array maps each QC format type to string.
-     */
-    static const char *s_qcFormatToString[QC_IMAGE_FORMAT_MAX];
-
-    /**
-     * @var s_qcFormatToApdfFormat
-     * @brief Array mapping QC format to APD format.
-     * This array maps each QC format type to its corresponding APD format.
-     */
-    static const PDColorFormat_e s_qcFormatToApdfFormat[QC_IMAGE_FORMAT_MAX];
-    /**
-     * @var s_qcTensorTypeToDataSize
-     * @brief Array mapping tensor types to data sizes.
-     * This array maps each tensor type to its corresponding data size in bytes.
-     */
-    static const uint32_t s_qcTensorTypeToDataSize[QC_TENSOR_TYPE_MAX];
-
-    /**
-     * @var s_qcFormatToBytesPerPixel
-     * @brief Array mapping image formats to bytes per pixel.
-     * This array maps each image format to its corresponding bytes per pixel.
-     */
-    static const uint32_t s_qcFormatToBytesPerPixel[QC_IMAGE_FORMAT_MAX];
-
-    /**
-     * @var s_qcFormatToNumPlanes
-     * @brief Array mapping image formats to number of planes.
-     * This array maps each image format to its corresponding number of planes.
-     */
-    static const uint32_t s_qcFormatToNumPlanes[QC_IMAGE_FORMAT_MAX];
-
-    /**
-     * @var s_qcFormatToHeightDividerPerPlanes
-     * @brief Array mapping image formats to height dividers per plane.
-     * This array maps each image format to its corresponding height dividers per plane.
-     */
-    static const uint32_t s_qcFormatToHeightDividerPerPlanes[QC_IMAGE_FORMAT_MAX]
-                                                            [QC_NUM_IMAGE_PLANES];
-
-    /**
-     * @brief Declare the logger for this class.
-     */
-    QC_DECLARE_LOGGER();
 };
 
 }   // namespace Memory

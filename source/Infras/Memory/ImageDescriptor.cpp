@@ -3,21 +3,12 @@
 
 #include "QC/Infras/Memory/ImageDescriptor.hpp"
 #include "QC/Infras/Log/Logger.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 
 namespace QC
 {
 namespace Memory
 {
-
-static uint32_t s_qcFormatToBytesPerPixel[QC_IMAGE_FORMAT_MAX] = {
-        3, /* QC_IMAGE_FORMAT_RGB888 */
-        3, /* QC_IMAGE_FORMAT_BGR888 */
-        2, /* QC_IMAGE_FORMAT_UYVY */
-        1, /* QC_IMAGE_FORMAT_NV12 */
-        2, /* QC_IMAGE_FORMAT_P010 */
-        1, /* QC_IMAGE_FORMAT_NV12_UBWC */
-        2  /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
 
 QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &tensorDesc ) const
 {
@@ -37,7 +28,7 @@ QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &tensorDesc ) cons
               ( QC_IMAGE_FORMAT_BGR888 == this->format ) ||
               ( QC_IMAGE_FORMAT_UYVY == this->format ) )
     { /* for image format with just 1 plane */
-        bpp = s_qcFormatToBytesPerPixel[this->format];
+        bpp = GetBytesPerPixel( this->format );
         if ( this->stride[0] != ( this->width * bpp ) )
         {
             QC_LOG_ERROR(
@@ -108,7 +99,7 @@ QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &luma,
     }
     else if ( ( QC_IMAGE_FORMAT_NV12 == this->format ) || ( QC_IMAGE_FORMAT_P010 == this->format ) )
     { /* for image format with 2 plane */
-        if ( this->stride[0] != ( this->width * s_qcFormatToBytesPerPixel[this->format] ) )
+        if ( this->stride[0] != ( this->width * GetBytesPerPixel( this->format ) ) )
         {
             QC_LOG_ERROR(
                     "image with format %d with extra padding along width is not supported to be "
@@ -163,7 +154,7 @@ QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &luma,
         luma.dims[2] = this->width;
         luma.dims[3] = 1;
         luma.validSize = static_cast<size_t>( static_cast<uint64_t>( this->height ) * this->width *
-                                              s_qcFormatToBytesPerPixel[this->format] );
+                                              GetBytesPerPixel( this->format ) );
 
         chroma = *this;
         chroma.offset = this->offset + this->planeBufSize[0];
@@ -183,14 +174,14 @@ QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &luma,
         chroma.dims[3] = 2;
         chroma.validSize =
                 static_cast<size_t>( static_cast<uint64_t>( this->height ) * this->width *
-                                     s_qcFormatToBytesPerPixel[this->format] / 2 );
+                                     GetBytesPerPixel( this->format ) / 2 );
     }
 
     return status;
 }
 
 QCStatus_e ImageDescriptor::GetImageDesc( ImageDescriptor &imageDesc, uint32_t batchOffset,
-                                          uint32_t batchSize ) const
+                                          uint32_t requestedBatchSize ) const
 {
     QCStatus_e status = QC_STATUS_OK;
     size_t singleImageSize = 0;
@@ -210,9 +201,9 @@ QCStatus_e ImageDescriptor::GetImageDesc( ImageDescriptor &imageDesc, uint32_t b
         QC_LOG_ERROR( "buffer batch offset %u(>=%u) out of range", batchOffset, this->batchSize );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
-    else if ( batchSize > ( this->batchSize - batchOffset ) )
+    else if ( requestedBatchSize > ( this->batchSize - batchOffset ) )
     {
-        QC_LOG_ERROR( "buffer batch size %u out of range", batchSize );
+        QC_LOG_ERROR( "buffer batch size %u out of range", requestedBatchSize );
         status = QC_STATUS_BAD_ARGUMENTS;
     }
     else
@@ -223,8 +214,8 @@ QCStatus_e ImageDescriptor::GetImageDesc( ImageDescriptor &imageDesc, uint32_t b
     if ( QC_STATUS_OK == status )
     {
         singleImageSize = this->size / this->batchSize;
-        imageDesc.batchSize = batchSize;
-        imageDesc.validSize = batchSize * singleImageSize;
+        imageDesc.batchSize = requestedBatchSize;
+        imageDesc.validSize = requestedBatchSize * singleImageSize;
         imageDesc.offset = this->offset + batchOffset * singleImageSize;
     }
 
@@ -248,11 +239,13 @@ ImageDescriptor &ImageDescriptor::operator=( const ImageDescriptor &other )
         this->batchSize = other.batchSize;
         this->width = other.width;
         this->height = other.height;
-        uint32_t numPlanes = std::min( other.numPlanes, (uint32_t) QC_NUM_IMAGE_PLANES );
-        (void) std::copy( &other.stride[0], other.stride + numPlanes, &this->stride[0] );
-        (void) std::copy( &other.actualHeight[0], other.actualHeight + numPlanes, &this->actualHeight[0] );
-        (void) std::copy( &other.planeBufSize[0], other.planeBufSize + numPlanes, &this->planeBufSize[0] );
-        this->numPlanes = numPlanes;
+        const uint32_t planeCount = std::min( other.numPlanes, (uint32_t) QC_NUM_IMAGE_PLANES );
+        (void) std::copy_n( std::begin( other.stride ), planeCount, std::begin( this->stride ) );
+        (void) std::copy_n( std::begin( other.actualHeight ), planeCount,
+                            std::begin( this->actualHeight ) );
+        (void) std::copy_n( std::begin( other.planeBufSize ), planeCount,
+                            std::begin( this->planeBufSize ) );
+        this->numPlanes = planeCount;
     }
     return *this;
 }

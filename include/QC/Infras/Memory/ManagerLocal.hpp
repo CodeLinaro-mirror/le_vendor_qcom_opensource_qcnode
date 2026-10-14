@@ -57,7 +57,7 @@ public:
      * @param init The initialization parameters for the memory manager.
      * @return The status of the registration operation.
      */
-    virtual QCStatus_e Initialize( const QCMemoryManagerInit_t &init );
+    QCStatus_e Initialize( const QCMemoryManagerInit_t &init ) override;
 
     /**
      * @brief DeInitializes internal data bases and allocated resources.
@@ -66,13 +66,13 @@ public:
      * Validates the deallocation process success.
      * @return The status of the deinitialization operation.
      */
-    virtual QCStatus_e DeInitialize();
+    QCStatus_e DeInitialize() override;
 
     /**
      * @brief Destructor for the ManagerLocal class.
      * This destructor releases any resources allocated by the ManagerLocal object.
      */
-    virtual ~ManagerLocal();
+    ~ManagerLocal() override;
 
     /**
      * @brief Registers a node with the memory manager.
@@ -82,7 +82,7 @@ public:
      * @param handle The handle that will be used to identify the node.
      * @return The status of the registration operation.
      */
-    virtual QCStatus_e Register( const QCNodeID_t &node, QCMemoryHandle_t &handle );
+    QCStatus_e Register( const QCNodeID_t &node, QCMemoryHandle_t &handle ) override;
 
     /**
      * @brief Unregisters a node from the memory manager.
@@ -90,7 +90,7 @@ public:
      * @param memHandle The handle of the node to unregister.
      * @return The status of the unregistration operation.
      */
-    virtual QCStatus_e UnRegister( const QCMemoryHandle_t &memHandle );
+    QCStatus_e UnRegister( const QCMemoryHandle_t &memHandle ) override;
 
     /**
      * @brief Creates a memory pool.
@@ -101,9 +101,9 @@ public:
      * @param poolHandle The handle that will be used to identify the pool.
      * @return The status of the pool creation operation.
      */
-    virtual QCStatus_e CreatePool( const QCMemoryHandle_t &handle,
-                                   const QCMemoryPoolInitConfig_t &poolCfg,
-                                   QCMemoryPoolHandle_t &poolHandle );
+    QCStatus_e CreatePool( const QCMemoryHandle_t &handle,
+                           const QCMemoryPoolInitConfig_t &poolCfg,
+                           QCMemoryPoolHandle_t &poolHandle ) override;
 
     /**
      * @brief Destroys a memory pool.
@@ -111,7 +111,7 @@ public:
      * @param poolHandle The handle of the pool to destroy.
      * @return The status of the pool destruction operation.
      */
-    virtual QCStatus_e DestroyPool( const QCMemoryPoolHandle_t &poolHandle );
+    QCStatus_e DestroyPool( const QCMemoryPoolHandle_t &poolHandle ) override;
 
     /**
      * @brief Allocates a buffer from a memory pool.
@@ -121,8 +121,8 @@ public:
      * @param buff The buffer descriptor that will be used to store the allocated buffer.
      * @return The status of the buffer allocation operation.
      */
-    virtual QCStatus_e AllocateBufferFromPool( const QCMemoryPoolHandle_t &poolHandle,
-                                               QCBufferDescriptorBase_t &buff );
+    QCStatus_e AllocateBufferFromPool( const QCMemoryPoolHandle_t &poolHandle,
+                                       QCBufferDescriptorBase_t &buff ) override;
 
     /**
      * @brief Puts a buffer back into a memory pool.
@@ -132,8 +132,8 @@ public:
      * @param buff The buffer descriptor of the buffer to put back into the pool.
      * @return The status of the buffer put operation.
      */
-    virtual QCStatus_e PutBufferToPool( const QCMemoryPoolHandle_t &poolHandle,
-                                        const QCBufferDescriptorBase_t &buff );
+    QCStatus_e PutBufferToPool( const QCMemoryPoolHandle_t &poolHandle,
+                                const QCBufferDescriptorBase_t &buff ) override;
 
     /**
      * @brief Allocates a buffer.
@@ -145,10 +145,10 @@ public:
      * @param buff The buffer descriptor that will be used to store the allocated buffer.
      * @return The status of the buffer allocation operation.
      */
-    virtual QCStatus_e AllocateBuffer( const QCMemoryHandle_t handle,
-                                       const QCMemoryAllocator_e allocator,
-                                       const QCBufferPropBase_t &request,
-                                       QCBufferDescriptorBase_t &buff );
+    QCStatus_e AllocateBuffer( const QCMemoryHandle_t handle,
+                               const QCMemoryAllocator_e allocator,
+                               const QCBufferPropBase_t &request,
+                               QCBufferDescriptorBase_t &buff ) override;
 
     /**
      * @brief Frees a buffer.
@@ -157,8 +157,8 @@ public:
      * @param buff The buffer descriptor of the buffer to free.
      * @return The status of the buffer free operation.
      */
-    virtual QCStatus_e FreeBuffer( const QCMemoryHandle_t handle,
-                                   const QCBufferDescriptorBase_t &buff );
+    QCStatus_e FreeBuffer( const QCMemoryHandle_t handle,
+                           const QCBufferDescriptorBase_t &buff ) override;
 
     /**
      * @brief Reclaims resources.
@@ -166,7 +166,7 @@ public:
      * @param handle The handle of the node that owns the resources to reclaim.
      * @return The status of the resource reclamation operation.
      */
-    virtual QCStatus_e ReclaimResources( const QCMemoryHandle_t &handle );
+    QCStatus_e ReclaimResources( const QCMemoryHandle_t &handle ) override;
 
 #define IS_IN_DB_STATUS( dataBase, element )                                                       \
     ( ( ( dataBase ).find( element ) != ( dataBase ).end() ) ? QC_STATUS_OK : QC_STATUS_FAIL )
@@ -189,6 +189,7 @@ private:
         uint8_t poolSequenceCounter{ 0 };
 
         PoolMapWithMutex() = default;
+        ~PoolMapWithMutex() = default;
 
         // Delete copy constructor and assignment operator to prevent copying of mutex
         PoolMapWithMutex( const PoolMapWithMutex & ) = delete;
@@ -222,6 +223,7 @@ private:
         mutable std::shared_mutex allocationMutex;
 
         AllocationSetWithMutex() = default;
+        ~AllocationSetWithMutex() = default;
 
         // Delete copy constructor and assignment operator to prevent copying of mutex
         AllocationSetWithMutex( const AllocationSetWithMutex & ) = delete;

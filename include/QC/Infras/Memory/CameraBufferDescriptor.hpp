@@ -114,6 +114,8 @@ typedef struct CameraFrameDescriptor : public ImageDescriptor
 public:
     CameraFrameDescriptor() : ImageDescriptor() {}
 
+    using ImageDescriptor::operator=;
+
     /**
      * @brief Sets up the camera frame descriptor from another buffer descriptor base object.
      * @param[in] other The camera frame descriptor object from which buffer members are copied.

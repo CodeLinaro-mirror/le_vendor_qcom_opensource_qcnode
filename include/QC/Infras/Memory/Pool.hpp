@@ -22,7 +22,7 @@ public:
      * @return None.
      */
     Pool() = delete;
-    Pool( const QCMemoryPoolConfig_t &poolCfg ) : QCMemoryPoolIfs( poolCfg )
+    explicit Pool( const QCMemoryPoolConfig_t &poolCfg ) : QCMemoryPoolIfs( poolCfg )
     {
         (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_ERROR );
     };
@@ -34,17 +34,25 @@ public:
         {
             descriptor.pBuf = it->pBuf;
             descriptor.dmaHandle = it->dmaHandle;
-            GetConfiguration().allocator.Free( descriptor );
+            const QCStatus_e freeStatus = GetConfiguration().allocator.Free( descriptor );
+            if ( QC_STATUS_OK != freeStatus )
+            {
+                QC_ERROR( "Failed to free pool object with status %d", freeStatus );
+            }
         }
         for ( auto it = m_allocatedObjects.begin(); it != m_allocatedObjects.end(); ++it )
         {
             descriptor.pBuf = it->pBuf;
             descriptor.dmaHandle = it->dmaHandle;
-            GetConfiguration().allocator.Free( descriptor );
+            const QCStatus_e freeStatus = GetConfiguration().allocator.Free( descriptor );
+            if ( QC_STATUS_OK != freeStatus )
+            {
+                QC_ERROR( "Failed to free allocated pool object with status %d", freeStatus );
+            }
         }
-        QC_LOGGER_DEINIT();
+        (void) QC_LOGGER_DEINIT();
     }
-    virtual QCStatus_e Init()
+    QCStatus_e Init() override
     {
         QCStatus_e status = QC_STATUS_OK;
         if ( 0 == GetConfiguration().maxElements )
@@ -61,9 +69,10 @@ public:
             // the below can reduce effectiveness of pool creations
             // in case of multiple creations
             std::lock_guard<std::mutex> lk( m_lock );
-            for ( auto _ = GetConfiguration().maxElements; _-- != 0; )
+            for ( auto elementIndex = GetConfiguration().maxElements; elementIndex-- != 0; )
             {
-                QC_DEBUG( "Allocating %d out of %d elements", _, GetConfiguration().maxElements );
+                QC_DEBUG( "Allocating %d out of %d elements", elementIndex,
+                          GetConfiguration().maxElements );
                 QCBufferDescriptorBase_t response;
                 QCStatus_e loopStatus = GetConfiguration().allocator.Allocate( request, response );
                 if ( QC_STATUS_OK != loopStatus )
@@ -74,7 +83,7 @@ public:
                 }
                 else
                 {
-                    poolObjectDB_t poolObj = response;
+                    poolObjectDB_t poolObj( response );
                     m_freeObjects.push_back( poolObj );
                     // verify insertion DB correctness
                     if ( m_freeObjects.back() != poolObj )
@@ -89,7 +98,7 @@ public:
         }
         return status;
     }
-    virtual QCStatus_e GetElement( QCBufferDescriptorBase_t &buffer )
+    QCStatus_e GetElement( QCBufferDescriptorBase_t &buffer ) override
     {
         QCStatus_e status = QC_STATUS_OK;
         std::lock_guard<std::mutex> lk( m_lock );
@@ -134,7 +143,7 @@ public:
         }
         return status;
     }
-    virtual QCStatus_e PutElement( const QCBufferDescriptorBase_t &buffer )
+    QCStatus_e PutElement( const QCBufferDescriptorBase_t &buffer ) override
     {
         QCStatus_e status = QC_STATUS_BAD_ARGUMENTS;
         bool inDataBase = false;
@@ -158,7 +167,7 @@ public:
                 if ( pollObj == buffer )
                 {
                     inDataBase = true;
-                    m_allocatedObjects.erase( it );
+                    (void) m_allocatedObjects.erase( it );
                     m_freeObjects.push_back( pollObj );
                     status = QC_STATUS_OK;
                     // removal from allocated objects data base verification
@@ -197,7 +206,7 @@ private:
         uint64_t dmaHandle = 0;
         poolObjectDB() = default;
         // operators between QCBufferDescriptorBase_t to poolObjectDB
-        poolObjectDB( const QCBufferDescriptorBase_t &rhs )
+        explicit poolObjectDB( const QCBufferDescriptorBase_t &rhs )
             : pBuf( rhs.pBuf ),
               dmaHandle( rhs.dmaHandle ) {};
         poolObjectDB &operator=( const QCBufferDescriptorBase_t &rhs )

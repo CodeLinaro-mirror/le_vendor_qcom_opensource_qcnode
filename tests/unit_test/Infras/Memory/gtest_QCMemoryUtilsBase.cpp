@@ -18,6 +18,23 @@ protected:
     void TearDown() override {}
 };
 
+TEST_F( Test_QCMemoryUtilsBase, ImagePropsConstructor_CopiesEachVectorIndependently )
+{
+    const ImageProps_t imageProps( 1, 64, 64, QC_IMAGE_FORMAT_NV12, { 64, 128, 256 }, { 64 },
+                                   { 4096, 8192 } );
+
+    EXPECT_EQ( 3U, imageProps.numPlanes );
+    EXPECT_EQ( 64U, imageProps.stride[0] );
+    EXPECT_EQ( 64U, imageProps.actualHeight[0] );
+    EXPECT_EQ( 4096U, imageProps.planeBufSize[0] );
+    EXPECT_EQ( 128U, imageProps.stride[1] );
+    EXPECT_EQ( 0U, imageProps.actualHeight[1] );
+    EXPECT_EQ( 8192U, imageProps.planeBufSize[1] );
+    EXPECT_EQ( 256U, imageProps.stride[2] );
+    EXPECT_EQ( 0U, imageProps.actualHeight[2] );
+    EXPECT_EQ( 0U, imageProps.planeBufSize[2] );
+}
+
 TEST_F( Test_QCMemoryUtilsBase, SANITY )
 {
 

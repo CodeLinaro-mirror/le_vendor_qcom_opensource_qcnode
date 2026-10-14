@@ -37,6 +37,8 @@ public:
      */
     BufferProps() : QCBufferPropBase(), allocatorType( QC_MEMORY_ALLOCATOR_DMA ) {}
 
+    ~BufferProps() override = default;
+
 
     /**
      * @brief Constructor for BufferProps.
@@ -47,13 +49,14 @@ public:
      * @note This constructor sets up the properties of the buffer with the given parameters, while
      * most other properties are set to their default suggested values.
      */
-    BufferProps( size_t size, QCMemoryAllocator_e allocatorType = QC_MEMORY_ALLOCATOR_DMA,
-                 QCAllocationCache_e cache = QC_CACHEABLE )
+    explicit BufferProps( size_t requestedSize,
+                          QCMemoryAllocator_e requestedAllocatorType = QC_MEMORY_ALLOCATOR_DMA,
+                          QCAllocationCache_e requestedCache = QC_CACHEABLE )
         : QCBufferPropBase(),
-          allocatorType( allocatorType )
+          allocatorType( requestedAllocatorType )
     {
-        this->size = size;
-        this->cache = cache;
+        this->size = requestedSize;
+        this->cache = requestedCache;
     }
 
     QCMemoryAllocator_e allocatorType;
@@ -103,6 +106,8 @@ public:
      * @param[in] other The buffer descriptor object from which buffer members are copied.
      * @return The updated buffer descriptor object.
      */
+    using QCBufferDescriptorBase_t::operator=;
+
     BufferDescriptor &operator=( const BufferDescriptor &other );
     BufferDescriptor &operator=( const QCBufferDescriptorBase_t &other );
 
@@ -119,7 +124,10 @@ public:
      *
      * @return void* Pointer to the valid data in the buffer.
      */
-    virtual void *GetDataPtr() const { return (void *) ( (uint8_t *) pBuf + offset ); }
+    void *GetDataPtr() const override
+    {
+        return (void *) ( (uint8_t *) pBuf + offset );
+    }
 
     /**
      * @brief Returns the size of valid data in the buffer.
@@ -130,7 +138,7 @@ public:
      *
      * @return size_t Size of valid data in bytes.
      */
-    virtual size_t GetDataSize() const { return validSize; }
+    size_t GetDataSize() const override { return validSize; }
 
 } BufferDescriptor_t;
 

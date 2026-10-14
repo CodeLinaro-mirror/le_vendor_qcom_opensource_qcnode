@@ -74,7 +74,7 @@ QCStatus_e DMABUFFAllocator::Allocate( const QCBufferPropBase_t &request,
 
     if ( QC_STATUS_OK == status )
     {
-        void *pAddr = mmap( NULL, request.size,
+        void *pAddr = mmap( nullptr, request.size,
                             static_cast<int>( static_cast<uint32_t>( PROT_READ ) |
                                               static_cast<uint32_t>( PROT_WRITE ) ),
                             MAP_SHARED, fd, 0 );

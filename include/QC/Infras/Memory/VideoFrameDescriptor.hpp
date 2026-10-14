@@ -55,6 +55,8 @@ typedef struct VideoFrameDescriptor : public ImageDescriptor
     uint32_t frameFlag = 0; /**< indicate whether some error occurred during decoding this frame. */
 
 public:
+    using ImageDescriptor::operator=;
+
     VideoFrameDescriptor() : ImageDescriptor(),
         timestampNs(0), appMarkData(0), frameType(VIDC_FRAME_NOTCODED), frameFlag(0) {}
 
