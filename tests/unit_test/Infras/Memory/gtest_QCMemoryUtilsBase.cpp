@@ -254,6 +254,30 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     status = Ifs.SetImageDescFromImageProp( imageProp, imgDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
+    /* testing for invalid stride */
+    imageProp.format = QC_IMAGE_FORMAT_RGB888;
+    imageProp.batchSize = 1;
+    imageProp.width = 1024;
+    imageProp.height = 768;
+    imageProp.numPlanes = 1;
+    imageProp.stride[0] = 1024 * 2; // too small, should be 1024 * 3
+    imageProp.actualHeight[0] = 768;
+    imageProp.planeBufSize[0] = 0;
+    status = Ifs.SetImageDescFromImageProp( imageProp, imgDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* testing for invalid actualHeight */
+    imageProp.stride[0] = 1024 * 3;
+    imageProp.actualHeight[0] = 767; // too small, should be 768
+    status = Ifs.SetImageDescFromImageProp( imageProp, imgDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* testing for invalid planeBufSize */
+    imageProp.actualHeight[0] = 768;
+    imageProp.planeBufSize[0] = 1024 * 3 * 767; // too small
+    status = Ifs.SetImageDescFromImageProp( imageProp, imgDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
     // Tensor
     tensProp = TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 128, 128, 10 } );
     status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
@@ -279,6 +303,16 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
     tensProp.numDims = 10;
+    status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* testing for invalid tensorType < 0 */
+    tensProp = TensorProps_t( (QCTensorType_e)-1, { 1, 128, 128, 10 } );
+    status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* testing for dimension 0 at different index */
+    tensProp = TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 128, 0, 10 } );
     status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
@@ -653,5 +687,75 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_Consistency )
         ASSERT_EQ( QC_STATUS_OK, status )
                 << "Failed to create transition for type: " << static_cast<int>( type );
         ASSERT_NE( nullptr, fn ) << "Null callable for type: " << static_cast<int>( type );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Test error paths of all transition type callables to maximize coverage
+// ---------------------------------------------------------------------------
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_AllTypes_ErrorPaths )
+{
+    UtilsBase utils;
+    std::vector<QCMemoryTransition_e> supported;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( supported ), QC_STATUS_OK );
+
+    uint8_t buf[256] = {};
+
+    for ( QCMemoryTransition_e type : supported )
+    {
+        QCMemoryTransitionFn_t fn;
+        ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( type, fn ) );
+        ASSERT_NE( nullptr, fn );
+
+        // 1. Wrong source descriptor type (not ImageDescriptor)
+        QCBufferDescriptorBase_t wrongSrc;
+        TensorDescriptor_t tensor;
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, fn( wrongSrc, tensor ) );
+
+        // 2. Wrong destination descriptor type (not TensorDescriptor)
+        ImageDescriptor_t img = MakeSinglePlaneImage( buf, sizeof( buf ), 2, 2, QC_IMAGE_FORMAT_RGB888, 3u );
+        QCBufferDescriptorBase_t wrongDst;
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, fn( img, wrongDst ) );
+
+        // 3. Wrong image format for the transition
+        QCImageFormat_e wrongFormat = QC_IMAGE_FORMAT_RGB888;
+        // Determine an incorrect format for the specific transition type
+        switch ( type )
+        {
+            case QC_MEMORY_TRANSITION_RGB_TO_TENSOR:
+                wrongFormat = QC_IMAGE_FORMAT_BGR888;
+                break;
+            case QC_MEMORY_TRANSITION_BGR_TO_TENSOR:
+                wrongFormat = QC_IMAGE_FORMAT_RGB888;
+                break;
+            case QC_MEMORY_TRANSITION_UYVY_TO_TENSOR:
+                wrongFormat = QC_IMAGE_FORMAT_RGB888;
+                break;
+            case QC_MEMORY_TRANSITION_NV12_TO_GRAY:
+            case QC_MEMORY_TRANSITION_NV12_TO_CHROMA:
+                wrongFormat = QC_IMAGE_FORMAT_P010;
+                break;
+            case QC_MEMORY_TRANSITION_P010_TO_GRAY:
+            case QC_MEMORY_TRANSITION_P010_TO_CHROMA:
+                wrongFormat = QC_IMAGE_FORMAT_NV12;
+                break;
+            default:
+                wrongFormat = QC_IMAGE_FORMAT_RGB888;
+                break;
+        }
+
+        // We can create a dual-plane or single-plane wrong format descriptor depending on wrongFormat
+        ImageDescriptor_t wrongFormatImg;
+        if ( wrongFormat == QC_IMAGE_FORMAT_NV12 || wrongFormat == QC_IMAGE_FORMAT_P010 )
+        {
+            wrongFormatImg = MakeDualPlaneImage( buf, sizeof( buf ), 4, 4, wrongFormat, 2u );
+        }
+        else
+        {
+            wrongFormatImg = MakeSinglePlaneImage( buf, sizeof( buf ), 4, 4, wrongFormat, 3u );
+        }
+
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, fn( wrongFormatImg, tensor ) )
+                << "Failed to reject wrong format for transition type: " << static_cast<int>( type );
     }
 }
