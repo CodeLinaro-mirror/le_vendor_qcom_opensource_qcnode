@@ -55,6 +55,14 @@ typedef struct QCNodeBufferMapEntry_t
     uint32_t globalBufferId;
 } QCNodeBufferMapEntry_t;
 
+/** @brief QCNode frame execution mode. */
+typedef enum
+{
+    QC_EXECUTE_MODE_SYNC = 0, /**< ProcessFrameDescriptor blocks until processing completes. */
+    QC_EXECUTE_MODE_ASYNC,    /**< Processing completes through the node event callback. */
+    QC_EXECUTE_MODE_MAX
+} QCExecuteMode_e;
+
 /**
  * @brief QCNode Frame Descriptor Type
  * Identifies the concrete QCFrameDescriptorNodeIfs implementation that

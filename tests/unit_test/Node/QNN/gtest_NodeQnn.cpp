@@ -1,8 +1,10 @@
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <fstream>
+#include <variant>
 #include <mutex>
 #include <stdio.h>
 #include <string>
@@ -93,7 +95,7 @@ public:
 
     QnnLog_Level_t GetQnnLogLevel( Logger_Level_e level ) { return qnn.GetQnnLogLevel( level ); }
 
-    uint32_t GetQnnDeviceId( Qnn_ProcessorType_e processorType )
+    uint32_t GetQnnDeviceId( QCProcessorType_e processorType )
     {
         return qnn.GetQnnDeviceId( processorType );
     }
@@ -859,6 +861,81 @@ TEST_F( QnnTest, GetOptions )
     std::string optsAfter;
     ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( optsAfter ) );
 
+    DataTree optionsAfterDt;
+    ASSERT_EQ( QC_STATUS_OK, optionsAfterDt.Load( optsAfter, errors ) );
+    std::vector<DataTree> modelInputs;
+    std::vector<DataTree> modelOutputs;
+    ASSERT_EQ( QC_STATUS_OK, optionsAfterDt.Get( "model.inputs", modelInputs ) );
+    ASSERT_EQ( QC_STATUS_OK, optionsAfterDt.Get( "model.outputs", modelOutputs ) );
+
+    const QCNodeConfigBase_t &runtimeConfig = cfgIfs.Get();
+    EXPECT_EQ( QC_EXECUTE_MODE_SYNC, runtimeConfig.executeMode );
+    EXPECT_EQ( QC_PROCESSOR_HTP0, runtimeConfig.processor );
+    ASSERT_EQ( std::vector<uint32_t>( { 0U } ), runtimeConfig.coreIds );
+    ASSERT_EQ( modelInputs.size(), runtimeConfig.inputs.size() );
+    ASSERT_EQ( modelOutputs.size(), runtimeConfig.outputs.size() );
+    ASSERT_FALSE( runtimeConfig.inputs.empty() );
+    ASSERT_FALSE( runtimeConfig.outputs.empty() );
+    EXPECT_FALSE( runtimeConfig.inputs[0].name.empty() );
+    EXPECT_FALSE( runtimeConfig.outputs[0].name.empty() );
+    EXPECT_EQ( QC_BUFFER_TYPE_TENSOR, runtimeConfig.inputs[0].bufferType );
+    EXPECT_EQ( QC_BUFFER_TYPE_TENSOR, runtimeConfig.outputs[0].bufferType );
+    const TensorProps_t *pInputProps =
+            std::get_if<TensorProps_t>( &runtimeConfig.inputs[0].bufProps );
+    const TensorProps_t *pOutputProps =
+            std::get_if<TensorProps_t>( &runtimeConfig.outputs[0].bufProps );
+    ASSERT_NE( nullptr, pInputProps );
+    ASSERT_NE( nullptr, pOutputProps );
+
+    std::vector<uint32_t> inputDims =
+            modelInputs[0].Get<uint32_t>( "dims", std::vector<uint32_t>{} );
+    std::vector<uint32_t> outputDims =
+            modelOutputs[0].Get<uint32_t>( "dims", std::vector<uint32_t>{} );
+    ASSERT_EQ( inputDims.size(), pInputProps->numDims );
+    ASSERT_EQ( outputDims.size(), pOutputProps->numDims );
+    EXPECT_TRUE( std::equal( inputDims.begin(), inputDims.end(), pInputProps->dims ) );
+    EXPECT_TRUE( std::equal( outputDims.begin(), outputDims.end(), pOutputProps->dims ) );
+    EXPECT_EQ( modelInputs[0].GetTensorType( "type", QC_TENSOR_TYPE_MAX ),
+               pInputProps->tensorType );
+    EXPECT_EQ( modelOutputs[0].GetTensorType( "type", QC_TENSOR_TYPE_MAX ),
+               pOutputProps->tensorType );
+
+    const std::string inputQuantizationType =
+            modelInputs[0].Get<std::string>( "quantType", "none" );
+    const std::string outputQuantizationType =
+            modelOutputs[0].Get<std::string>( "quantType", "none" );
+    const auto expectedInputEncoding = ( "scale_offset" == inputQuantizationType )
+                                             ? QC_TENSOR_QUANTIZATION_SCALE_OFFSET
+                                             : ( "axis_scale_offset" == inputQuantizationType )
+                                                       ? QC_TENSOR_QUANTIZATION_AXIS_SCALE_OFFSET
+                                                       : QC_TENSOR_QUANTIZATION_NONE;
+    const auto expectedOutputEncoding = ( "scale_offset" == outputQuantizationType )
+                                              ? QC_TENSOR_QUANTIZATION_SCALE_OFFSET
+                                              : ( "axis_scale_offset" == outputQuantizationType )
+                                                        ? QC_TENSOR_QUANTIZATION_AXIS_SCALE_OFFSET
+                                                        : QC_TENSOR_QUANTIZATION_NONE;
+    EXPECT_EQ( expectedInputEncoding, pInputProps->quantizationEncodingType );
+    EXPECT_EQ( expectedOutputEncoding, pOutputProps->quantizationEncodingType );
+    const auto inputScales = ( "scale_offset" == inputQuantizationType )
+                                     ? std::vector<float>{ modelInputs[0].Get<float>( "quantScale", 1.0f ) }
+                                     : modelInputs[0].Get<float>( "quantScales", std::vector<float>{} );
+    const auto inputOffsets =
+            ( "scale_offset" == inputQuantizationType )
+                    ? std::vector<int32_t>{ modelInputs[0].Get<int32_t>( "quantOffset", 0 ) }
+                    : modelInputs[0].Get<int32_t>( "quantOffsets", std::vector<int32_t>{} );
+    const auto outputScales =
+            ( "scale_offset" == outputQuantizationType )
+                    ? std::vector<float>{ modelOutputs[0].Get<float>( "quantScale", 1.0f ) }
+                    : modelOutputs[0].Get<float>( "quantScales", std::vector<float>{} );
+    const auto outputOffsets =
+            ( "scale_offset" == outputQuantizationType )
+                    ? std::vector<int32_t>{ modelOutputs[0].Get<int32_t>( "quantOffset", 0 ) }
+                    : modelOutputs[0].Get<int32_t>( "quantOffsets", std::vector<int32_t>{} );
+    EXPECT_EQ( inputScales, pInputProps->quantScales );
+    EXPECT_EQ( inputOffsets, pInputProps->quantOffsets );
+    EXPECT_EQ( outputScales, pOutputProps->quantScales );
+    EXPECT_EQ( outputOffsets, pOutputProps->quantOffsets );
+
     const char *kOutPathAfter = "qnn_get_options_after_init.json";
     std::ofstream ofs2( kOutPathAfter );
     ASSERT_TRUE( ofs2.is_open() ) << "failed to open " << kOutPathAfter << " for write";
@@ -868,6 +945,23 @@ TEST_F( QnnTest, GetOptions )
             optsAfter.size() );
 
     Deinit();
+    EXPECT_TRUE( runtimeConfig.inputs.empty() );
+    EXPECT_TRUE( runtimeConfig.outputs.empty() );
+}
+
+TEST( QNN, AsyncExecuteRequiresCallback )
+{
+    Qnn qnn;
+    DataTree dt;
+    dt.Set<std::string>( "static.name", "ASYNC_NO_CALLBACK" );
+    dt.Set<uint32_t>( "static.id", 0 );
+    dt.Set<std::string>( "static.loadType", "binary" );
+    dt.Set<std::string>( "static.modelPath", "data/centernet/program.bin" );
+    dt.Set<std::string>( "static.processorType", "htp0" );
+    dt.Set<std::string>( "static.executeMode", "async" );
+
+    QCNodeInit_t config = { dt.Dump() };
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, qnn.Initialize( config ) );
 }
 
 // Reset() side effects: DeInit() must clear model.*, buffers.*, and
@@ -1988,12 +2082,14 @@ TEST( QNN, AsyncExecute )
 
     dt.Set<std::string>( "static.modelPath", "data/centernet/program.bin" );
     dt.Set<std::string>( "static.processorType", "htp0" );
+    dt.Set<std::string>( "static.executeMode", "async" );
 
     QCNodeInit_t config = { dt.Dump(), Qnn_EventCallback };
     ret = qnn.Initialize( config );
     ASSERT_EQ( QC_STATUS_OK, ret );
 
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
+    EXPECT_EQ( QC_EXECUTE_MODE_ASYNC, cfgIfs.Get().executeMode );
     DataTree dtp;
     dtp.Set<bool>( "dynamic.enablePerf", true );
     ret = cfgIfs.VerifyAndSet( dtp.Dump(), errors );
@@ -2625,6 +2721,13 @@ TEST_F( QnnTest, QnnConfig )
     ret = cfgIfs.VerifyAndSet( config.config, errors );
     ASSERT_EQ( ret, QC_STATUS_BAD_ARGUMENTS );
     ASSERT_EQ( errors, "the processorType htpx is invalid, " );
+
+    SetupConfig( "QCFG", "binary", "data/centernet/program.bin", "htp0" );
+    dt.Set<std::string>( "static.executeMode", "invalid" );
+    config.config = dt.Dump();
+    ret = cfgIfs.VerifyAndSet( config.config, errors );
+    ASSERT_EQ( ret, QC_STATUS_BAD_ARGUMENTS );
+    ASSERT_EQ( errors, "the executeMode invalid is invalid, " );
 
     std::vector<std::string> validProcessors = { "htp0", "htp1", "htp2", "htp3", "cpu", "gpu" };
     for ( auto &processor : validProcessors )
@@ -3342,25 +3445,25 @@ TEST( QNN, QnnImplUnitTest )
         QnnImplTest qnn( nodeId, logger );
         uint32_t deviceId;
 
-        deviceId = qnn.GetQnnDeviceId( QNN_PROCESSOR_HTP0 );
+        deviceId = qnn.GetQnnDeviceId( QC_PROCESSOR_HTP0 );
         ASSERT_EQ( deviceId, 0 );
 
-        deviceId = qnn.GetQnnDeviceId( QNN_PROCESSOR_HTP1 );
+        deviceId = qnn.GetQnnDeviceId( QC_PROCESSOR_HTP1 );
         ASSERT_EQ( deviceId, 1 );
 
-        deviceId = qnn.GetQnnDeviceId( QNN_PROCESSOR_HTP2 );
+        deviceId = qnn.GetQnnDeviceId( QC_PROCESSOR_HTP2 );
         ASSERT_EQ( deviceId, 2 );
 
-        deviceId = qnn.GetQnnDeviceId( QNN_PROCESSOR_HTP3 );
+        deviceId = qnn.GetQnnDeviceId( QC_PROCESSOR_HTP3 );
         ASSERT_EQ( deviceId, 3 );
 
-        deviceId = qnn.GetQnnDeviceId( QNN_PROCESSOR_CPU );
+        deviceId = qnn.GetQnnDeviceId( QC_PROCESSOR_CPU );
         ASSERT_EQ( deviceId, 0 );
 
-        deviceId = qnn.GetQnnDeviceId( QNN_PROCESSOR_GPU );
+        deviceId = qnn.GetQnnDeviceId( QC_PROCESSOR_GPU );
         ASSERT_EQ( deviceId, 0 );
 
-        deviceId = qnn.GetQnnDeviceId( QNN_PROCESSOR_MAX );
+        deviceId = qnn.GetQnnDeviceId( QC_PROCESSOR_MAX );
         ASSERT_EQ( deviceId, UINT32_MAX );
     }
 
@@ -3368,7 +3471,7 @@ TEST( QNN, QnnImplUnitTest )
         QnnImplTest qnn( nodeId, logger );
         QnnImplConfig_t &cfg = qnn.GetConfig();
         cfg.loadType = QNN_LOAD_CONTEXT_BIN_FROM_FILE;
-        cfg.processorType = QNN_PROCESSOR_HTP0;
+        cfg.processor = QC_PROCESSOR_HTP0;
         cfg.coreIds = { 0 };
         cfg.priority = QNN_PRIORITY_NORMAL;
         cfg.perfProfile = QNN_PERF_PROFILE_DEFAULT;
@@ -3385,14 +3488,14 @@ TEST( QNN, QnnImplUnitTest )
 
         cfg.modelPath = "data/centernet/program.bin";
         cfg.loadType = QNN_LOAD_CONTEXT_BIN_FROM_FILE;
-        cfg.processorType = QNN_PROCESSOR_MAX;
+        cfg.processor = QC_PROCESSOR_MAX;
         cfg.coreIds = { 0 };
         status = qnn.Initialize( nullptr, buffers );
         ASSERT_EQ( QC_STATUS_FAIL, status );
 
         cfg.modelPath = "data/centernet/program.bin";
         cfg.loadType = QNN_LOAD_CONTEXT_BIN_FROM_FILE;
-        cfg.processorType = QNN_PROCESSOR_HTP0;
+        cfg.processor = QC_PROCESSOR_HTP0;
         cfg.coreIds = { UINT32_MAX };
         status = qnn.Initialize( nullptr, buffers );
         ASSERT_EQ( QC_STATUS_FAIL, status );
@@ -3418,7 +3521,7 @@ TEST( QNN, QnnImplUnitTest )
         QnnImplTest qnn( nodeId, logger );
         QnnImplConfig_t &cfg = qnn.GetConfig();
         cfg.loadType = QNN_LOAD_CONTEXT_BIN_FROM_FILE;
-        cfg.processorType = QNN_PROCESSOR_HTP0;
+        cfg.processor = QC_PROCESSOR_HTP0;
         cfg.coreIds = { 0 };
         cfg.priority = QNN_PRIORITY_NORMAL;
         cfg.perfProfile = QNN_PERF_PROFILE_DEFAULT;
@@ -3445,7 +3548,7 @@ TEST( QNN, QnnImplUnitTest )
         QnnImplTest qnn( nodeId, logger );
         QnnImplConfig_t &cfg = qnn.GetConfig();
         cfg.loadType = QNN_LOAD_CONTEXT_BIN_FROM_FILE;
-        cfg.processorType = QNN_PROCESSOR_HTP0;
+        cfg.processor = QC_PROCESSOR_HTP0;
         cfg.coreIds = { 0 };
         cfg.priority = QNN_PRIORITY_NORMAL;
         cfg.perfProfile = QNN_PERF_PROFILE_DEFAULT;
@@ -3471,22 +3574,22 @@ TEST( QNN, QnnImplUnitTest )
         QnnImplTest qnn( nodeId, logger );
         QnnImplConfig_t &cfg = qnn.GetConfig();
 
-        cfg.processorType = QNN_PROCESSOR_HTP1;
+        cfg.processor = QC_PROCESSOR_HTP1;
         ASSERT_EQ( qnn.IsHtpProcessor(), true );
 
-        cfg.processorType = QNN_PROCESSOR_HTP2;
+        cfg.processor = QC_PROCESSOR_HTP2;
         ASSERT_EQ( qnn.IsHtpProcessor(), true );
 
-        cfg.processorType = QNN_PROCESSOR_HTP3;
+        cfg.processor = QC_PROCESSOR_HTP3;
         ASSERT_EQ( qnn.IsHtpProcessor(), true );
 
-        cfg.processorType = QNN_PROCESSOR_CPU;
+        cfg.processor = QC_PROCESSOR_CPU;
         ASSERT_EQ( qnn.IsHtpProcessor(), false );
 
-        cfg.processorType = static_cast<Qnn_ProcessorType_e>( -1 );
+        cfg.processor = static_cast<QCProcessorType_e>( -1 );
         ASSERT_EQ( qnn.IsHtpProcessor(), false );
 
-        cfg.processorType = QNN_PROCESSOR_CPU;
+        cfg.processor = QC_PROCESSOR_CPU;
         cfg.perfProfile = QNN_PERF_PROFILE_BURST;
         status = qnn.SetPerformanceMode();
         ASSERT_EQ( QC_STATUS_OK, status );
@@ -3516,7 +3619,7 @@ TEST( QNN, QnnImplUnitTest )
 
         QnnImplConfig_t &cfg = qnn.GetConfig();
         cfg.loadType = QNN_LOAD_CONTEXT_BIN_FROM_FILE;
-        cfg.processorType = QNN_PROCESSOR_HTP0;
+        cfg.processor = QC_PROCESSOR_HTP0;
         cfg.coreIds = { 0 };
         cfg.priority = QNN_PRIORITY_NORMAL;
         cfg.perfProfile = QNN_PERF_PROFILE_DEFAULT;
@@ -3987,9 +4090,9 @@ protected:
         MockRemoteSystemRequest_Reset();
         MockC_ClearAll();
     }
-    void SetProcessor( Qnn_ProcessorType_e proc, uint32_t coreId = 0 )
+    void SetProcessor( QCProcessorType_e proc, uint32_t coreId = 0 )
     {
-        m_impl->GetConfig().processorType = proc;
+        m_impl->GetConfig().processor = proc;
         m_impl->GetConfig().coreIds = { coreId };
     }
     QCNodeID_t m_nodeId;
@@ -4001,7 +4104,7 @@ protected:
 /* first remote_system_request call returns error */
 TEST_F( GetFastRpcDomainIdTest, FirstCallFail )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0 );
+    SetProcessor( QC_PROCESSOR_HTP0 );
     MockRemoteSystemRequest_SetReturnCode( -1 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4011,7 +4114,7 @@ TEST_F( GetFastRpcDomainIdTest, FirstCallFail )
 /* second remote_system_request call (populate) fails; first call (count) succeeds */
 TEST_F( GetFastRpcDomainIdTest, SecondCallFail )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0 );
+    SetProcessor( QC_PROCESSOR_HTP0 );
     MockRemoteSystemRequest_SetFailSecondCall();
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4022,7 +4125,7 @@ TEST_F( GetFastRpcDomainIdTest, SecondCallFail )
 /* HTP0 + NSP qmock: success, coreId=0 → domains[0].id = 10 */
 TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_Match )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0, 0 );
+    SetProcessor( QC_PROCESSOR_HTP0, 0 );
     MockRemoteSystemRequest_SetOverrideDomainID( 100 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4032,7 +4135,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_Match )
 /* HTP0 coreId=3 → domains[3].id = 13 */
 TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_CoreId3 )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0, 3 );
+    SetProcessor( QC_PROCESSOR_HTP0, 3 );
     MockRemoteSystemRequest_SetOverrideDomainID( 100 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 3, domainId ) );
@@ -4042,7 +4145,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_CoreId3 )
 /* HTP0 coreId=4 >= num_domains=4 → else → FAIL */
 TEST_F( GetFastRpcDomainIdTest, HTP0_CoreIdOutOfRange )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0, 4 );
+    SetProcessor( QC_PROCESSOR_HTP0, 4 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 4, domainId ) );
 }
@@ -4050,7 +4153,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP0_CoreIdOutOfRange )
 /* HTP0 with num_domains overridden to 0 → calloc(0) returns null → FAIL */
 TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_NumDomainsZero )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0, 0 );
+    SetProcessor( QC_PROCESSOR_HTP0, 0 );
     MockRemoteSystemRequest_SetNumDomains( 0 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4059,7 +4162,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP0_NSP_NumDomainsZero )
 /* HTP1 + HPASS qmock: success, domains[0].id = 20 */
 TEST_F( GetFastRpcDomainIdTest, HTP1_HPASS_Match )
 {
-    SetProcessor( QNN_PROCESSOR_HTP1 );
+    SetProcessor( QC_PROCESSOR_HTP1 );
     MockRemoteSystemRequest_SetOverrideDomainID( 200 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4069,7 +4172,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP1_HPASS_Match )
 /* HTP1 num_domains overridden to 0 → 0 < 0 false → else → FAIL */
 TEST_F( GetFastRpcDomainIdTest, HTP1_ZeroDomains )
 {
-    SetProcessor( QNN_PROCESSOR_HTP1 );
+    SetProcessor( QC_PROCESSOR_HTP1 );
     MockRemoteSystemRequest_SetNumDomains( 0 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4078,7 +4181,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP1_ZeroDomains )
 /* HTP2 + HPASS qmock: success, domains[1].id = 21 */
 TEST_F( GetFastRpcDomainIdTest, HTP2_HPASS_Match )
 {
-    SetProcessor( QNN_PROCESSOR_HTP2 );
+    SetProcessor( QC_PROCESSOR_HTP2 );
     MockRemoteSystemRequest_SetOverrideDomainID( 200 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4088,7 +4191,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP2_HPASS_Match )
 /* HTP2 num_domains overridden to 1 → 1 < 1 false → else → FAIL */
 TEST_F( GetFastRpcDomainIdTest, HTP2_InsufficientDomains )
 {
-    SetProcessor( QNN_PROCESSOR_HTP2 );
+    SetProcessor( QC_PROCESSOR_HTP2 );
     MockRemoteSystemRequest_SetNumDomains( 1 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4097,7 +4200,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP2_InsufficientDomains )
 /* HTP3 + HPASS qmock: success, domains[2].id = 22 */
 TEST_F( GetFastRpcDomainIdTest, HTP3_HPASS_Match )
 {
-    SetProcessor( QNN_PROCESSOR_HTP3 );
+    SetProcessor( QC_PROCESSOR_HTP3 );
     MockRemoteSystemRequest_SetOverrideDomainID( 200 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_OK, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4107,7 +4210,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP3_HPASS_Match )
 /* HTP3 num_domains overridden to 2 → 2 < 2 false → else → FAIL */
 TEST_F( GetFastRpcDomainIdTest, HTP3_InsufficientDomains )
 {
-    SetProcessor( QNN_PROCESSOR_HTP3 );
+    SetProcessor( QC_PROCESSOR_HTP3 );
     MockRemoteSystemRequest_SetNumDomains( 2 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4116,7 +4219,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP3_InsufficientDomains )
 /* else branch: HTP0 coreId out of range (99 >= 4) → else → FAIL */
 TEST_F( GetFastRpcDomainIdTest, ElseBranch )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0, 99 );
+    SetProcessor( QC_PROCESSOR_HTP0, 99 );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 99, domainId ) );
 }
@@ -4128,7 +4231,7 @@ TEST_F( GetFastRpcDomainIdTest, ElseBranch )
  * Covers: nullptr == req.sys.domains True branch (line 1838). */
 TEST_F( GetFastRpcDomainIdTest, CallocFail )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0 );
+    SetProcessor( QC_PROCESSOR_HTP0 );
     // MockC_CallocCtrlSize fires when calloc(nitems, size) where nitems*size equals the given
     // total. NSP qmock returns 4 domains, so calloc(4, sizeof(fastrpc_domain)) =
     // 4*sizeof(fastrpc_domain).
@@ -4143,7 +4246,7 @@ TEST_F( GetFastRpcDomainIdTest, CallocFail )
  * Covers: condition (HPASS == req.sys.domains[0].type) = False */
 TEST_F( GetFastRpcDomainIdTest, HTP1_WrongDomainType )
 {
-    SetProcessor( QNN_PROCESSOR_HTP1 );
+    SetProcessor( QC_PROCESSOR_HTP1 );
     MockRemoteSystemRequest_SetOverrideDomainType( (int) NSP );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4154,7 +4257,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP1_WrongDomainType )
  * Covers: condition (HPASS == req.sys.domains[1].type) = False */
 TEST_F( GetFastRpcDomainIdTest, HTP2_WrongDomainType )
 {
-    SetProcessor( QNN_PROCESSOR_HTP2 );
+    SetProcessor( QC_PROCESSOR_HTP2 );
     MockRemoteSystemRequest_SetOverrideDomainType( (int) NSP );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4165,7 +4268,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP2_WrongDomainType )
  * Covers: condition (HPASS == req.sys.domains[2].type) = False */
 TEST_F( GetFastRpcDomainIdTest, HTP3_WrongDomainType )
 {
-    SetProcessor( QNN_PROCESSOR_HTP3 );
+    SetProcessor( QC_PROCESSOR_HTP3 );
     MockRemoteSystemRequest_SetOverrideDomainType( (int) NSP );
     int domainId = -1;
     ASSERT_EQ( QC_STATUS_FAIL, m_impl->GetFastRpcDomainId( 0, domainId ) );
@@ -4177,7 +4280,7 @@ TEST_F( GetFastRpcDomainIdTest, HTP3_WrongDomainType )
  * Covers QnnImpl.cpp:1471-1474 (GetFastRpcDomainId error handling in Initialize) */
 TEST_F( GetFastRpcDomainIdTest, InitializeGetDomainIdFail )
 {
-    SetProcessor( QNN_PROCESSOR_HTP0 );
+    SetProcessor( QC_PROCESSOR_HTP0 );
     // Arm before Initialize so the first remote_system_request inside
     // GetFastRpcDomainId (called at the start of Initialize) returns error.
     MockRemoteSystemRequest_SetReturnCode( -1 );

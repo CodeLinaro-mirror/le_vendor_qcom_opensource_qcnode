@@ -270,6 +270,18 @@ public:
                                                        ImageDescriptor_t &desc );
 
     /**
+     * @brief Derives detailed image properties from basic image properties.
+     * @param prop The image basic properties.
+     * @param props The derived detailed image properties.
+     * @param noPadding True to use unpadded plane strides where supported.
+     * @param packedRgb True to describe RGB/BGR as tightly packed without deriving APDF padding.
+     * @return The status of the image property derivation.
+     */
+    virtual QCStatus_e SetImagePropsFromImageBasicProp( ImageBasicProps_t &prop,
+                                                        ImageProps_t &props, bool noPadding = false,
+                                                        bool packedRgb = false );
+
+    /**
      * @brief Sets the buffer descriptor values for an image.
      * @param prop The image properties.
      * @param desc The image descriptor.

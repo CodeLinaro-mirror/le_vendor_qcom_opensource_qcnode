@@ -41,6 +41,7 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
     m_dataTree.Set<uint32_t>( "static.id", 0 );
 
     m_bNoPadding = Get( config, "no_padding", false );
+    m_dataTree.Set<bool>( "static.noPadding", m_bNoPadding );
 
     m_processor = Get( config, "processor", QC_PROCESSOR_HTP0 );
     if ( QC_PROCESSOR_MAX == m_processor )

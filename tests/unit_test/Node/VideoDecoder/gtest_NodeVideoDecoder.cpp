@@ -761,6 +761,38 @@ TEST_F( VideoDecoderTest, Initialize_Start_Stop_Deinit_Success )
     EXPECT_EQ( QC_OBJECT_STATE_INITIAL, dec.GetState() );
 }
 
+TEST_F( VideoDecoderTest, ConfigurationDescribesImagePortsAndExecution )
+{
+    auto init = MakeInit();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, dec.GetConfigurationIfs().VerifyAndSet( init.config, errors ) );
+
+    const QCNodeConfigBase_t &config = dec.GetConfigurationIfs().Get();
+    EXPECT_EQ( QC_EXECUTE_MODE_ASYNC, config.executeMode );
+    EXPECT_EQ( QC_PROCESSOR_MAX, config.processor );
+    EXPECT_TRUE( config.coreIds.empty() );
+    ASSERT_EQ( 1U, config.inputs.size() );
+    ASSERT_EQ( 1U, config.outputs.size() );
+    EXPECT_EQ( "input", config.inputs[0].name );
+    EXPECT_EQ( QC_BUFFER_TYPE_IMAGE, config.inputs[0].bufferType );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageProps_t>( config.inputs[0].bufProps ) );
+    const auto &inputProps = std::get<Memory::ImageProps_t>( config.inputs[0].bufProps );
+    EXPECT_EQ( 1280U, inputProps.width );
+    EXPECT_EQ( 720U, inputProps.height );
+    EXPECT_EQ( QC_IMAGE_FORMAT_COMPRESSED_H264, inputProps.format );
+    EXPECT_EQ( 1U, inputProps.numPlanes );
+    EXPECT_EQ( 0U, inputProps.stride[0] );
+    EXPECT_EQ( 0U, inputProps.actualHeight[0] );
+    EXPECT_EQ( 1280U * 720U, inputProps.planeBufSize[0] );
+    EXPECT_EQ( 1280U * 720U, inputProps.size );
+    EXPECT_EQ( "output", config.outputs[0].name );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageProps_t>( config.outputs[0].bufProps ) );
+    const auto &outputProps = std::get<Memory::ImageProps_t>( config.outputs[0].bufProps );
+    EXPECT_EQ( QC_IMAGE_FORMAT_NV12, outputProps.format );
+    EXPECT_GT( outputProps.numPlanes, 0U );
+    EXPECT_GT( outputProps.stride[0], 0U );
+}
+
 TEST_F( VideoDecoderTest, Initialize_Fails_WhenOpenDriverReturnsNull )
 {
     g_open_should_fail = true;

@@ -3096,6 +3096,22 @@ static void BuildMinimalCpuConfig( DataTree &dt )
     dt.Set( "static.inputs", inputDts );
 }
 
+TEST( NodeRemapConfig, CpuThreadsAffinityIsExposedAsCoreIds )
+{
+    QC::Node::Remap remap;
+    DataTree dt;
+    BuildMinimalCpuConfig( dt );
+    std::vector<int32_t> affinity = { 4, 5, 6, 7 };
+    dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
+
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, remap.GetConfigurationIfs().VerifyAndSet( dt.Dump(), errors ) );
+
+    const QCNodeConfigBase_t &config = remap.GetConfigurationIfs().Get();
+    EXPECT_EQ( QC_PROCESSOR_CPU, config.processor );
+    EXPECT_EQ( std::vector<uint32_t>( { 4U, 5U, 6U, 7U } ), config.coreIds );
+}
+
 /**
  * @brief Scenario 1: Negative core ID → QC_STATUS_BAD_ARGUMENTS
  * @coverage RemapConfig.cpp - VerifyStaticConfig: negative core ID validation

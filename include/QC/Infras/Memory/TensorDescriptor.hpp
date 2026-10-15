@@ -15,6 +15,16 @@ namespace Memory
 {
 
 /**
+ * @brief Quantization encoding associated with a tensor buffer.
+ */
+typedef enum QCTensorQuantizationEncoding
+{
+    QC_TENSOR_QUANTIZATION_NONE,
+    QC_TENSOR_QUANTIZATION_SCALE_OFFSET,
+    QC_TENSOR_QUANTIZATION_AXIS_SCALE_OFFSET,
+} QCTensorQuantizationEncoding_e;
+
+/**
  * @brief QCNode Tensor Buffer Properties.
  *
  * Inherited Members from BufferProps:
@@ -27,6 +37,10 @@ namespace Memory
  * @param type The tensor type.
  * @param dims The tensor dimensions.
  * @param numDims The number of dimensions.
+ * @param quantizationEncodingType The tensor quantization encoding.
+ * @param quantizationAxis The dimension used by per-channel quantization.
+ * @param quantScales The scale values for per-tensor or per-channel quantization.
+ * @param quantOffsets The offset values for per-tensor or per-channel quantization.
  *
  * @note When using this struct to request tensor buffer allocation, the member "size" will not be
  * used. The size is determined by the other new members.
@@ -65,6 +79,10 @@ public:
     QCTensorType_e tensorType;
     uint32_t dims[QC_NUM_TENSOR_DIMS];
     uint32_t numDims;
+    QCTensorQuantizationEncoding_e quantizationEncodingType{ QC_TENSOR_QUANTIZATION_NONE };
+    uint32_t quantizationAxis{ 0U };
+    std::vector<float> quantScales;
+    std::vector<int32_t> quantOffsets;
 } TensorProps_t;
 
 /**

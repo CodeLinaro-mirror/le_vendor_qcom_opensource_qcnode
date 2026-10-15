@@ -193,6 +193,61 @@ QCStatus_e UtilsBase::SetImageDescFromImageBasicProp( ImageBasicProps_t &prop,
     return status;
 }
 
+QCStatus_e UtilsBase::SetImagePropsFromImageBasicProp( ImageBasicProps_t &prop,
+                                                       ImageProps_t &props, bool noPadding,
+                                                       bool packedRgb )
+{
+    QCStatus_e status = QC_STATUS_OK;
+
+    if ( packedRgb &&
+         ( ( QC_IMAGE_FORMAT_RGB888 == prop.format ) || ( QC_IMAGE_FORMAT_BGR888 == prop.format ) ) )
+    {
+        props = ImageProps_t( prop.batchSize, prop.width, prop.height, prop.format,
+                              { prop.width * 3U }, { prop.height }, { 0U },
+                              prop.allocatorType, prop.cache );
+    }
+    else if ( noPadding )
+    {
+        if ( ( QC_IMAGE_FORMAT_NV12 == prop.format ) || ( QC_IMAGE_FORMAT_P010 == prop.format ) )
+        {
+            const uint32_t bytesPerPixel = ( QC_IMAGE_FORMAT_P010 == prop.format ) ? 2U : 1U;
+            const uint32_t stride = prop.width * bytesPerPixel;
+            props = ImageProps_t( prop.batchSize, prop.width, prop.height, prop.format,
+                                  { stride, stride }, { prop.height, prop.height / 2U },
+                                  { 0U, 0U }, prop.allocatorType, prop.cache );
+        }
+        else if ( QC_IMAGE_FORMAT_UYVY == prop.format )
+        {
+            props = ImageProps_t( prop.batchSize, prop.width, prop.height, prop.format,
+                                  { prop.width * 2U }, { prop.height }, { 0U },
+                                  prop.allocatorType, prop.cache );
+        }
+        else
+        {
+            status = QC_STATUS_BAD_ARGUMENTS;
+        }
+    }
+    else
+    {
+        ImageDescriptor_t desc;
+        status = SetImageDescFromImageBasicProp( prop, desc );
+        if ( QC_STATUS_OK == status )
+        {
+            props = ImageProps_t(
+                    prop.batchSize, prop.width, prop.height, prop.format,
+                    std::vector<uint32_t>( desc.stride, desc.stride + desc.numPlanes ),
+                    std::vector<uint32_t>( desc.actualHeight,
+                                           desc.actualHeight + desc.numPlanes ),
+                    std::vector<uint32_t>( desc.planeBufSize,
+                                           desc.planeBufSize + desc.numPlanes ),
+                    prop.allocatorType, prop.cache );
+            props.size = prop.size;
+        }
+    }
+
+    return status;
+}
+
 QCStatus_e UtilsBase::SetImageDescFromImageProp( ImageProps_t &prop, ImageDescriptor_t &desc )
 {
     QCStatus_e status = QC_STATUS_OK;

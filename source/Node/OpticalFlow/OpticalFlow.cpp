@@ -4,6 +4,7 @@
 
 
 #include "QC/Node/OpticalFlow.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 #include "svBuffer.h"
 #include <unistd.h>
 
@@ -345,6 +346,67 @@ QCStatus_e OpticalFlowConfigIfs::ParseStaticConfig( DataTree &dt, std::string &e
                 dt.Get<uint8_t>( "lightingCondition", LIGHTING_CONDITION_HIGH ) );
         m_config.isFirstRequest = dt.Get<bool>( "isFirstRequest", false );
         m_config.requestId = dt.Get<uint64_t>( "requestId", 0 );
+
+        m_config.executeMode = QC_EXECUTE_MODE_SYNC;
+        m_config.processor = QC_PROCESSOR_MAX;
+        m_config.coreIds.clear();
+        Memory::ImageBasicProps_t basicProps( m_config.width, m_config.height,
+                                              m_config.imageFormat );
+        Memory::UtilsBase memoryUtils;
+        Memory::ImageProps_t inputProps;
+        status = memoryUtils.SetImagePropsFromImageBasicProp( basicProps, inputProps );
+        if ( QC_STATUS_OK != status )
+        {
+            errors += "failed to derive optical flow input buffer properties, ";
+            return status;
+        }
+        m_config.inputs = {
+            { "referenceImage", QC_BUFFER_TYPE_IMAGE, inputProps },
+            { "currentImage", QC_BUFFER_TYPE_IMAGE, inputProps },
+        };
+        const uint32_t motionHeight = ( ( m_config.height + 7U ) / 8U ) * 8U;
+        const uint32_t motionWidth = ( ( m_config.width * 2U + 127U ) / 128U ) * 128U;
+        const uint32_t confidenceWidth = ( ( m_config.width + 127U ) / 128U ) * 128U;
+        m_config.outputs.clear();
+        if ( ( MOTION_DIRECTION_FORWARD == m_config.motionDirection ) ||
+             ( MOTION_DIRECTION_BIDIRECTIONAL == m_config.motionDirection ) )
+        {
+            m_config.outputs.push_back(
+                    { "forwardMotion", QC_BUFFER_TYPE_TENSOR,
+                      Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_16,
+                                             { 1U, motionHeight, motionWidth, 1U },
+                                             QC_MEMORY_ALLOCATOR_DMA_EVA ) } );
+        }
+        if ( ( MOTION_DIRECTION_BACKWARD == m_config.motionDirection ) ||
+             ( MOTION_DIRECTION_BIDIRECTIONAL == m_config.motionDirection ) )
+        {
+            m_config.outputs.push_back(
+                    { "backwardMotion", QC_BUFFER_TYPE_TENSOR,
+                      Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_16,
+                                             { 1U, motionHeight, motionWidth, 1U },
+                                             QC_MEMORY_ALLOCATOR_DMA_EVA ) } );
+        }
+        if ( m_config.confidenceOutputEn )
+        {
+            if ( ( MOTION_DIRECTION_FORWARD == m_config.motionDirection ) ||
+                 ( MOTION_DIRECTION_BIDIRECTIONAL == m_config.motionDirection ) )
+            {
+                m_config.outputs.push_back(
+                        { "forwardConfidence", QC_BUFFER_TYPE_TENSOR,
+                          Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_8,
+                                                 { 1U, motionHeight, confidenceWidth, 1U },
+                                                 QC_MEMORY_ALLOCATOR_DMA_EVA ) } );
+            }
+            if ( ( MOTION_DIRECTION_BACKWARD == m_config.motionDirection ) ||
+                 ( MOTION_DIRECTION_BIDIRECTIONAL == m_config.motionDirection ) )
+            {
+                m_config.outputs.push_back(
+                        { "backwardConfidence", QC_BUFFER_TYPE_TENSOR,
+                          Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_8,
+                                                 { 1U, motionHeight, confidenceWidth, 1U },
+                                                 QC_MEMORY_ALLOCATOR_DMA_EVA ) } );
+            }
+        }
     }
 
     return status;

@@ -190,12 +190,22 @@ DataTree QnnConfig::ConvertTensorInfoToJson( const Qnn_Tensor_t &info )
                       m_pQnnImpl->SwitchFromQnnDataType( QNN_TENSOR_GET_DATA_TYPE( &info ) ) );
     dt.Set<std::uint32_t>( "dims", dims );
 
-    Qnn_QuantizeParams_t quantizeParams = QNN_TENSOR_GET_QUANT_PARAMS( &info );
-    if ( QNN_QUANTIZATION_ENCODING_SCALE_OFFSET == quantizeParams.quantizationEncoding )
+    QnnQuantInfo_t quantInfo;
+    QCStatus_e quantStatus = ExtractQnnQuantInfo( info, quantInfo );
+    if ( ( QC_STATUS_OK == quantStatus ) &&
+         ( QC_TENSOR_QUANTIZATION_SCALE_OFFSET == quantInfo.type ) )
     {
         dt.Set<std::string>( "quantType", "scale_offset" );
-        dt.Set<float>( "quantScale", quantizeParams.scaleOffsetEncoding.scale );
-        dt.Set<int32_t>( "quantOffset", quantizeParams.scaleOffsetEncoding.offset );
+        dt.Set<float>( "quantScale", quantInfo.scales[0] );
+        dt.Set<int32_t>( "quantOffset", quantInfo.offsets[0] );
+    }
+    else if ( ( QC_STATUS_OK == quantStatus ) &&
+              ( QC_TENSOR_QUANTIZATION_AXIS_SCALE_OFFSET == quantInfo.type ) )
+    {
+        dt.Set<std::string>( "quantType", "axis_scale_offset" );
+        dt.Set<uint32_t>( "quantizationAxis", quantInfo.axis );
+        dt.Set<float>( "quantScales", quantInfo.scales );
+        dt.Set<int32_t>( "quantOffsets", quantInfo.offsets );
     }
     else
     {
@@ -302,6 +312,13 @@ QCStatus_e QnnConfig::VerifyStaticConfig( DataTree &dt, std::string &errors )
          ( "gpu" != processorType ) )
     {
         errors += "the processorType " + processorType + " is invalid, ";
+        status = QC_STATUS_BAD_ARGUMENTS;
+    }
+
+    std::string executeMode = dt.Get<std::string>( "executeMode", "sync" );
+    if ( ( "sync" != executeMode ) && ( "async" != executeMode ) )
+    {
+        errors += "the executeMode " + executeMode + " is invalid, ";
         status = QC_STATUS_BAD_ARGUMENTS;
     }
 
@@ -452,27 +469,37 @@ QCStatus_e QnnConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
         std::string processorType = dt.Get<std::string>( "processorType", "htp0" );
         if ( "htp0" == processorType )
         {
-            config.processorType = QNN_PROCESSOR_HTP0;
+            config.processor = QC_PROCESSOR_HTP0;
         }
         else if ( "htp1" == processorType )
         {
-            config.processorType = QNN_PROCESSOR_HTP1;
+            config.processor = QC_PROCESSOR_HTP1;
         }
         else if ( "htp2" == processorType )
         {
-            config.processorType = QNN_PROCESSOR_HTP2;
+            config.processor = QC_PROCESSOR_HTP2;
         }
         else if ( "htp3" == processorType )
         {
-            config.processorType = QNN_PROCESSOR_HTP3;
+            config.processor = QC_PROCESSOR_HTP3;
         }
         else if ( "cpu" == processorType )
         {
-            config.processorType = QNN_PROCESSOR_CPU;
+            config.processor = QC_PROCESSOR_CPU;
         }
         else
         {
-            config.processorType = QNN_PROCESSOR_GPU;
+            config.processor = QC_PROCESSOR_GPU;
+        }
+
+        std::string executeMode = dt.Get<std::string>( "executeMode", "sync" );
+        if ( "async" == executeMode )
+        {
+            config.executeMode = QC_EXECUTE_MODE_ASYNC;
+        }
+        else
+        {
+            config.executeMode = QC_EXECUTE_MODE_SYNC;
         }
 
         std::string perfProfile = dt.Get<std::string>( "perfProfile", "default" );

@@ -37,15 +37,73 @@ extern "C"
     void remote_register_buf_v2( int ext_domain_id, void *buf, int size, int fd );
 }
 
-std::mutex QnnImpl::s_lock[QNN_PROCESSOR_MAX];
+std::mutex QnnImpl::s_lock[QC_PROCESSOR_MAX];
 QCMap<void *, int, QNN_MAX_DMA_MEM_REF_MAP_ENTRIES>
-        QnnImpl::s_dmaMemRefMap[QNN_PROCESSOR_MAX];
+        QnnImpl::s_dmaMemRefMap[QC_PROCESSOR_MAX];
 
-std::map<Qnn_ProcessorType_e, std::string> QnnImpl::s_Backends = {
-        { QNN_PROCESSOR_HTP0, "libQnnHtp.so" }, { QNN_PROCESSOR_HTP1, "libQnnHtp.so" },
-        { QNN_PROCESSOR_HTP2, "libQnnHtp.so" }, { QNN_PROCESSOR_HTP3, "libQnnHtp.so" },
-        { QNN_PROCESSOR_CPU, "libQnnCpu.so" },  { QNN_PROCESSOR_GPU, "libQnnGpu.so" } };
+std::map<QCProcessorType_e, std::string> QnnImpl::s_Backends = {
+        { QC_PROCESSOR_HTP0, "libQnnHtp.so" }, { QC_PROCESSOR_HTP1, "libQnnHtp.so" },
+        { QC_PROCESSOR_HTP2, "libQnnHtp.so" }, { QC_PROCESSOR_HTP3, "libQnnHtp.so" },
+        { QC_PROCESSOR_CPU, "libQnnCpu.so" },  { QC_PROCESSOR_GPU, "libQnnGpu.so" } };
 
+QCStatus_e ExtractQnnQuantInfo( const Qnn_Tensor_t &tensor, QnnQuantInfo_t &info )
+{
+    const Qnn_QuantizeParams_t quantizeParams = QNN_TENSOR_GET_QUANT_PARAMS( &tensor );
+    info.type = QC_TENSOR_QUANTIZATION_NONE;
+    info.axis = 0U;
+    info.scales.clear();
+    info.offsets.clear();
+
+    if ( QNN_QUANTIZATION_ENCODING_SCALE_OFFSET == quantizeParams.quantizationEncoding )
+    {
+        info.type = QC_TENSOR_QUANTIZATION_SCALE_OFFSET;
+        info.scales.push_back( quantizeParams.scaleOffsetEncoding.scale );
+        info.offsets.push_back( quantizeParams.scaleOffsetEncoding.offset );
+    }
+    else if ( QNN_QUANTIZATION_ENCODING_AXIS_SCALE_OFFSET == quantizeParams.quantizationEncoding )
+    {
+        const auto &axisEncoding = quantizeParams.axisScaleOffsetEncoding;
+        if ( ( 0U == axisEncoding.numScaleOffsets ) || ( nullptr == axisEncoding.scaleOffset ) )
+        {
+            QC_LOG_ERROR( "invalid axis scale-offset quantization parameters" );
+            return QC_STATUS_BAD_ARGUMENTS;
+        }
+
+        info.type = QC_TENSOR_QUANTIZATION_AXIS_SCALE_OFFSET;
+        info.axis = axisEncoding.axis;
+        info.scales.reserve( axisEncoding.numScaleOffsets );
+        info.offsets.reserve( axisEncoding.numScaleOffsets );
+        for ( uint32_t i = 0U; i < axisEncoding.numScaleOffsets; ++i )
+        {
+            info.scales.push_back( axisEncoding.scaleOffset[i].scale );
+            info.offsets.push_back( axisEncoding.scaleOffset[i].offset );
+        }
+    }
+    else if ( QNN_QUANTIZATION_ENCODING_UNDEFINED != quantizeParams.quantizationEncoding )
+    {
+        QC_LOG_ERROR( "unsupported quantization encoding %d",
+                      quantizeParams.quantizationEncoding );
+        return QC_STATUS_UNSUPPORTED;
+    }
+
+    return QC_STATUS_OK;
+}
+
+static QCStatus_e PopulateTensorQuantizationProps( const Qnn_Tensor_t &tensor,
+                                                    TensorProps_t &tensorProps )
+{
+    QnnQuantInfo_t quantInfo;
+    QCStatus_e status = ExtractQnnQuantInfo( tensor, quantInfo );
+    if ( QC_STATUS_OK == status )
+    {
+        tensorProps.quantizationEncodingType = quantInfo.type;
+        tensorProps.quantizationAxis = quantInfo.axis;
+        tensorProps.quantScales = quantInfo.scales;
+        tensorProps.quantOffsets = quantInfo.offsets;
+    }
+
+    return status;
+}
 
 typedef Qnn_ErrorHandle_t ( *QnnInterfaceGetProvidersFn_t )( const QnnInterface_t ***providerList,
                                                              uint32_t *numProviders );
@@ -822,27 +880,27 @@ QnnLog_Level_t QnnImpl::GetQnnLogLevel( Logger_Level_e level )
     return qnnLogLevel;
 }
 
-uint32_t QnnImpl::GetQnnDeviceId( Qnn_ProcessorType_e processorType )
+uint32_t QnnImpl::GetQnnDeviceId( QCProcessorType_e processor )
 {
     uint32_t deviceId = UINT32_MAX;
-    switch ( processorType )
+    switch ( processor )
     {
-        case QNN_PROCESSOR_HTP0:
+        case QC_PROCESSOR_HTP0:
             deviceId = 0;
             break;
-        case QNN_PROCESSOR_HTP1:
+        case QC_PROCESSOR_HTP1:
             deviceId = 1;
             break;
-        case QNN_PROCESSOR_HTP2:
+        case QC_PROCESSOR_HTP2:
             deviceId = 2;
             break;
-        case QNN_PROCESSOR_HTP3:
+        case QC_PROCESSOR_HTP3:
             deviceId = 3;
             break;
-        case QNN_PROCESSOR_CPU:
+        case QC_PROCESSOR_CPU:
             deviceId = 0;
             break;
-        case QNN_PROCESSOR_GPU:
+        case QC_PROCESSOR_GPU:
             deviceId = 0;
             break;
         default:
@@ -1106,7 +1164,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
         m_powerConfigIds.reserve( m_config.coreIds.size() );
         for ( size_t i = 0; i < m_config.coreIds.size(); i++ )
         {
-            uint32_t deviceId = GetQnnDeviceId( m_config.processorType );
+            uint32_t deviceId = GetQnnDeviceId( m_config.processor );
             uint32_t coreId = m_config.coreIds[i];
             QnnDevice_HardwareDeviceInfo_t &hwDevice = m_platformInfo->v1.hwDevices[deviceId];
             deviceId = hwDevice.v1.deviceId;
@@ -1311,7 +1369,7 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
 #endif
                                                                              nullptr };
 #if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
-            if ( QNN_PROCESSOR_HTP0 != m_config.processorType )
+            if ( QC_PROCESSOR_HTP0 != m_config.processor )
             { /* No HMX for HPASS */
                 powerConfigs[1] = nullptr;
             }
@@ -1333,8 +1391,8 @@ QCStatus_e QnnImpl::SetHtpPerformanceMode()
 bool QnnImpl::IsHtpProcessor()
 {
     bool bIsHtp = false;
-    if ( ( m_config.processorType >= QNN_PROCESSOR_HTP0 ) &&
-         ( m_config.processorType <= QNN_PROCESSOR_HTP3 ) )
+    if ( ( m_config.processor >= QC_PROCESSOR_HTP0 ) &&
+         ( m_config.processor <= QC_PROCESSOR_HTP3 ) )
     {
         bIsHtp = true;
     }
@@ -1364,27 +1422,39 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
     QCStatus_e status = QC_STATUS_OK;
     Qnn_ErrorHandle_t retVal;
 
+    if ( ( QC_EXECUTE_MODE_SYNC != m_config.executeMode ) &&
+         ( QC_EXECUTE_MODE_ASYNC != m_config.executeMode ) )
+    {
+        QC_ERROR( "invalid executeMode %d", m_config.executeMode );
+        status = QC_STATUS_BAD_ARGUMENTS;
+    }
+    else if ( ( QC_EXECUTE_MODE_ASYNC == m_config.executeMode ) && ( nullptr == callback ) )
+    {
+        QC_ERROR( "async executeMode requires a callback" );
+        status = QC_STATUS_BAD_ARGUMENTS;
+    }
+
     QC_TRACE_INIT( [&]() {
         std::ostringstream oss;
         std::string processor = "unknown";
-        switch ( m_config.processorType )
+        switch ( m_config.processor )
         {
-            case QNN_PROCESSOR_HTP0:
+            case QC_PROCESSOR_HTP0:
                 processor = "htp0";
                 break;
-            case QNN_PROCESSOR_HTP1:
+            case QC_PROCESSOR_HTP1:
                 processor = "htp1";
                 break;
-            case QNN_PROCESSOR_HTP2:
+            case QC_PROCESSOR_HTP2:
                 processor = "htp2";
                 break;
-            case QNN_PROCESSOR_HTP3:
+            case QC_PROCESSOR_HTP3:
                 processor = "htp3";
                 break;
-            case QNN_PROCESSOR_CPU:
+            case QC_PROCESSOR_CPU:
                 processor = "cpu";
                 break;
-            case QNN_PROCESSOR_GPU:
+            case QC_PROCESSOR_GPU:
                 processor = "gpu";
                 break;
             default:
@@ -1455,8 +1525,8 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
     {
         // Resolve the FastRPC extended domain id once, from the first configured core, before
         // fetching function pointers. It is reused for every remote_register_buf_v2() call.
-        if ( ( m_config.processorType >= QNN_PROCESSOR_HTP0 ) &&
-             ( m_config.processorType <= QNN_PROCESSOR_HTP3 ) )
+        if ( ( m_config.processor >= QC_PROCESSOR_HTP0 ) &&
+             ( m_config.processor <= QC_PROCESSOR_HTP3 ) )
         {
             int domain = CDSP_DOMAIN_ID;
 #if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
@@ -1474,7 +1544,7 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
             }
 #else
             // Other SoCs use fixed CDSP domain ids.
-            if ( QNN_PROCESSOR_HTP1 == m_config.processorType )
+            if ( QC_PROCESSOR_HTP1 == m_config.processor )
             {
                 domain = CDSP1_DOMAIN_ID;
             }
@@ -1490,12 +1560,12 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
     if ( QC_STATUS_OK == status )
     {
         m_state = QC_OBJECT_STATE_INITIALIZING;
-        status = GetQnnFunctionPointers( s_Backends[m_config.processorType], m_config.modelPath,
+        status = GetQnnFunctionPointers( s_Backends[m_config.processor], m_config.modelPath,
                                          !m_bLoadFromCachedBinary );
         if ( QC_STATUS_OK != status )
         {
             QC_ERROR( "failed to get qnn function pointers from model %s(%s), error is %d",
-                      m_config.modelPath.c_str(), s_Backends[m_config.processorType].c_str(),
+                      m_config.modelPath.c_str(), s_Backends[m_config.processor].c_str(),
                       status );
         }
     }
@@ -1576,7 +1646,7 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
 
     if ( QC_STATUS_OK == status )
     {
-        if ( m_config.processorType != QNN_PROCESSOR_CPU )
+        if ( m_config.processor != QC_PROCESSOR_CPU )
         {
             retVal = m_qnnFunctionPointers.qnnInterface.deviceGetPlatformInfo( m_logHandle,
                                                                                &m_platformInfo );
@@ -1590,7 +1660,7 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
 
     if ( QC_STATUS_OK == status )
     {
-        if ( m_config.processorType != QNN_PROCESSOR_CPU )
+        if ( m_config.processor != QC_PROCESSOR_CPU )
         {
             if ( QNN_DEVICE_PLATFORM_INFO_VERSION_1 == m_platformInfo->version )
             {
@@ -1602,7 +1672,7 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
                              deviceInfo.deviceType, deviceInfo.numCores );
                 }
                 std::vector<QnnDevice_CoreInfo_t> coreInfo;
-                uint32_t deviceId = GetQnnDeviceId( m_config.processorType );
+                uint32_t deviceId = GetQnnDeviceId( m_config.processor );
                 if ( deviceId < m_platformInfo->v1.numHwDevices )
                 {
                     QnnDevice_HardwareDeviceInfo_t hwDevice =
@@ -1789,7 +1859,12 @@ QnnImpl::Initialize( QCNodeEventCallBack_t callback,
 
     if ( QC_STATUS_OK == status )
     {
-        QC_INFO( "init with backend %s", s_Backends[m_config.processorType].c_str() );
+        status = BuildBufferDescriptorInfo();
+    }
+
+    if ( QC_STATUS_OK == status )
+    {
+        QC_INFO( "init with backend %s", s_Backends[m_config.processor].c_str() );
         m_callback = callback;
         m_notifyParamQ.Init();
         m_state = QC_OBJECT_STATE_READY;
@@ -1812,7 +1887,7 @@ QCStatus_e QnnImpl::GetFastRpcDomainId( uint32_t coreId, int &domainId )
     system_req_payload req = { (system_req_id) 0 };
     req.id = FASTRPC_GET_DOMAINS;
     req.sys.domains = nullptr;
-    if ( QNN_PROCESSOR_HTP0 == m_config.processorType )
+    if ( QC_PROCESSOR_HTP0 == m_config.processor )
     {
         req.sys.flags = DOMAINS_LIST_FLAGS_SET_TYPE( req.sys.flags, NSP );
     }
@@ -1851,30 +1926,30 @@ QCStatus_e QnnImpl::GetFastRpcDomainId( uint32_t coreId, int &domainId )
             ret = QC_STATUS_FAIL;
         }
         // HTP0 -> NSP domain selected by core index; HTP1/2/3 -> HPASS domains 0/1/2.
-        else if ( ( QNN_PROCESSOR_HTP0 == m_config.processorType ) &&
+        else if ( ( QC_PROCESSOR_HTP0 == m_config.processor ) &&
                   ( coreId < static_cast<uint32_t>( req.sys.num_domains ) ) &&
                   ( NSP == req.sys.domains[coreId].type ) )
         {
             domainId = req.sys.domains[coreId].id;
         }
-        else if ( ( QNN_PROCESSOR_HTP1 == m_config.processorType ) && ( 0 < req.sys.num_domains ) &&
+        else if ( ( QC_PROCESSOR_HTP1 == m_config.processor ) && ( 0 < req.sys.num_domains ) &&
                   ( HPASS == req.sys.domains[0].type ) )
         {
             domainId = req.sys.domains[0].id;
         }
-        else if ( ( QNN_PROCESSOR_HTP2 == m_config.processorType ) && ( 1 < req.sys.num_domains ) &&
+        else if ( ( QC_PROCESSOR_HTP2 == m_config.processor ) && ( 1 < req.sys.num_domains ) &&
                   ( HPASS == req.sys.domains[1].type ) )
         {
             domainId = req.sys.domains[1].id;
         }
-        else if ( ( QNN_PROCESSOR_HTP3 == m_config.processorType ) && ( 2 < req.sys.num_domains ) &&
+        else if ( ( QC_PROCESSOR_HTP3 == m_config.processor ) && ( 2 < req.sys.num_domains ) &&
                   ( HPASS == req.sys.domains[2].type ) )
         {
             domainId = req.sys.domains[2].id;
         }
         else
         {
-            QC_ERROR( "domain type not match for processor %d!", m_config.processorType );
+            QC_ERROR( "domain type not match for processor %d!", m_config.processor );
             ret = QC_STATUS_FAIL;
         }
     }
@@ -1891,15 +1966,15 @@ QCStatus_e QnnImpl::RemoteRegisterBuf( const TensorDescriptor_t &tensorDesc, int
 {
     QCStatus_e status = QC_STATUS_OK;
 
-    std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
+    std::lock_guard<std::mutex> l( s_lock[m_config.processor] );
 
     int rpcFd = rpcmem_to_fd( tensorDesc.pBuf );
     if ( rpcFd < 0 )
     {
-        if ( s_dmaMemRefMap[m_config.processorType].Size() >=
-             s_dmaMemRefMap[m_config.processorType].Capacity() )
+        if ( s_dmaMemRefMap[m_config.processor].Size() >=
+             s_dmaMemRefMap[m_config.processor].Capacity() )
         {
-            QC_ERROR( "dma memory ref map is full for core %d", m_config.processorType );
+            QC_ERROR( "dma memory ref map is full for core %d", m_config.processor );
             status = QC_STATUS_NO_RESOURCE;
         }
     }
@@ -1916,7 +1991,7 @@ QCStatus_e QnnImpl::RemoteRegisterBuf( const TensorDescriptor_t &tensorDesc, int
         rpcFd = rpcmem_to_fd( tensorDesc.pBuf );
         if ( rpcFd >= 0 )
         {
-            status = s_dmaMemRefMap[m_config.processorType].Insert( tensorDesc.pBuf, 1 );
+            status = s_dmaMemRefMap[m_config.processor].Insert( tensorDesc.pBuf, 1 );
             if ( QC_STATUS_OK == status )
             {
                 fd = rpcFd;
@@ -1926,20 +2001,20 @@ QCStatus_e QnnImpl::RemoteRegisterBuf( const TensorDescriptor_t &tensorDesc, int
                 remote_register_buf_v2( m_extDomainId, tensorDesc.pBuf,
                                         static_cast<int>( tensorDesc.size ), -1 );
                 QC_ERROR( "failed to insert buffer %p into dma ref map for core %d",
-                          tensorDesc.pBuf, m_config.processorType );
+                          tensorDesc.pBuf, m_config.processor );
             }
         }
         else
         {
             QC_ERROR( "remote register failed for buffer %p(%" PRIu64 ", %" PRIu64 ") for core %d!",
-                      tensorDesc.pBuf, tensorDesc.size, tensorDesc.offset, m_config.processorType );
+                      tensorDesc.pBuf, tensorDesc.size, tensorDesc.offset, m_config.processor );
             status = QC_STATUS_FAIL;
         }
     }
     else if ( rpcFd >= 0 )
     {
         int *pRefCount = nullptr;
-        if ( QC_STATUS_OK == s_dmaMemRefMap[m_config.processorType].Find( tensorDesc.pBuf,
+        if ( QC_STATUS_OK == s_dmaMemRefMap[m_config.processor].Find( tensorDesc.pBuf,
                                                                           pRefCount ) )
         {
             ( *pRefCount )++;
@@ -2029,7 +2104,7 @@ QCStatus_e QnnImpl::RegisterBufferToHTP( const TensorDescriptor_t &tensorDesc,
                         QC_INFO( "succeed to register map buffer %p(%d, %" PRIu64 ", %" PRIu64
                                  ") as %p for core %d",
                                  tensorDesc.pBuf, fd, tensorDesc.size, tensorDesc.offset, memHandle,
-                                 m_config.processorType );
+                                 m_config.processor );
                     }
                     else
                     {
@@ -2045,7 +2120,7 @@ QCStatus_e QnnImpl::RegisterBufferToHTP( const TensorDescriptor_t &tensorDesc,
                     QC_ERROR( "failed to map buffer %p(%d, %" PRIu64 ", %" PRIu64
                               ") for core %d, error %d\n",
                               tensorDesc.pBuf, fd, tensorDesc.size, tensorDesc.offset,
-                              m_config.processorType, retVal );
+                              m_config.processor, retVal );
                     status = QC_STATUS_FAIL;
                 }
             }
@@ -2058,7 +2133,7 @@ QCStatus_e QnnImpl::RegisterBufferToHTP( const TensorDescriptor_t &tensorDesc,
             QC_DEBUG( "already register map buffer %p(%d, %" PRIu64 ", %" PRIu64
                       ") as %p for core %d",
                       tensorDesc.pBuf, info.fd, tensorDesc.size, tensorDesc.offset, memHandle,
-                      m_config.processorType );
+                      m_config.processor );
         }
     }
 
@@ -2278,7 +2353,7 @@ QCStatus_e QnnImpl::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDesc 
     if ( QC_STATUS_OK == status )
     {
         const Qnn_GraphHandle_t hGraph = m_graphsInfo[0]->graph;
-        if ( nullptr == m_callback )
+        if ( QC_EXECUTE_MODE_SYNC == m_config.executeMode )
         {
             retVal = m_qnnFunctionPointers.qnnInterface.graphExecute(
                     hGraph, m_inputs.Data(), m_inputs.Size(), m_outputs.Data(), m_outputs.Size(),
@@ -2521,9 +2596,9 @@ QCStatus_e QnnImpl::DisablePerf()
 
 void QnnImpl::RemoteDeRegisterBuf( void *pData, size_t size )
 {
-    std::lock_guard<std::mutex> l( s_lock[m_config.processorType] );
+    std::lock_guard<std::mutex> l( s_lock[m_config.processor] );
     int *pRefCount = nullptr;
-    if ( QC_STATUS_OK == s_dmaMemRefMap[m_config.processorType].Find( pData, pRefCount ) )
+    if ( QC_STATUS_OK == s_dmaMemRefMap[m_config.processor].Find( pData, pRefCount ) )
     {
         if ( *pRefCount > 0 )
         {
@@ -2532,7 +2607,7 @@ void QnnImpl::RemoteDeRegisterBuf( void *pData, size_t size )
         if ( 0 == *pRefCount )
         {
             remote_register_buf_v2( m_extDomainId, pData, static_cast<int>( size ), -1 );
-            (void) s_dmaMemRefMap[m_config.processorType].Erase( pData );
+            (void) s_dmaMemRefMap[m_config.processor].Erase( pData );
         }
     }
     else
@@ -2561,7 +2636,7 @@ QCStatus_e QnnImpl::DeRegisterAllBuffers()
         else
         {
             QC_INFO( "succeed to deregister buffer %p(%d, %" PRIu64 ") as %p for core %d", pData,
-                     info.fd, info.size, info.memHandle, m_config.processorType );
+                     info.fd, info.size, info.memHandle, m_config.processor );
         }
 
         if ( true == bIsHtp )
@@ -2585,6 +2660,9 @@ QCStatus_e QnnImpl::Destroy()
 {
     QCStatus_e status = QC_STATUS_OK;
     Qnn_ErrorHandle_t retVal = QNN_SUCCESS;
+
+    m_config.inputs.clear();
+    m_config.outputs.clear();
 
     status = DeRegisterAllBuffers();
 
@@ -2897,6 +2975,106 @@ QCStatus_e QnnImpl::SetupGlobalBufferIdMap()
 
         m_config.globalBufferIdMap[globalBufferId].name = "QNN ASYNC ERROR";
         m_config.globalBufferIdMap[globalBufferId].globalBufferId = globalBufferId;
+    }
+
+    return status;
+}
+
+QCStatus_e QnnImpl::BuildBufferDescriptorInfo()
+{
+    QCStatus_e status = QC_STATUS_OK;
+
+    m_config.inputs.clear();
+    m_config.outputs.clear();
+
+    if ( ( nullptr == m_graphsInfo ) || ( 0U == m_graphsCount ) || ( nullptr == m_graphsInfo[0] ) )
+    {
+        QC_ERROR( "QNN graph information is unavailable" );
+        status = QC_STATUS_BAD_STATE;
+    }
+
+    if ( QC_STATUS_OK == status )
+    {
+        m_config.inputs.reserve( m_inputTensorNum );
+        m_config.outputs.reserve( m_outputTensorNum );
+
+        for ( uint32_t i = 0U; i < m_inputTensorNum; ++i )
+        {
+            const Qnn_Tensor_t &tensor = m_graphsInfo[0]->inputTensors[i];
+            uint32_t rank = QNN_TENSOR_GET_RANK( &tensor );
+            uint32_t *pDims = QNN_TENSOR_GET_DIMENSIONS( &tensor );
+            QCTensorType_e tensorType =
+                    SwitchFromQnnDataType( QNN_TENSOR_GET_DATA_TYPE( &tensor ) );
+            if ( ( rank > QC_NUM_TENSOR_DIMS ) || ( ( 0U < rank ) && ( nullptr == pDims ) ) ||
+                 ( QC_TENSOR_TYPE_MAX == tensorType ) )
+            {
+                QC_ERROR( "invalid input tensor properties at index %u", i );
+                status = QC_STATUS_BAD_ARGUMENTS;
+                break;
+            }
+            std::vector<uint32_t> dims;
+            if ( 0U < rank )
+            {
+                dims.assign( pDims, pDims + rank );
+            }
+            const char *pName = QNN_TENSOR_GET_NAME( &tensor );
+            if ( nullptr == pName )
+            {
+                QC_ERROR( "input tensor name is null at index %u", i );
+                status = QC_STATUS_BAD_ARGUMENTS;
+                break;
+            }
+            TensorProps_t tensorProps( tensorType, dims );
+            status = PopulateTensorQuantizationProps( tensor, tensorProps );
+            if ( QC_STATUS_OK != status )
+            {
+                break;
+            }
+            m_config.inputs.push_back(
+                    { std::string( pName ), QC_BUFFER_TYPE_TENSOR, std::move( tensorProps ) } );
+        }
+
+        for ( uint32_t i = 0U; ( QC_STATUS_OK == status ) && ( i < m_outputTensorNum ); ++i )
+        {
+            const Qnn_Tensor_t &tensor = m_graphsInfo[0]->outputTensors[i];
+            uint32_t rank = QNN_TENSOR_GET_RANK( &tensor );
+            uint32_t *pDims = QNN_TENSOR_GET_DIMENSIONS( &tensor );
+            QCTensorType_e tensorType =
+                    SwitchFromQnnDataType( QNN_TENSOR_GET_DATA_TYPE( &tensor ) );
+            if ( ( rank > QC_NUM_TENSOR_DIMS ) || ( ( 0U < rank ) && ( nullptr == pDims ) ) ||
+                 ( QC_TENSOR_TYPE_MAX == tensorType ) )
+            {
+                QC_ERROR( "invalid output tensor properties at index %u", i );
+                status = QC_STATUS_BAD_ARGUMENTS;
+                break;
+            }
+            std::vector<uint32_t> dims;
+            if ( 0U < rank )
+            {
+                dims.assign( pDims, pDims + rank );
+            }
+            const char *pName = QNN_TENSOR_GET_NAME( &tensor );
+            if ( nullptr == pName )
+            {
+                QC_ERROR( "output tensor name is null at index %u", i );
+                status = QC_STATUS_BAD_ARGUMENTS;
+                break;
+            }
+            TensorProps_t tensorProps( tensorType, dims );
+            status = PopulateTensorQuantizationProps( tensor, tensorProps );
+            if ( QC_STATUS_OK != status )
+            {
+                break;
+            }
+            m_config.outputs.push_back(
+                    { std::string( pName ), QC_BUFFER_TYPE_TENSOR, std::move( tensorProps ) } );
+        }
+    }
+
+    if ( QC_STATUS_OK != status )
+    {
+        m_config.inputs.clear();
+        m_config.outputs.clear();
     }
 
     return status;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "CL2DFlexImpl.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 #include "QC/Node/CL2DFlex.hpp"
 #include <unistd.h>
 
@@ -250,6 +251,53 @@ QCStatus_e CL2DFlexConfig::ParseStaticConfig( DataTree &dt, std::string &errors 
 
         config.bDeRegisterAllBuffersWhenStop =
                 dt.Get<bool>( "deRegisterAllBuffersWhenStop", false );
+
+        config.executeMode = QC_EXECUTE_MODE_SYNC;
+        config.processor = QC_PROCESSOR_GPU;
+        config.coreIds = { config.params.deviceId };
+        config.inputs.clear();
+        config.outputs.clear();
+        config.inputs.reserve( config.params.numOfInputs );
+        for ( uint32_t i = 0U; i < config.params.numOfInputs; ++i )
+        {
+            config.inputs.push_back( { "input" + std::to_string( i ), QC_BUFFER_TYPE_IMAGE,
+                                       Memory::ImageBasicProps_t( config.params.inputWidths[i],
+                                                                   config.params.inputHeights[i],
+                                                                   config.params.inputFormats[i] ) } );
+        }
+
+        const bool noPadding = dt.Get<bool>( "noPadding", false );
+        const bool cacheable = dt.Get<bool>( "cache", true );
+        const QCAllocationCache_e cache = cacheable ? QC_CACHEABLE : QC_CACHEABLE_NON;
+        uint32_t outputBatchSize = config.params.numOfInputs;
+        if ( ( 1U == config.params.numOfInputs ) &&
+             ( ( CL2DFLEX_WORK_MODE_LETTERBOX_NEAREST_MULTIPLE == config.params.workModes[0] ) ||
+               ( CL2DFLEX_WORK_MODE_RESIZE_NEAREST_MULTIPLE == config.params.workModes[0] ) ) )
+        {
+            outputBatchSize = config.params.numOfROIs;
+        }
+
+        Memory::ImageBasicProps_t outputBasicProps(
+                outputBatchSize, config.params.outputWidth, config.params.outputHeight,
+                config.params.outputFormat, QC_MEMORY_ALLOCATOR_DMA_GPU, cache );
+        Memory::ImageProps_t outputProps;
+        Memory::UtilsBase memoryUtils;
+        const QCStatus_e outputPropsStatus =
+                memoryUtils.SetImagePropsFromImageBasicProp( outputBasicProps, outputProps,
+                                                             noPadding, true );
+        if ( QC_STATUS_OK != outputPropsStatus )
+        {
+            if ( noPadding )
+            {
+                errors += "no padding is not supported for the output format, ";
+            }
+            else
+            {
+                errors += "failed to derive CL2DFlex output buffer properties, ";
+            }
+            return outputPropsStatus;
+        }
+        config.outputs.push_back( { "output", QC_BUFFER_TYPE_IMAGE, std::move( outputProps ) } );
     }
     else
     {

@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 #include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/Node/VideoDecoder.hpp"
 #include <cstdio>
@@ -588,6 +589,32 @@ void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, void *pEvent
 
 QCStatus_e VideoDecoderConfigIfs::ParseStaticConfig( DataTree &dt, std::string &errors )
 {
+    (void) dt;
+    Memory::ImageBasicProps_t outputBasicProps( m_config.width, m_config.height,
+                                                 m_config.outFormat,
+                                                 QC_MEMORY_ALLOCATOR_DMA_GPU );
+    Memory::UtilsBase memoryUtils;
+    Memory::ImageProps_t outputProps;
+    QCStatus_e status =
+            memoryUtils.SetImagePropsFromImageBasicProp( outputBasicProps, outputProps );
+    if ( QC_STATUS_OK != status )
+    {
+        errors += "failed to derive decoded output buffer properties, ";
+        return status;
+    }
+    m_config.executeMode = QC_EXECUTE_MODE_ASYNC;
+    m_config.processor = QC_PROCESSOR_MAX;
+    m_config.coreIds.clear();
+    Memory::ImageBasicProps_t inputBasicProps( m_config.width, m_config.height,
+                                                m_config.inFormat );
+    const uint32_t inputBufferSize = m_config.width * m_config.height;
+    Memory::ImageProps_t inputProps(
+            inputBasicProps.batchSize, inputBasicProps.width, inputBasicProps.height,
+            inputBasicProps.format, std::vector<uint32_t>( { 0U } ),
+            std::vector<uint32_t>( { 0U } ), std::vector<uint32_t>( { inputBufferSize } ));
+    inputProps.size = inputBufferSize;
+    m_config.inputs = { { "input", QC_BUFFER_TYPE_IMAGE, inputProps } };
+    m_config.outputs = { { "output", QC_BUFFER_TYPE_IMAGE, outputProps } };
     return QC_STATUS_OK;
 }
 

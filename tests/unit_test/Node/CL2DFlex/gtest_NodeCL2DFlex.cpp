@@ -2205,6 +2205,55 @@ TEST( NodeCL2D, Sanity )
     Sanity();
 }
 
+TEST( NodeCL2D, ConfigurationDescribesImagePortsAndExecution)
+{
+    CL2DFlex_Config_t cl2dConfig{};
+    cl2dConfig.numOfInputs = 2;
+    for ( uint32_t i = 0U; i < cl2dConfig.numOfInputs; ++i )
+    {
+        cl2dConfig.workModes[i] = CL2DFLEX_WORK_MODE_RESIZE_NEAREST;
+        cl2dConfig.inputWidths[i] = 128U;
+        cl2dConfig.inputHeights[i] = 64U;
+        cl2dConfig.inputFormats[i] = QC_IMAGE_FORMAT_NV12;
+        cl2dConfig.ROIs[i] = { 0, 0, 128, 64 };
+    }
+    cl2dConfig.outputWidth = 64U;
+    cl2dConfig.outputHeight = 32U;
+    cl2dConfig.outputFormat = QC_IMAGE_FORMAT_RGB888;
+    cl2dConfig.deviceId = 0U;
+
+    DataTree dt;
+    dt.Set<std::string>( "static.name", "CL2DConfigDescriptor" );
+    dt.Set<uint32_t>( "static.id", 1U );
+    SetConfigCL2D( &cl2dConfig, &dt );
+    dt.Set<uint32_t>( "static.deviceId", cl2dConfig.deviceId );
+
+    QC::Node::CL2DFlex node;
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, node.GetConfigurationIfs().VerifyAndSet( dt.Dump(), errors ) );
+
+    const QCNodeConfigBase_t &config = node.GetConfigurationIfs().Get();
+    ASSERT_EQ( QC_EXECUTE_MODE_SYNC, config.executeMode );
+    ASSERT_EQ( QC_PROCESSOR_GPU, config.processor );
+    ASSERT_EQ( 1U, config.coreIds.size() );
+    EXPECT_EQ( cl2dConfig.deviceId, config.coreIds[0] );
+    ASSERT_EQ( 2U, config.inputs.size() );
+    ASSERT_EQ( 1U, config.outputs.size() );
+    EXPECT_EQ( "input0", config.inputs[0].name );
+    EXPECT_EQ( QC_BUFFER_TYPE_IMAGE, config.inputs[0].bufferType );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageBasicProps_t>( config.inputs[0].bufProps ) );
+    const auto &inputProps = std::get<Memory::ImageBasicProps_t>( config.inputs[0].bufProps );
+    EXPECT_EQ( 128U, inputProps.width );
+    EXPECT_EQ( 64U, inputProps.height );
+    EXPECT_EQ( QC_IMAGE_FORMAT_NV12, inputProps.format );
+    EXPECT_EQ( "output", config.outputs[0].name );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageProps_t>( config.outputs[0].bufProps ) );
+    const auto &outputProps = std::get<Memory::ImageProps_t>( config.outputs[0].bufProps );
+    EXPECT_EQ( 64U, outputProps.width );
+    EXPECT_EQ( 32U, outputProps.height );
+    EXPECT_EQ( QC_IMAGE_FORMAT_RGB888, outputProps.format );
+}
+
 TEST( NodeCL2D, Stress )
 {
     uint32_t loopNumber = 100;

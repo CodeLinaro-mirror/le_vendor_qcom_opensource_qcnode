@@ -21,8 +21,8 @@ using namespace SV;
 
 /** @brief The QCNode Depth from Stereo Version */
 #define QCNODE_DFS_VERSION_MAJOR 2U
-#define QCNODE_DFS_VERSION_MINOR 1U
-#define QCNODE_DFS_VERSION_PATCH 1U
+#define QCNODE_DFS_VERSION_MINOR 2U
+#define QCNODE_DFS_VERSION_PATCH 0U
 
 #define QCNODE_DFS_VERSION                                                                         \
     ( ( QCNODE_DFS_VERSION_MAJOR << 16U ) | ( QCNODE_DFS_VERSION_MINOR << 8U ) |                   \

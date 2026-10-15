@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "QC/Node/Remap.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 #include "RemapImpl.hpp"
 #include <unistd.h>
 
@@ -196,6 +197,50 @@ QCStatus_e RemapConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
 
         config.params.cpuThreadsAffinity =
                 dt.Get<int32_t>( "cpuThreadsAffinity", std::vector<int32_t>{} );
+
+        config.executeMode = QC_EXECUTE_MODE_SYNC;
+        config.processor = config.params.processor;
+        if ( QC_PROCESSOR_CPU == config.params.processor )
+        {
+            config.coreIds.assign( config.params.cpuThreadsAffinity.begin(),
+                                   config.params.cpuThreadsAffinity.end() );
+        }
+        else
+        {
+            config.coreIds = { config.params.coreId };
+        }
+        config.inputs.clear();
+        config.outputs.clear();
+        config.inputs.reserve( config.params.numOfInputs );
+        for ( uint32_t i = 0U; i < config.params.numOfInputs; ++i )
+        {
+            const Remap_InputConfig_t &inputConfig = config.params.inputConfigs[i];
+            config.inputs.push_back( { "input" + std::to_string( i ), QC_BUFFER_TYPE_IMAGE,
+                                       Memory::ImageBasicProps_t( inputConfig.inputWidth,
+                                                                   inputConfig.inputHeight,
+                                                                   inputConfig.inputFormat ) } );
+        }
+        Memory::ImageBasicProps_t outputBasicProps(
+                config.params.numOfInputs, config.params.outputWidth, config.params.outputHeight,
+                config.params.outputFormat, QC_MEMORY_ALLOCATOR_DMA_GPU );
+        Memory::ImageProps_t outputProps;
+        const bool noPadding = dt.Get<bool>( "noPadding", false );
+        Memory::UtilsBase memoryUtils;
+        status = memoryUtils.SetImagePropsFromImageBasicProp( outputBasicProps, outputProps,
+                                                              noPadding, true );
+        if ( QC_STATUS_OK != status )
+        {
+            if ( noPadding )
+            {
+                errors += "no padding is not supported for remap output format, ";
+            }
+            else
+            {
+                errors += "failed to derive remap output buffer properties, ";
+            }
+            return status;
+        }
+        config.outputs.push_back( { "output", QC_BUFFER_TYPE_IMAGE, std::move( outputProps ) } );
     }
     else
     {

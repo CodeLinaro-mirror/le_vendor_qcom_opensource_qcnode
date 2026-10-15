@@ -21,8 +21,8 @@ using namespace SV;
 
 /** @brief The QCNode OpticalFlow Version */
 #define QCNODE_OFL_VERSION_MAJOR 2U
-#define QCNODE_OFL_VERSION_MINOR 1U
-#define QCNODE_OFL_VERSION_PATCH 1U
+#define QCNODE_OFL_VERSION_MINOR 2U
+#define QCNODE_OFL_VERSION_PATCH 0U
 
 #define QCNODE_OFL_VERSION                                                                         \
     ( ( QCNODE_OFL_VERSION_MAJOR << 16U ) | ( QCNODE_OFL_VERSION_MINOR << 8U ) |                   \

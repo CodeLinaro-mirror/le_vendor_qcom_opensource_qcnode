@@ -437,6 +437,40 @@ static QCNodeInit_t BuildConfig( uint32_t id, uint32_t w, uint32_t h, uint32_t f
     return cfg;
 }
 
+TEST( NodeVideoEncoder, ConfigurationDescribesImagePortsAndExecution )
+{
+    auto init = BuildConfig( 66U, 1280U, 720U, 30U, 4'000'000U, true, true );
+    QC::Node::VideoEncoder node;
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, node.GetConfigurationIfs().VerifyAndSet( init.config, errors ) );
+
+    const QCNodeConfigBase_t &config = node.GetConfigurationIfs().Get();
+    EXPECT_EQ( QC_EXECUTE_MODE_ASYNC, config.executeMode );
+    EXPECT_EQ( QC_PROCESSOR_MAX, config.processor );
+    EXPECT_TRUE( config.coreIds.empty() );
+    ASSERT_EQ( 1U, config.inputs.size() );
+    ASSERT_EQ( 1U, config.outputs.size() );
+    EXPECT_EQ( "input", config.inputs[0].name );
+    EXPECT_EQ( QC_BUFFER_TYPE_IMAGE, config.inputs[0].bufferType );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageProps_t>( config.inputs[0].bufProps ) );
+    const auto &inputProps = std::get<Memory::ImageProps_t>( config.inputs[0].bufProps );
+    EXPECT_EQ( 1280U, inputProps.width );
+    EXPECT_EQ( 720U, inputProps.height );
+    EXPECT_EQ( QC_IMAGE_FORMAT_NV12, inputProps.format );
+    EXPECT_GT( inputProps.numPlanes, 0U );
+    EXPECT_GT( inputProps.stride[0], 0U );
+    EXPECT_EQ( "output", config.outputs[0].name );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageProps_t>( config.outputs[0].bufProps ) );
+    const auto &outputProps = std::get<Memory::ImageProps_t>( config.outputs[0].bufProps );
+    const uint32_t expectedOutputSize = 2U * 1280U * 720U;
+    EXPECT_EQ( QC_IMAGE_FORMAT_COMPRESSED_H264, outputProps.format );
+    EXPECT_EQ( 1U, outputProps.numPlanes );
+    EXPECT_EQ( 1280U, outputProps.width );
+    EXPECT_EQ( 720U, outputProps.height );
+    EXPECT_EQ( expectedOutputSize, outputProps.planeBufSize[0] );
+    EXPECT_EQ( expectedOutputSize, outputProps.size );
+}
+
 // Convenience: fill buffer descriptors with size/stride and dummy pointers
 static void PrepareBuffers( std::vector<std::unique_ptr<VideoFrameDescriptor>> &storage,
                             std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &outRefs,

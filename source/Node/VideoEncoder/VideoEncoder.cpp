@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 #include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/Node/VideoEncoder.hpp"
 #include <cstdio>
@@ -918,6 +919,30 @@ QCStatus_e VideoEncoderConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
     if ( QC_STATUS_OK != status )
     {
         QC_ERROR( "errors: %s", errors.c_str() );
+    }
+    else
+    {
+        m_config.executeMode = QC_EXECUTE_MODE_ASYNC;
+        m_config.processor = QC_PROCESSOR_MAX;
+        m_config.coreIds.clear();
+        Memory::ImageBasicProps_t inputBasicProps( m_config.width, m_config.height,
+                                                    m_config.inFormat );
+        Memory::UtilsBase memoryUtils;
+        Memory::ImageProps_t inputProps;
+        status = memoryUtils.SetImagePropsFromImageBasicProp( inputBasicProps, inputProps );
+        if ( QC_STATUS_OK != status )
+        {
+            errors += "failed to derive encoder input buffer properties, ";
+            return status;
+        }
+        const uint32_t outputBufferSize = 2U * m_config.width * m_config.height;
+        Memory::ImageProps_t outputProps(
+                1U, m_config.width, m_config.height, m_config.outFormat,
+                std::vector<uint32_t>( { 0U } ), std::vector<uint32_t>( { 0U } ),
+                std::vector<uint32_t>( { outputBufferSize } ), QC_MEMORY_ALLOCATOR_DMA_VPU);
+        outputProps.size = outputBufferSize;
+        m_config.inputs = { { "input", QC_BUFFER_TYPE_IMAGE, inputProps } };
+        m_config.outputs = { { "output", QC_BUFFER_TYPE_IMAGE, outputProps } };
     }
 
     QC_INFO( "enc-init: w:%u, h:%u, fps:%u, bitRate:%u, gop:%u, inbuf: dynamicMode:%d, num:%u; "

@@ -51,17 +51,6 @@ using namespace QC::Memory;
 
 typedef enum
 {
-    QNN_PROCESSOR_HTP0,
-    QNN_PROCESSOR_HTP1,
-    QNN_PROCESSOR_HTP2,
-    QNN_PROCESSOR_HTP3,
-    QNN_PROCESSOR_CPU,
-    QNN_PROCESSOR_GPU,
-    QNN_PROCESSOR_MAX
-} Qnn_ProcessorType_e;
-
-typedef enum
-{
     QNN_PERF_PROFILE_EXTREME_POWER_SAVER,
     QNN_PERF_PROFILE_HIGH_POWER_SAVER,
     QNN_PERF_PROFILE_LOW_POWER_SAVER,
@@ -74,6 +63,16 @@ typedef enum
     QNN_PERF_PROFILE_BURST,
     QNN_PERF_PROFILE_MAX,
 } Qnn_PerfProfile_e;
+
+typedef struct QnnQuantInfo
+{
+    QCTensorQuantizationEncoding_e type{ QC_TENSOR_QUANTIZATION_NONE };
+    uint32_t axis{ 0U };
+    std::vector<float> scales;
+    std::vector<int32_t> offsets;
+} QnnQuantInfo_t;
+
+QCStatus_e ExtractQnnQuantInfo( const Qnn_Tensor_t &tensor, QnnQuantInfo_t &info );
 
 /**
  * @brief Represents metadata for a UDO (User-Defined Operation) package.
@@ -136,7 +135,7 @@ typedef enum
  * @note                   This field is ignored if loadType is not
  *                         QNN_LOAD_CONTEXT_BIN_FROM_BUFFER.
  *
- * @param processorType    Specifies the target hardware processor on which the model will run.
+ * @param processor        Specifies the target hardware processor on which the model will run.
  *                         Typical values include CPU, HTP (Hexagon Tensor Processor), or GPU.
  *
  * @param coreIds          A list of core IDs representing the target hardware processors
@@ -179,8 +178,6 @@ typedef struct QnnImplConfig : public QCNodeConfigBase_t
     Qnn_LoadType_e loadType;
     std::string modelPath;
     uint32_t contextBufferId;
-    Qnn_ProcessorType_e processorType;
-    std::vector<uint32_t> coreIds;
     Qnn_Priority_t priority;
     std::vector<Qnn_UdoPackage_t> udoPackages;
     std::vector<uint32_t> bufferIds;
@@ -350,13 +347,14 @@ private:
     void QnnNotifyFn( NotifyParam_t &notifyParam, Qnn_NotifyStatus_t notifyStatus );
 
     QnnLog_Level_t GetQnnLogLevel( Logger_Level_e level );
-    uint32_t GetQnnDeviceId( Qnn_ProcessorType_e processorType );
+    uint32_t GetQnnDeviceId( QCProcessorType_e processor );
     QCStatus_e LoadOpPackages( std::vector<Qnn_UdoPackage_t> &udoPackages );
 
     QCStatus_e CreateFromModelSo( std::string modelFile );
     QCStatus_e CreateFromBinaryBuffer( QCBufferDescriptorBase &bufDesc );
     QCStatus_e CreateFromBinaryFile( std::string modelFile );
     QCStatus_e SetupGlobalBufferIdMap();
+    QCStatus_e BuildBufferDescriptorInfo();
 
     QCStatus_e ExtractProfilingEvent( QnnProfile_EventId_t profileEventId, Qnn_Perf_t &perf,
                                       bool &bPerfDataValid );
@@ -422,10 +420,10 @@ private:
     QCNodeEventCallBack_t m_callback = nullptr;
 
     std::mutex m_lock;
-    static std::mutex s_lock[QNN_PROCESSOR_MAX];
+    static std::mutex s_lock[QC_PROCESSOR_MAX];
     static QCMap<void *, int, QNN_MAX_DMA_MEM_REF_MAP_ENTRIES>
-            s_dmaMemRefMap[QNN_PROCESSOR_MAX];
-    static std::map<Qnn_ProcessorType_e, std::string> s_Backends;
+            s_dmaMemRefMap[QC_PROCESSOR_MAX];
+    static std::map<QCProcessorType_e, std::string> s_Backends;
     // Extended FastRPC domain id resolved once during Initialize() (from the first configured
     // core) and reused for every remote_register_buf_v2() register/deregister call.
     int m_extDomainId = -1;

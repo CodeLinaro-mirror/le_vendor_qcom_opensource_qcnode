@@ -285,6 +285,31 @@ QCStatus_e VoxelizationConfig::ParseStaticConfig( DataTree &dt, std::string &err
 
         config.bDeRegisterAllBuffersWhenStop =
                 dt.Get<bool>( "deRegisterAllBuffersWhenStop", false );
+
+        config.executeMode = QC_EXECUTE_MODE_SYNC;
+        config.processor = config.voxelConfig.processor;
+        config.coreIds = { config.voxelConfig.coreId };
+        Memory::TensorProps_t coordsTensorProps( QC_TENSOR_TYPE_FLOAT_32,
+                                                 { config.voxelConfig.maxNumPlrs,
+                                                   VOXELIZATION_PILLAR_COORDS_DIM } );
+        if ( VOXELIZATION_INPUT_MODE_XYZRT == config.voxelConfig.inputMode )
+        {
+            coordsTensorProps = Memory::TensorProps_t( QC_TENSOR_TYPE_INT_32,
+                                                       { config.voxelConfig.maxNumPlrs, 2U } );
+        }
+
+        config.inputs = { { "pointCloud", QC_BUFFER_TYPE_TENSOR,
+                            Memory::TensorProps_t( QC_TENSOR_TYPE_FLOAT_32,
+                                                   { config.voxelConfig.maxNumInPts,
+                                                     config.voxelConfig.numInFeatureDim } ) } };
+        config.outputs = {
+            { "coords", QC_BUFFER_TYPE_TENSOR, coordsTensorProps },
+            { "features", QC_BUFFER_TYPE_TENSOR,
+              Memory::TensorProps_t( QC_TENSOR_TYPE_FLOAT_32,
+                                     { config.voxelConfig.maxNumPlrs,
+                                       config.voxelConfig.maxNumPtsPerPlr,
+                                       config.voxelConfig.numOutFeatureDim } ) },
+        };
     }
 
     return ret;

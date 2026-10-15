@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "QC/Node/DepthFromStereo.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 #include "svBuffer.h"
 #include <unistd.h>
 
@@ -389,6 +390,40 @@ QCStatus_e DepthFromStereoConfigIfs::ParseStaticConfig( DataTree &dt, std::strin
         m_config.occlusionTolerance = dt.Get<float32_t>( "occlusionTolerance", 0.5f );
         m_config.refinementThreshold = dt.Get<float32_t>( "refinementThreshold", 0.75f );
         m_config.maxDisparityRange = dt.Get<uint32_t>( "maxDisparityRange", 64 );
+
+        m_config.executeMode = QC_EXECUTE_MODE_SYNC;
+        m_config.processor = QC_PROCESSOR_MAX;
+        m_config.coreIds.clear();
+        Memory::ImageBasicProps_t basicProps( m_config.width, m_config.height,
+                                              m_config.imageFormat );
+        Memory::UtilsBase memoryUtils;
+        Memory::ImageProps_t inputProps;
+        status = memoryUtils.SetImagePropsFromImageBasicProp( basicProps, inputProps );
+        if ( QC_STATUS_OK != status )
+        {
+            errors += "failed to derive stereo input buffer properties, ";
+            return status;
+        }
+        m_config.inputs = {
+            { "primaryImage", QC_BUFFER_TYPE_IMAGE, inputProps },
+            { "auxiliaryImage", QC_BUFFER_TYPE_IMAGE, inputProps },
+        };
+        const uint32_t disparityHeight = ( ( m_config.height + 1U ) / 2U ) * 2U;
+        const uint32_t disparityWidth = ( ( m_config.width + 127U ) / 128U ) * 128U;
+        m_config.outputs = {
+            { "disparityMap", QC_BUFFER_TYPE_TENSOR,
+              Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_16,
+                                     { 1U, disparityHeight, disparityWidth, 1U },
+                                     QC_MEMORY_ALLOCATOR_DMA_EVA ) },
+        };
+        if ( m_config.confidenceOutputEn )
+        {
+            m_config.outputs.push_back(
+                    { "disparityConfidence", QC_BUFFER_TYPE_TENSOR,
+                      Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_8,
+                                             { 1U, disparityHeight, disparityWidth, 1U },
+                                             QC_MEMORY_ALLOCATOR_DMA_EVA ) } );
+        }
     }
 
     return status;
