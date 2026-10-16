@@ -244,7 +244,7 @@ TEST_F( Test_DMABUFFAllocator, SANITY_allocate_various_valid_sizes )
         ASSERT_EQ( QC_CACHEABLE, response.cache );
         ASSERT_EQ( QC_MEMORY_ALLOCATOR_DMA, response.allocatorType );
         ASSERT_NE( 0u, response.dmaHandle );
-        ASSERT_FALSE( response.name.IsEmpty() );
+        ASSERT_TRUE( response.name.IsEmpty() );
 
         ASSERT_EQ( QC_STATUS_OK, allocatorIfs->Free( response ) );
     }

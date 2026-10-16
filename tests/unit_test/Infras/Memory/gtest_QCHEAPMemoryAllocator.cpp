@@ -41,8 +41,6 @@ TEST_F( Test_HeapAllocator, SANITY )
         ASSERT_EQ( response.cache, QC_CACHEABLE );
         status = allocatorIfs.Free( response );
         ASSERT_EQ( QC_STATUS_OK, status );
-
-        allocatorIfs.~HeapAllocator();
     }
 
     {
@@ -62,8 +60,6 @@ TEST_F( Test_HeapAllocator, SANITY )
         ASSERT_EQ( response.cache, QC_CACHEABLE );
         status = allocatorIfs.Free( response );
         ASSERT_EQ( QC_STATUS_OK, status );
-
-        allocatorIfs.~HeapAllocator();
     }
 
     {
@@ -173,8 +169,6 @@ TEST_F( Test_HeapAllocator, SANITY_multiple_allocations )
         response[0].pBuf = nullptr;
         status = allocatorIfs.Free( response[0] );
         ASSERT_EQ( QC_STATUS_NULL_PTR, status );
-
-        allocatorIfs.~HeapAllocator();
     }
 
 
