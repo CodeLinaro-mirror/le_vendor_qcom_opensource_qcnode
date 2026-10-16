@@ -15,11 +15,61 @@
 #include <string>
 #if defined( __linux__ )
 #include <sched.h>
+#elif defined( __QNXNTO__ )
+#include <sys/neutrino.h> /* ThreadCtl, _NTO_TCTL_RUNMASK_GET_AND_SET */
 #endif
 
 using namespace QC::Node;
 using namespace QC::test::utils;
 using namespace QC::sample;
+
+/* FadasRemap::CreateRemapWorker() now rejects any cpuThreadsAffinity core that
+ * is not actually online/schedulable for the calling thread (see
+ * source/Library/FadasIface/FadasRemap.cpp). Several tests in this file used
+ * to pass a hardcoded core list ({12,13,14,15} on Linux, {0,1,2,3} on QNX)
+ * that is NOT guaranteed to be valid on every target — e.g. on
+ * virtualized/secpol-restricted QNX devices the calling thread's runmask may
+ * not include cores 0-3. Query the real online/runnable cores at runtime so
+ * these tests remain device-independent, matching the dynamic
+ * sched_getaffinity()-based approach already used by
+ * CpuThreadsAffinity_Scenario4b_PlatformSpecificCores on Linux. */
+static std::vector<int32_t> GetSafeCpuThreadsAffinity( uint32_t count = 4 )
+{
+    std::vector<int32_t> safeCores;
+#if defined( __linux__ )
+    cpu_set_t mask;
+    CPU_ZERO( &mask );
+    if ( 0 == sched_getaffinity( 0, sizeof( mask ), &mask ) )
+    {
+        for ( int cpu = 0; cpu < CPU_SETSIZE && safeCores.size() < count; ++cpu )
+        {
+            if ( CPU_ISSET( cpu, &mask ) )
+            {
+                safeCores.push_back( cpu );
+            }
+        }
+    }
+#elif defined( __QNXNTO__ )
+    unsigned int onlineCpus = 0U;
+    if ( -1 != ThreadCtl( _NTO_TCTL_RUNMASK_GET_AND_SET, &onlineCpus ) )
+    {
+        for ( unsigned int cpu = 0; cpu < sizeof( onlineCpus ) * 8 && safeCores.size() < count;
+              ++cpu )
+        {
+            if ( 0 != ( onlineCpus & ( 1U << cpu ) ) )
+            {
+                safeCores.push_back( static_cast<int32_t>( cpu ) );
+            }
+        }
+    }
+#endif
+    if ( safeCores.empty() )
+    {
+        /* Fallback: core 0 is virtually always valid on every target/thread. */
+        safeCores.push_back( 0 );
+    }
+    return safeCores;
+}
 
 QCStatus_e LoadImageRemap( ImageDescriptor_t imageDesc, std::string path )
 {
@@ -124,16 +174,14 @@ void SetConfigRemap( Remap_Config_t *pRemapConfig, DataTree *pdt )
     }
     else if ( QC_PROCESSOR_CPU == pRemapConfig->processor )
     {
-#if defined( __linux__ )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
-        std::vector<int32_t> defaultAffinity = { 8, 9, 10, 11 };
-#else
-        std::vector<int32_t> defaultAffinity = { 12, 13, 14, 15 };
-#endif
-#else
-        std::vector<int32_t> defaultAffinity = { 0, 1, 2, 3 };
-#endif
-        pdt->Set<int32_t>( "static.cpuThreadsAffinity", defaultAffinity );
+        /* Query the device's actual online/schedulable cores at runtime instead
+         * of hardcoding a core list that may not exist on every target (see
+         * GetSafeCpuThreadsAffinity() comment above the ThreadCtl include).
+         * DataTree::Set() takes a non-const lvalue reference, so the result
+         * must be stored in a named variable first (cannot bind directly to
+         * the temporary returned by GetSafeCpuThreadsAffinity()). */
+        std::vector<int32_t> safeAffinity = GetSafeCpuThreadsAffinity();
+        pdt->Set<int32_t>( "static.cpuThreadsAffinity", safeAffinity );
     }
 
     if ( true == pRemapConfig->bEnableNormalize )
@@ -1498,17 +1546,9 @@ TEST( RemapImpl_NoFixture, Initialize_Undistortion_MapXWrongType_CoversNullMapXB
     cfg.params.outputHeight = 32;
     cfg.params.outputFormat = QC_IMAGE_FORMAT_RGB888;
 
-    // cpuThreadsAffinity is mandatory for CPU processor
-#if defined( __linux__ )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
-    std::vector<int32_t> affinity = { 8, 9, 10, 11 };
-#else
-    std::vector<int32_t> affinity = { 12, 13, 14, 15 };
-#endif
-    cfg.params.cpuThreadsAffinity = affinity;
-#else
-    cfg.params.cpuThreadsAffinity = { 0, 1, 2, 3 };
-#endif
+    // cpuThreadsAffinity is mandatory for CPU processor — query real online
+    // cores instead of hardcoding a list that may not exist on this target.
+    cfg.params.cpuThreadsAffinity = GetSafeCpuThreadsAffinity();
 
     // Skip buffer registration loop during Initialize()
     cfg.bufferIds.clear();
@@ -1596,17 +1636,9 @@ TEST( RemapImpl_NoFixture, Initialize_Undistortion_MapYWrongType_CoversNullMapYB
     cfg.params.outputHeight = 32;
     cfg.params.outputFormat = QC_IMAGE_FORMAT_RGB888;
 
-    // cpuThreadsAffinity is mandatory for CPU processor
-#if defined( __linux__ )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
-    std::vector<int32_t> affinity = { 8, 9, 10, 11 };
-#else
-    std::vector<int32_t> affinity = { 12, 13, 14, 15 };
-#endif
-    cfg.params.cpuThreadsAffinity = affinity;
-#else
-    cfg.params.cpuThreadsAffinity = { 0, 1, 2, 3 };
-#endif
+    // cpuThreadsAffinity is mandatory for CPU processor — query real online
+    // cores instead of hardcoding a list that may not exist on this target.
+    cfg.params.cpuThreadsAffinity = GetSafeCpuThreadsAffinity();
 
     // Skip buffer registration loop
     cfg.bufferIds.clear();
@@ -2423,19 +2455,11 @@ static void SetupRemapImplForUndistortion( RemapImpl &impl,
     cfg.params.outputWidth = 64;
     cfg.params.outputHeight = 64;
     cfg.params.outputFormat = QC_IMAGE_FORMAT_RGB888;
-    /* cpuThreadsAffinity is mandatory for CPU processor */
+    /* cpuThreadsAffinity is mandatory for CPU processor — query real online
+     * cores instead of hardcoding a list that may not exist on this target. */
     if ( QC_PROCESSOR_CPU == processor )
     {
-#if defined( __linux__ )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
-        std::vector<int32_t> affinity = { 8, 9, 10, 11 };
-#else
-        std::vector<int32_t> affinity = { 12, 13, 14, 15 };
-#endif
-        cfg.params.cpuThreadsAffinity = affinity;
-#else
-        cfg.params.cpuThreadsAffinity = { 0, 1, 2, 3 };
-#endif
+        cfg.params.cpuThreadsAffinity = GetSafeCpuThreadsAffinity();
     }
     cfg.bufferIds.clear();
 }
@@ -3236,8 +3260,44 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
     {
         EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
     }
+#elif defined( __QNXNTO__ )
+    /* Dynamically check if all requested cores are available on this device's
+     * runmask, mirroring the Linux sched_getaffinity() check above. Cores
+     * 4-7 are NOT guaranteed to be in the calling thread's runmask on every
+     * QNX target - e.g. on virtualized/secpol-restricted devices (observed
+     * on APT-LV-SH638) they may be excluded, in which case
+     * FadasRemap::CreateRemapWorker()'s ThreadCtl-based validation correctly
+     * rejects them with QC_STATUS_BAD_ARGUMENTS. */
+    bool allCoresAvailable = true;
+    unsigned int onlineCpus = 0U;
+    if ( -1 != ThreadCtl( _NTO_TCTL_RUNMASK_GET_AND_SET, &onlineCpus ) )
+    {
+        for ( int32_t cpu : affinity )
+        {
+            if ( cpu < 0 || cpu >= static_cast<int32_t>( sizeof( onlineCpus ) * 8 ) ||
+                 0 == ( onlineCpus & ( 1U << static_cast<unsigned int>( cpu ) ) ) )
+            {
+                allCoresAvailable = false;
+                break;
+            }
+        }
+    }
+    else
+    {
+        allCoresAvailable = false;
+    }
+    printf( "Scenario4b: cores [4,5,6,7] all available = %s\n",
+            allCoresAvailable ? "true" : "false" );
+
+    if ( allCoresAvailable )
+    {
+        EXPECT_EQ( QC_STATUS_OK, ret );
+    }
+    else
+    {
+        EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
+    }
 #else
-    /* QNX: cores 4-7 are always available on the target */
     EXPECT_EQ( QC_STATUS_OK, ret );
 #endif
 
