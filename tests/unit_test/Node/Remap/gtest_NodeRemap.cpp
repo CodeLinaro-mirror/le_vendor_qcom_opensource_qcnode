@@ -114,12 +114,26 @@ void SetConfigRemap( Remap_Config_t *pRemapConfig, DataTree *pdt )
     pdt->Set<bool>( "static.bEnableNormalize", pRemapConfig->bEnableNormalize );
     pdt->Set<uint32_t>( "static.coreId", pRemapConfig->coreId );
 
-    /* Set cpuThreadsAffinity in JSON only when explicitly configured (non-empty).
-     * If empty, the key is omitted → RemapConfig will default to {} → FadasRemap
-     * will fall back to platform defaults {12,13,14,15} on Linux or {0,1,2,3} otherwise. */
+    /* cpuThreadsAffinity is mandatory for CPU processor.
+     * Use the explicitly configured list when provided; otherwise supply the
+     * platform-specific defaults so that tests that do not set the field still
+     * pass the new mandatory-affinity validation in RemapConfig / FadasRemap. */
     if ( !pRemapConfig->cpuThreadsAffinity.empty() )
     {
         pdt->Set<int32_t>( "static.cpuThreadsAffinity", pRemapConfig->cpuThreadsAffinity );
+    }
+    else if ( QC_PROCESSOR_CPU == pRemapConfig->processor )
+    {
+#if defined( __linux__ )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
+        std::vector<int32_t> defaultAffinity = { 8, 9, 10, 11 };
+#else
+        std::vector<int32_t> defaultAffinity = { 12, 13, 14, 15 };
+#endif
+#else
+        std::vector<int32_t> defaultAffinity = { 0, 1, 2, 3 };
+#endif
+        pdt->Set<int32_t>( "static.cpuThreadsAffinity", defaultAffinity );
     }
 
     if ( true == pRemapConfig->bEnableNormalize )
@@ -1484,6 +1498,18 @@ TEST( RemapImpl_NoFixture, Initialize_Undistortion_MapXWrongType_CoversNullMapXB
     cfg.params.outputHeight = 32;
     cfg.params.outputFormat = QC_IMAGE_FORMAT_RGB888;
 
+    // cpuThreadsAffinity is mandatory for CPU processor
+#if defined( __linux__ )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
+    std::vector<int32_t> affinity = { 8, 9, 10, 11 };
+#else
+    std::vector<int32_t> affinity = { 12, 13, 14, 15 };
+#endif
+    cfg.params.cpuThreadsAffinity = affinity;
+#else
+    cfg.params.cpuThreadsAffinity = { 0, 1, 2, 3 };
+#endif
+
     // Skip buffer registration loop during Initialize()
     cfg.bufferIds.clear();
 
@@ -1569,6 +1595,18 @@ TEST( RemapImpl_NoFixture, Initialize_Undistortion_MapYWrongType_CoversNullMapYB
     cfg.params.outputWidth = 32;
     cfg.params.outputHeight = 32;
     cfg.params.outputFormat = QC_IMAGE_FORMAT_RGB888;
+
+    // cpuThreadsAffinity is mandatory for CPU processor
+#if defined( __linux__ )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
+    std::vector<int32_t> affinity = { 8, 9, 10, 11 };
+#else
+    std::vector<int32_t> affinity = { 12, 13, 14, 15 };
+#endif
+    cfg.params.cpuThreadsAffinity = affinity;
+#else
+    cfg.params.cpuThreadsAffinity = { 0, 1, 2, 3 };
+#endif
 
     // Skip buffer registration loop
     cfg.bufferIds.clear();
@@ -2385,6 +2423,20 @@ static void SetupRemapImplForUndistortion( RemapImpl &impl,
     cfg.params.outputWidth = 64;
     cfg.params.outputHeight = 64;
     cfg.params.outputFormat = QC_IMAGE_FORMAT_RGB888;
+    /* cpuThreadsAffinity is mandatory for CPU processor */
+    if ( QC_PROCESSOR_CPU == processor )
+    {
+#if defined( __linux__ )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
+        std::vector<int32_t> affinity = { 8, 9, 10, 11 };
+#else
+        std::vector<int32_t> affinity = { 12, 13, 14, 15 };
+#endif
+        cfg.params.cpuThreadsAffinity = affinity;
+#else
+        cfg.params.cpuThreadsAffinity = { 0, 1, 2, 3 };
+#endif
+    }
     cfg.bufferIds.clear();
 }
 
@@ -2988,7 +3040,9 @@ TEST( FadasRemapRunDSP_Direct, InputRegBufFail )
 //           FadasRemap.cpp  - CreateRemapWorker (affinity usage + SOC fallback)
 // ============================================================================
 
-/* Helper: build a minimal CPU-processor config DataTree for affinity tests */
+/* Helper: build a minimal CPU-processor config DataTree for affinity tests.
+ * cpuThreadsAffinity is NOT set here by default — individual tests add it
+ * explicitly to exercise the mandatory-affinity validation paths. */
 static void BuildMinimalCpuConfig( DataTree &dt )
 {
     dt.Set<std::string>( "static.name", "Remap" );
@@ -3050,7 +3104,7 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario2_UnavailableCore_LibraryAccep
     DataTree dt;
     BuildMinimalCpuConfig( dt );
 
-    /* Large but non-negative → passes VerifyStaticConfig, library accepts */
+    // Large but non-negative → passes VerifyStaticConfig (non-negative check).
     std::vector<int32_t> affinity = { 9999, 10000, 10001, 10002 };
     dt.Set<int32_t>( "static.cpuThreadsAffinity", affinity );
 
@@ -3059,8 +3113,7 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario2_UnavailableCore_LibraryAccep
 
     QCStatus_e ret = remap.Initialize( config );
     printf( "Scenario2 Initialize ret = %d\n", ret );
-    /* FadasRemap_CreateWorkers does NOT validate core IDs → no BAD_ARGUMENTS */
-    EXPECT_NE( QC_STATUS_BAD_ARGUMENTS, ret );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 
     if ( QC_STATUS_OK == ret )
     {
@@ -3090,13 +3143,9 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario3_NotProvided_FallsBackToDefau
 
     QCStatus_e ret = remap.Initialize( config );
     printf( "Scenario3 Initialize ret = %d\n", ret );
-    /* Platform defaults are always valid → Initialize must succeed */
-    EXPECT_EQ( QC_STATUS_OK, ret );
-
-    if ( QC_STATUS_OK == ret )
-    {
-        remap.DeInitialize();
-    }
+    /* cpuThreadsAffinity is now mandatory for CPU processor.
+     * When absent, VerifyStaticConfig returns BAD_ARGUMENTS. */
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 }
 
 /**
@@ -3115,18 +3164,14 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4a_SocBasedFallback_NoAffinity
     QC::Node::Remap remap;
     DataTree dt;
     BuildMinimalCpuConfig( dt );
-    /* cpuThreadsAffinity NOT set → SOC-based fallback applies */
+    /* cpuThreadsAffinity NOT set → no SOC-based fallback any more */
 
     QCNodeInit_t config = { dt.Dump() };
     QCStatus_e ret = remap.Initialize( config );
     printf( "Scenario4a Initialize ret = %d\n", ret );
-    /* SOC-based defaults are always valid on the target platform → must succeed */
-    EXPECT_EQ( QC_STATUS_OK, ret );
-
-    if ( QC_STATUS_OK == ret )
-    {
-        remap.DeInitialize();
-    }
+    /* cpuThreadsAffinity is now mandatory for CPU processor.
+     * When absent, VerifyStaticConfig returns BAD_ARGUMENTS. */
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 }
 
 /**
@@ -3135,15 +3180,16 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4a_SocBasedFallback_NoAffinity
  *
  * Cores [4,5,6,7] behavior depends on which cores are actually online at runtime:
  *   - If all of [4,5,6,7] are available → Initialize succeeds (QC_STATUS_OK)
- *   - If any of [4,5,6,7] are NOT available → FadasRemap_CreateWorkers returns
- *     nullptr → QC_STATUS_FAIL
+ *   - If any of [4,5,6,7] are NOT available → the sched_getaffinity()/CPU_ISSET
+ *     validation in FadasRemap::CreateRemapWorker rejects the offline core
+ *     up front → QC_STATUS_BAD_ARGUMENTS
  *
  * On Linux, availability is checked dynamically via sched_getaffinity() so the
  * test passes on any device regardless of which CPU cores are online.
  *
  * @expected QNX:   QC_STATUS_OK (cores 4-7 always available on QNX target)
  *           Linux: QC_STATUS_OK  if cores 4-7 are online (e.g. SA8797 with 18 cores)
- *                  QC_STATUS_FAIL if cores 4-7 are offline
+ *                  QC_STATUS_BAD_ARGUMENTS if cores 4-7 are offline
  */
 TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
 {
@@ -3188,7 +3234,7 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4b_PlatformSpecificCores )
     }
     else
     {
-        EXPECT_EQ( QC_STATUS_FAIL, ret );
+        EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
     }
 #else
     /* QNX: cores 4-7 are always available on the target */
