@@ -949,3 +949,4 @@ extern "C" int __wrap_sched_getaffinity( pid_t pid, size_t cpusetsize, cpu_set_t
 extern "C" void MockSchedGetaffinity_SetFail( int /*fail*/ ) {}
 extern "C" void MockSchedGetaffinity_Reset( void ) {}
 #endif
+
