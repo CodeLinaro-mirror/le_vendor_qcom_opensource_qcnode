@@ -14,3 +14,8 @@ add_executable( gtest_QCNodeFactory gtest_QCNodeFactory.cpp )
 target_include_directories( gtest_QCNodeFactory PUBLIC ${HEADERS_DIR})
 target_link_libraries( gtest_QCNodeFactory gtest QCNode QCNodeTestUtils BufferManager )
 install(TARGETS gtest_QCNodeFactory DESTINATION bin)
+
+add_executable( gtest_QCNodeFrameDescriptorFactory gtest_QCNodeFrameDescriptorFactory.cpp )
+target_include_directories( gtest_QCNodeFrameDescriptorFactory PUBLIC ${HEADERS_DIR})
+target_link_libraries( gtest_QCNodeFrameDescriptorFactory gtest QCNode QCNodeTestUtils BufferManager )
+install(TARGETS gtest_QCNodeFrameDescriptorFactory DESTINATION bin)

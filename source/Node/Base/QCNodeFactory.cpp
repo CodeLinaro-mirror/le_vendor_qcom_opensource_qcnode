@@ -3,6 +3,7 @@
 
 #include "QC/Node/Ifs/QCNodeFactory.hpp"
 #include "QC/Node/NodeBase.hpp"
+#include "QC/Infras/Log/Logger.hpp"
 
 #include <cassert>
 #include <map>
@@ -101,18 +102,20 @@ QCStatus_e QCNodeFactory::CreateNode( QCNodeType_e type, std::unique_ptr<QCNodeI
 // ---------------------------------------------------------------------------
 // GetSupportedNodeTypes
 //
-// Returns the list of QCNodeType_e values that have been registered via
-// REGISTER_NODE() in the current build.  The list is built incrementally
-// by RegisterNode() and reflects exactly the set of types for which
-// CreateNode() will succeed.
+// Populates outTypes with the list of QCNodeType_e values that have been
+// registered via REGISTER_NODE() in the current build.  The list is built
+// incrementally by RegisterNode() and reflects exactly the set of types for
+// which CreateNode() will succeed.
 // ---------------------------------------------------------------------------
-const std::vector<QCNodeType_e> &QCNodeFactory::GetSupportedNodeTypes()
+QCStatus_e QCNodeFactory::GetSupportedNodeTypes( std::vector<QCNodeType_e> &outTypes )
 {
-    return GetNodeTypes();
+    outTypes = GetNodeTypes();
+    return QC_STATUS_OK;
 }
 
-// Returns JSON object of supported node types as key-value pairs (name: integer value)
-std::string QCNodeFactory::GetSupportedNodeTypesJson()
+// Populates outJson with a JSON object of supported node types as key-value pairs
+// (name: integer value).
+QCStatus_e QCNodeFactory::GetSupportedNodeTypesJson( std::string &outJson )
 {
     static const std::pair<QCNodeType_e, const char *> kNames[] = {
             { QC_NODE_TYPE_RESERVED, "QC_NODE_TYPE_RESERVED" },
@@ -132,35 +135,56 @@ std::string QCNodeFactory::GetSupportedNodeTypesJson()
             { QC_NODE_TYPE_CUSTOM_2, "QC_NODE_TYPE_CUSTOM_2" },
             { QC_NODE_TYPE_CUSTOM_3, "QC_NODE_TYPE_CUSTOM_3" },
             { QC_NODE_TYPE_CUSTOM_4, "QC_NODE_TYPE_CUSTOM_4" },
+            { QC_NODE_TYPE_SIMNODE, "QC_NODE_TYPE_SIMNODE" },
     };
 
-    const std::vector<QCNodeType_e> &supported = GetSupportedNodeTypes();
-
+    std::vector<QCNodeType_e> supported;
     std::string json = "{";
     bool first = true;
+    QCStatus_e status = GetSupportedNodeTypes( supported );
 
-    for ( const QCNodeType_e type : supported )
+    if ( status == QC_STATUS_OK )
     {
-        for ( const auto &[enumVal, name] : kNames )
+        for ( const QCNodeType_e type : supported )
         {
-            if ( enumVal == type )
+            bool found = false;
+            for ( const auto &[enumVal, name] : kNames )
             {
-                if ( !first )
+                if ( enumVal == type )
                 {
-                    json += ',';
+                    if ( !first )
+                    {
+                        json += ',';
+                    }
+                    json += '"';
+                    json += name;
+                    json += "\":";
+                    json += std::to_string( static_cast<int>( type ) );
+                    first = false;
+                    found = true;
+                    break;
                 }
-                json += '"';
-                json += name;
-                json += "\":";
-                json += std::to_string( static_cast<int>( type ) );
-                first = false;
+            }
+            if ( !found )
+            {
+                QC_LOG_ERROR( "GetSupportedNodeTypesJson: node type %d has no name entry in kNames",
+                              static_cast<int>( type ) );
+                status = QC_STATUS_FAIL;
                 break;
             }
         }
     }
 
-    json += '}';
-    return json;
+    if ( status == QC_STATUS_OK )
+    {
+        json += '}';
+        outJson = json;
+    }
+    else
+    {
+        outJson = "{}";
+    }
+    return status;
 }
 
 }   // namespace Node

@@ -7,7 +7,9 @@ set( NODEBASE_HEADERS
 )
 
 set( NODEBASE_IFS_HEADERS
+    ${HEADERS_DIR}/QC/Node/Ifs/QCNodeDefs.hpp
     ${HEADERS_DIR}/QC/Node/Ifs/QCNodeFactory.hpp
+    ${HEADERS_DIR}/QC/Node/Ifs/QCNodeFrameDescriptorFactory.hpp
 )
 
 set( NODEBASE_SOURCES
@@ -15,6 +17,7 @@ set( NODEBASE_SOURCES
     DataTree.cpp
     NodeFrameDescriptor.cpp
     QCNodeFactory.cpp
+    QCNodeFrameDescriptorFactory.cpp
 )
 
 # For on-target build, include QCNodeLogger and QCNodeVideoCodec
