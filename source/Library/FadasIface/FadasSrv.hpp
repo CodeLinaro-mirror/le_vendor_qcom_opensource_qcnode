@@ -19,6 +19,7 @@ extern "C"
 #include <dlfcn.h>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Common/QCMap.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/Ifs/QCBufferDescriptorBase.hpp"
 #include "QC/Infras/Memory/ImageDescriptor.hpp"
@@ -55,6 +56,10 @@ using namespace QC::Memory;
 
 #ifndef NSP_CORES_ID_MAX
 #define NSP_CORES_ID_MAX 3
+#endif
+
+#ifndef FADAS_MAX_REGISTERED_BUFFERS
+#define FADAS_MAX_REGISTERED_BUFFERS 1024U
 #endif
 
 
@@ -128,7 +133,8 @@ private:
     static remote_handle64 s_handle64[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
     static uint64_t s_useRef[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
     static bool s_initialized[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
-    static std::map<void *, MemInfo> s_memMaps[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
+    static QCMap<void *, MemInfo, FADAS_MAX_REGISTERED_BUFFERS>
+            s_memMaps[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
     static long int s_client;
     static FuncFadasInitGPU_t s_FadasInitGPU;
     static FuncFadasDeInitGPU_t s_FadasDeInitGPU;

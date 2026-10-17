@@ -19,7 +19,8 @@ remote_handle64 FadasSrv::s_handle64[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX] = { 0,
 bool FadasSrv::s_initialized[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX] = {
         false, false, false, false, false, false, false, false, false };
 uint64_t FadasSrv::s_useRef[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX] = { 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-std::map<void *, FadasSrv::MemInfo> FadasSrv::s_memMaps[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
+QCMap<void *, FadasSrv::MemInfo, FADAS_MAX_REGISTERED_BUFFERS>
+        FadasSrv::s_memMaps[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
 long int FadasSrv::s_client = 1;
 void *FadasSrv::s_libGPUHandle = nullptr;
 FuncFadasInitGPU_t FadasSrv::s_FadasInitGPU = nullptr;
@@ -462,7 +463,7 @@ QCStatus_e FadasSrv::Deinit()
                     ret = QC_STATUS_FAIL;
                 }
             }
-            memMap.clear();
+            (void) memMap.Clear();
             s_initialized[m_handleIndex] = false;
         }
     }
@@ -753,83 +754,102 @@ int32_t FadasSrv::RegisterImage( const ImageDescriptor_t &imageDesc, FadasBufTyp
     uint32_t sizePlane0 = imageDesc.planeBufSize[0];
     uint32_t sizePlane1 = imageDesc.planeBufSize[1];
 
-    auto it = memMap.find( imageDesc.pBuf );
-    if ( it == memMap.end() )
+    MemInfo *pInfo = nullptr;
+    ret = memMap.Find( imageDesc.pBuf, pInfo );
+    if ( QC_STATUS_OK != ret )
     {
-        const QCBufferDescriptorBase_t &bufDesc =
-                dynamic_cast<const QCBufferDescriptorBase_t &>( imageDesc );
-        fd = FadasMemMap( bufDesc );
-        if ( 0 <= fd )
+        const uint32_t memMapSize = memMap.Size();
+        if ( memMapSize >= FADAS_MAX_REGISTERED_BUFFERS )
         {
-            if ( FADAS_BUF_TYPE_IN == bufferType )
+            QC_ERROR( "FADAS registered-buffer map is full (%u entries)",
+                      FADAS_MAX_REGISTERED_BUFFERS );
+        }
+        else
+        {
+            const QCBufferDescriptorBase_t &bufDesc =
+                    dynamic_cast<const QCBufferDescriptorBase_t &>( imageDesc );
+            fd = FadasMemMap( bufDesc );
+            if ( 0 <= fd )
             {
-                /*for input buffer the batch must be 1*/
-                if ( QC_IMAGE_FORMAT_NV12_UBWC == imageDesc.format )
-                /*for UBWC input, register all the 4 planes together once*/
+                if ( FADAS_BUF_TYPE_IN == bufferType )
                 {
-                    uint32_t sizeTotal = imageDesc.planeBufSize[0] + imageDesc.planeBufSize[1] +
-                                         imageDesc.planeBufSize[2] + imageDesc.planeBufSize[3];
-
-                    ret = FadasRegisterBuf( bufferType, ptr, fd, sizeTotal, offset, 1 );
+                    /*for input buffer the batch must be 1*/
+                    if ( QC_IMAGE_FORMAT_NV12_UBWC == imageDesc.format )
+                    {
+                        /*for UBWC input, register all the 4 planes together once*/
+                        uint32_t sizeTotal = imageDesc.planeBufSize[0] + imageDesc.planeBufSize[1] +
+                                             imageDesc.planeBufSize[2] + imageDesc.planeBufSize[3];
+                        ret = FadasRegisterBuf( bufferType, ptr, fd, sizeTotal, offset, 1 );
+                    }
+                    else
+                    {
+                        ret = FadasRegisterBuf( bufferType, ptr, fd, sizePlane0, offset, 1 );
+                        if ( QC_IMAGE_FORMAT_NV12 == format )
+                        {
+                            /* register both of plane0 and plane1 for NV12 format */
+                            ret = FadasRegisterBuf( bufferType, ptr, fd, sizePlane1,
+                                                    sizePlane0 + offset, 1 );
+                        }
+                    }
                 }
                 else
                 {
-                    ret = FadasRegisterBuf( bufferType, ptr, fd, sizePlane0, offset, 1 );
-                    if ( QC_IMAGE_FORMAT_NV12 == format )
-                    { /* register both of plane0 and plane1 for NV12 format */
-                        ret = FadasRegisterBuf( bufferType, ptr, fd, sizePlane1,
-                                                sizePlane0 + offset, 1 );
+                    ret = FadasRegisterBuf( bufferType, ptr, fd, sizeOne, offset, batch );
+                }
+                if ( QC_STATUS_OK == ret )
+                {
+                    MemInfo info = { fd, size, offset, batch, ptr, sizeOne };
+                    ret = memMap.Insert( imageDesc.pBuf, info );
+                    if ( QC_STATUS_OK != ret )
+                    {
+                        QC_ERROR( "Failed to store FADAS image registration" );
+                        fd = -1;
                     }
                 }
-            }
-            else
-            {
-                ret = FadasRegisterBuf( bufferType, ptr, fd, sizeOne, offset, batch );
-            }
-
-            if ( QC_STATUS_OK == ret )
-            {
-                memMap[imageDesc.pBuf] = { fd, size, offset, batch, ptr, sizeOne };
-            }
-            else
-            {
-                QC_ERROR( "Register Buffer(%p, %d, %d) failed!", ptr, fd, bufferType );
-                fd = -1;
+                else
+                {
+                    QC_ERROR( "Register Buffer(%p, %d, %d) failed!", ptr, fd, bufferType );
+                    fd = -1;
+                }
             }
         }
     }
     else
     {
-        if ( imageDesc.pBuf != it->second.ptr )
+        if ( nullptr == pInfo )
+        {
+            QC_ERROR( "FADAS image registration lookup returned a null entry" );
+        }
+        else if ( imageDesc.pBuf != pInfo->ptr )
         {
             QC_ERROR( "Shared buffer already registered, but stored ptr not match, stored %d "
                       "and given %d",
-                      it->second.ptr, imageDesc.pBuf );
+                      pInfo->ptr, imageDesc.pBuf );
         }
-        else if ( imageDesc.size != it->second.size )
+        else if ( imageDesc.size != pInfo->size )
         {
             QC_ERROR( "Shared buffer already registered, but stored size not match, "
                       "stored %d "
                       "and given %d",
-                      it->second.size, imageDesc.size );
+                      pInfo->size, imageDesc.size );
         }
-        else if ( imageDesc.offset != it->second.offset )
+        else if ( imageDesc.offset != pInfo->offset )
         {
             QC_ERROR( "Shared buffer already registered, but stored offset not match, "
                       "stored %d "
                       "and given %d",
-                      it->second.offset, imageDesc.offset );
+                      pInfo->offset, imageDesc.offset );
         }
-        else if ( imageDesc.batchSize != it->second.batch )
+        else if ( imageDesc.batchSize != pInfo->batch )
         {
             QC_ERROR( "Shared buffer already registered, but stored batch not match, "
                       "stored %d "
                       "and given %d",
-                      it->second.batch, imageDesc.batchSize );
+                      pInfo->batch, imageDesc.batchSize );
         }
         else
         {
-            fd = it->second.fd;
+            fd = pInfo->fd;
         };
     }
 
@@ -847,29 +867,46 @@ int32_t FadasSrv::RegisterTensor( const TensorDescriptor_t &tensorDesc, FadasBuf
     size_t sizeOne = tensorDesc.size / batch;
 
     auto &memMap = s_memMaps[m_handleIndex];
-    auto it = memMap.find( tensorDesc.pBuf );
-    if ( it == memMap.end() )
+    MemInfo *pInfo = nullptr;
+    ret = memMap.Find( tensorDesc.pBuf, pInfo );
+    if ( QC_STATUS_OK != ret )
     {
-        const QCBufferDescriptorBase_t &bufDesc =
-                dynamic_cast<const QCBufferDescriptorBase_t &>( tensorDesc );
-        fd = FadasMemMap( bufDesc );
-        if ( 0 <= fd )
+        const uint32_t memMapSize = memMap.Size();
+        if ( memMapSize >= FADAS_MAX_REGISTERED_BUFFERS )
         {
-            ret = FadasRegisterBuf( bufferType, ptr, fd, sizeOne, offset, batch );
-            if ( QC_STATUS_OK == ret )
+            QC_ERROR( "FADAS registered-buffer map is full (%u entries)",
+                      FADAS_MAX_REGISTERED_BUFFERS );
+        }
+        else
+        {
+            const QCBufferDescriptorBase_t &bufDesc =
+                    dynamic_cast<const QCBufferDescriptorBase_t &>( tensorDesc );
+            fd = FadasMemMap( bufDesc );
+            if ( 0 <= fd )
             {
-                memMap[tensorDesc.pBuf] = { fd, size, offset, batch, ptr, sizeOne };
-            }
-            else
-            {
-                QC_ERROR( "Register Buffer(%p, %d, %d) failed!", ptr, fd, bufferType );
-                fd = -1;
+                MemInfo info = { fd, size, offset, batch, ptr, sizeOne };
+                ret = memMap.Insert( tensorDesc.pBuf, info );
+                if ( QC_STATUS_OK != ret )
+                {
+                    QC_ERROR( "Failed to store FADAS tensor registration" );
+                    return -1;
+                }
+                ret = FadasRegisterBuf( bufferType, ptr, fd, sizeOne, offset, batch );
+                if ( QC_STATUS_OK == ret )
+                {
+                }
+                else
+                {
+                    (void) memMap.Erase( tensorDesc.pBuf );
+                    QC_ERROR( "Register Buffer(%p, %d, %d) failed!", ptr, fd, bufferType );
+                    fd = -1;
+                }
             }
         }
     }
     else
     {
-        fd = it->second.fd;
+        fd = pInfo->fd;
     }
 
     return fd;
@@ -886,16 +923,17 @@ void FadasSrv::DeregBuf( void *pBuffer )
         std::lock_guard<std::mutex> l( s_coreLock[m_handleIndex] );
         auto &memMap = s_memMaps[m_handleIndex];
         auto handle64 = s_handle64[m_handleIndex];
-        auto it = memMap.find( pBuffer );
-        if ( it != memMap.end() )
+        MemInfo *pInfo = nullptr;
+        const QCStatus_e findStatus = memMap.Find( pBuffer, pInfo );
+        if ( QC_STATUS_OK == findStatus )
         {
-            int32_t fd = it->second.fd;
-            size_t size = it->second.size;
-            size_t offset = it->second.offset;
-            uint32_t batch = it->second.batch;
-            void *ptr = it->second.ptr;
-            size_t sizeOne = it->second.sizeOne;
-            (void) memMap.erase( it );
+            int32_t fd = pInfo->fd;
+            size_t size = pInfo->size;
+            size_t offset = pInfo->offset;
+            uint32_t batch = pInfo->batch;
+            void *ptr = pInfo->ptr;
+            size_t sizeOne = pInfo->sizeOne;
+            (void) memMap.Erase( pBuffer );
 
             if ( ( QC_PROCESSOR_HTP0 == m_processor ) || ( QC_PROCESSOR_HTP1 == m_processor )
 #if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )

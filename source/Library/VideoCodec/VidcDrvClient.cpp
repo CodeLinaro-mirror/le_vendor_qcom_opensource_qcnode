@@ -583,7 +583,7 @@ QCStatus_e VidcDrvClient::SetBuffer(
             VideoCodec_InputInfo_t inputInfo;
             inputInfo.inFrameDesc = buf;
             inputInfo.bUsedFlag = false;
-            m_inputMap[buf.dmaHandle] = inputInfo;
+            ret = m_inputMap.InsertOrAssign( buf.dmaHandle, inputInfo );
         }   // Release @m_inLock
         else /* VIDEO_CODEC_BUF_OUTPUT == bufferType */
         {
@@ -591,8 +591,15 @@ QCStatus_e VidcDrvClient::SetBuffer(
             VideoCodec_OutputInfo_t outputInfo;
             outputInfo.outFrameDesc = buf;
             outputInfo.bUsedFlag = false;
-            m_outputMap[buf.dmaHandle] = outputInfo;
+            ret = m_outputMap.InsertOrAssign( buf.dmaHandle, outputInfo );
         }   // Release @m_outLock
+
+        if ( QC_STATUS_OK != ret )
+        {
+            QC_ERROR( "set-buffer map update failed. Index=%" PRId32 " status=%d", i, ret );
+            ret = ( QC_STATUS_NO_RESOURCE == ret ) ? QC_STATUS_NOMEM : ret;
+            break;
+        }
 
         i++;
     }
@@ -674,18 +681,20 @@ QCStatus_e VidcDrvClient::EmptyBuffer( VideoFrameDescriptor &frameDesc )
     {
         std::unique_lock<std::mutex> auto_lock( m_inLock );
 
-        auto it = m_inputMap.find( handle );
+        VideoCodec_InputInfo_t *pInputInfo = nullptr;
+        QCStatus_e findStatus = m_inputMap.Find( handle, pInputInfo );
+        const uint32_t inputMapSize = m_inputMap.Size();
 
         if ( true == m_bInputDynamicMode )
         {
-            if ( m_inputMap.end() != it )
+            if ( QC_STATUS_OK == findStatus )
             {
                 QC_DEBUG( "find handle 0x%x", handle );
-                if ( false == it->second.bUsedFlag )
+                if ( false == pInputInfo->bUsedFlag )
                 {
-                    it->second.bUsedFlag = true;
-                    it->second.inFrameDesc.timestampNs = frameDesc.timestampNs;
-                    it->second.inFrameDesc.appMarkData = appMarkData;
+                    pInputInfo->bUsedFlag = true;
+                    pInputInfo->inFrameDesc.timestampNs = frameDesc.timestampNs;
+                    pInputInfo->inFrameDesc.appMarkData = appMarkData;
                 }
                 else
                 {
@@ -693,13 +702,18 @@ QCStatus_e VidcDrvClient::EmptyBuffer( VideoFrameDescriptor &frameDesc )
                     ret = QC_STATUS_NOMEM;
                 }
             }
-            else if ( m_inputMap.size() < m_bufNum[VIDEO_CODEC_BUF_INPUT] )
+            else if ( inputMapSize < m_bufNum[VIDEO_CODEC_BUF_INPUT] )
             {
-                auto result = m_inputMap.emplace( handle, VideoCodec_InputInfo_t() );
-                result.first->second.bUsedFlag = true;
-                result.first->second.inFrameDesc = frameDesc;
-                result.first->second.inFrameDesc.timestampNs = frameDesc.timestampNs;
-                result.first->second.inFrameDesc.appMarkData = appMarkData;
+                VideoCodec_InputInfo_t inputInfo;
+                inputInfo.bUsedFlag = true;
+                inputInfo.inFrameDesc = frameDesc;
+                inputInfo.inFrameDesc.timestampNs = frameDesc.timestampNs;
+                inputInfo.inFrameDesc.appMarkData = appMarkData;
+                ret = m_inputMap.Insert( handle, inputInfo );
+                if ( QC_STATUS_NO_RESOURCE == ret )
+                {
+                    ret = QC_STATUS_NOMEM;
+                }
             }
             else
             {
@@ -709,12 +723,12 @@ QCStatus_e VidcDrvClient::EmptyBuffer( VideoFrameDescriptor &frameDesc )
         }
         else /* false == m_bInputDynamicMode */
         {
-            if ( ( m_inputMap.end() != it ) && ( false == it->second.bUsedFlag ) )
+            if ( ( QC_STATUS_OK == findStatus ) && ( false == pInputInfo->bUsedFlag ) )
             {
                 QC_DEBUG( "find handle 0x%x", handle );
-                it->second.bUsedFlag = true;
-                it->second.inFrameDesc.timestampNs = frameDesc.timestampNs;
-                it->second.inFrameDesc.appMarkData = appMarkData;
+                pInputInfo->bUsedFlag = true;
+                pInputInfo->inFrameDesc.timestampNs = frameDesc.timestampNs;
+                pInputInfo->inFrameDesc.appMarkData = appMarkData;
             }
             else
             {
@@ -732,13 +746,18 @@ QCStatus_e VidcDrvClient::EmptyBuffer( VideoFrameDescriptor &frameDesc )
         {
             QC_DEBUG( "SubmitInputFrame VIDC_IOCTL_EMPTY_INPUT_BUFFER succeeded. frameTs: %" PRIu64
                       " inputMapSsize: %zu",
-                      timestampUs, m_inputMap.size() );
+                      timestampUs, static_cast<size_t>( m_inputMap.Size() ) );
         }
         else
         {
             QC_ERROR( "SubmitInputFrame VIDC_IOCTL_EMPTY_INPUT_BUFFER failed! rc=0x%x", rc );
             std::unique_lock<std::mutex> auto_lock( m_inLock );
-            m_inputMap[handle].bUsedFlag = false;
+            VideoCodec_InputInfo_t *pInputInfo = nullptr;
+            QCStatus_e findStatus = m_inputMap.Find( handle, pInputInfo );
+            if ( QC_STATUS_OK == findStatus )
+            {
+                pInputInfo->bUsedFlag = false;
+            }
             ret = QC_STATUS_FAIL;
             /* m_inLock released */
         }
@@ -760,18 +779,20 @@ QCStatus_e VidcDrvClient::FillBuffer( VideoFrameDescriptor &frameDesc )
     {
         std::unique_lock<std::mutex> auto_lock( m_outLock );
 
-        auto it = m_outputMap.find( handle );
+        VideoCodec_OutputInfo_t *pOutputInfo = nullptr;
+        QCStatus_e findStatus = m_outputMap.Find( handle, pOutputInfo );
+        const uint32_t outputMapSize = m_outputMap.Size();
 
         if ( true == m_bOutputDynamicMode )
         {
-            if ( m_outputMap.end() != it )
+            if ( QC_STATUS_OK == findStatus )
             {
                 QC_DEBUG( "find handle 0x%x", handle );
-                if ( false == it->second.bUsedFlag )
+                if ( false == pOutputInfo->bUsedFlag )
                 {
-                    it->second.bUsedFlag = true;
-                    it->second.outFrameDesc.timestampNs = frameDesc.timestampNs;
-                    it->second.outFrameDesc.appMarkData = frameDesc.appMarkData;
+                    pOutputInfo->bUsedFlag = true;
+                    pOutputInfo->outFrameDesc.timestampNs = frameDesc.timestampNs;
+                    pOutputInfo->outFrameDesc.appMarkData = frameDesc.appMarkData;
                 }
                 else
                 {
@@ -779,13 +800,18 @@ QCStatus_e VidcDrvClient::FillBuffer( VideoFrameDescriptor &frameDesc )
                     ret = QC_STATUS_NOMEM;
                 }
             }
-            else if ( m_outputMap.size() < m_bufNum[VIDEO_CODEC_BUF_OUTPUT] )
+            else if ( outputMapSize < m_bufNum[VIDEO_CODEC_BUF_OUTPUT] )
             {
-                auto result = m_outputMap.emplace( handle, VideoCodec_OutputInfo_t() );
-                result.first->second.bUsedFlag = true;
-                result.first->second.outFrameDesc = frameDesc;
-                result.first->second.outFrameDesc.timestampNs = frameDesc.timestampNs;
-                result.first->second.outFrameDesc.appMarkData = frameDesc.appMarkData;
+                VideoCodec_OutputInfo_t outputInfo;
+                outputInfo.bUsedFlag = true;
+                outputInfo.outFrameDesc = frameDesc;
+                outputInfo.outFrameDesc.timestampNs = frameDesc.timestampNs;
+                outputInfo.outFrameDesc.appMarkData = frameDesc.appMarkData;
+                ret = m_outputMap.Insert( handle, outputInfo );
+                if ( QC_STATUS_NO_RESOURCE == ret )
+                {
+                    ret = QC_STATUS_NOMEM;
+                }
             }
             else
             {
@@ -795,10 +821,10 @@ QCStatus_e VidcDrvClient::FillBuffer( VideoFrameDescriptor &frameDesc )
         }
         else /* false == m_bOutputDynamicMode */
         {
-            if ( ( m_outputMap.end() != it ) && ( false == it->second.bUsedFlag ) )
+            if ( ( QC_STATUS_OK == findStatus ) && ( false == pOutputInfo->bUsedFlag ) )
             {
                 QC_DEBUG( "find handle 0x%x", handle );
-                it->second.bUsedFlag = true;
+                pOutputInfo->bUsedFlag = true;
             }
             else
             {
@@ -831,7 +857,12 @@ QCStatus_e VidcDrvClient::FillBuffer( VideoFrameDescriptor &frameDesc )
         {
             QC_ERROR( "FillBuffer 0x%x failed rc 0x%x", handle, rc );
             std::unique_lock<std::mutex> auto_lock( m_outLock );
-            m_outputMap[handle].bUsedFlag = false;
+            VideoCodec_OutputInfo_t *pOutputInfo = nullptr;
+            QCStatus_e findStatus = m_outputMap.Find( handle, pOutputInfo );
+            if ( QC_STATUS_OK == findStatus )
+            {
+                pOutputInfo->bUsedFlag = false;
+            }
             ret = QC_STATUS_FAIL;
         }   // Release @m_outLock
         else
@@ -985,10 +1016,13 @@ int VidcDrvClient::DeviceCbHandler( uint8_t *pMsg, uint32_t length )
                     bool found = false;
                     {
                         std::unique_lock<std::mutex> lck( m_inLock );
-                        if ( m_inputMap.end() != m_inputMap.find( pFrameData->frm_clnt_data ) )
+                        VideoCodec_InputInfo_t *pInputInfo = nullptr;
+                        QCStatus_e findStatus =
+                                m_inputMap.Find( pFrameData->frm_clnt_data, pInputInfo );
+                        if ( QC_STATUS_OK == findStatus )
                         {
-                            m_inputMap[pFrameData->frm_clnt_data].bUsedFlag = false;
-                            inputInfo = m_inputMap[pFrameData->frm_clnt_data];
+                            pInputInfo->bUsedFlag = false;
+                            inputInfo = *pInputInfo;
                             found = true;
                         }
                     }   // Release @m_inLock
@@ -1017,10 +1051,13 @@ int VidcDrvClient::DeviceCbHandler( uint8_t *pMsg, uint32_t length )
                     bool found = false;
                     {
                         std::unique_lock<std::mutex> lck( m_outLock );
-                        if ( m_outputMap.end() != m_outputMap.find( pFrameData->frm_clnt_data ) )
+                        VideoCodec_OutputInfo_t *pOutputInfo = nullptr;
+                        QCStatus_e findStatus =
+                                m_outputMap.Find( pFrameData->frm_clnt_data, pOutputInfo );
+                        if ( QC_STATUS_OK == findStatus )
                         {
-                            m_outputMap[pFrameData->frm_clnt_data].bUsedFlag = false;
-                            outputInfo = m_outputMap[pFrameData->frm_clnt_data];
+                            pOutputInfo->bUsedFlag = false;
+                            outputInfo = *pOutputInfo;
                             found = true;
                         }
                         // release @m_outLock
