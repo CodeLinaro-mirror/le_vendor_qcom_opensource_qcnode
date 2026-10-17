@@ -81,7 +81,7 @@ if ! [[ -v ENABLE_C2D ]] ; then
 fi
 
 if ! [[ -v ENABLE_EVA ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_EVA=ON
   else
     export ENABLE_EVA=OFF

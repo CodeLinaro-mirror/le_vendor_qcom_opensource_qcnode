@@ -9,6 +9,11 @@
 #include "gtest/gtest.h"
 #include <AEEStdErr.h>
 #include <cstring>
+#if defined( __linux__ )
+#include <sched.h>
+#elif defined( __QNXNTO__ )
+#include <sys/neutrino.h> /* ThreadCtl, _NTO_TCTL_RUNMASK_GET_AND_SET */
+#endif
 
 /* Forward declarations for GPU mock functions defined in FadasMock.cpp */
 extern FadasError_e FadasRemap_RunGPU( FadasRemapMap *remapPtr, FadasImage_t *src,
@@ -23,6 +28,53 @@ extern FadasError_e FadasRemap_DestroyMapGPU( FadasRemapMap *map_ );
 using namespace QC;
 using namespace QC::Memory;
 using namespace QC::libs::FadasIface;
+
+/* CreateRemapWorker() (called below via the FadasRemapTestable wrapper)
+ * rejects any cpuThreadsAffinity core that is not actually
+ * online/schedulable for the calling thread. SetupRemapForRunWithInitNoCT()/
+ * SetupRemapForRunWithInitFull() used to pass a hardcoded core list
+ * ({12,13,14,15} on Linux, {0,1,2,3} on QNX) that is NOT guaranteed to be
+ * valid on every target - e.g. on virtualized/secpol-restricted QNX devices
+ * the calling thread's runmask may not include cores 0-3. Query the real
+ * online/runnable cores at runtime instead (same approach used in
+ * tests/unit_test/Node/Remap/gtest_NodeRemap.cpp). */
+static std::vector<int32_t> GetSafeCpuThreadsAffinity( uint32_t count = 4 )
+{
+    std::vector<int32_t> safeCores;
+#if defined( __linux__ )
+    cpu_set_t mask;
+    CPU_ZERO( &mask );
+    if ( 0 == sched_getaffinity( 0, sizeof( mask ), &mask ) )
+    {
+        for ( int cpu = 0; cpu < CPU_SETSIZE && safeCores.size() < count; ++cpu )
+        {
+            if ( CPU_ISSET( cpu, &mask ) )
+            {
+                safeCores.push_back( cpu );
+            }
+        }
+    }
+#elif defined( __QNXNTO__ )
+    unsigned int onlineCpus = 0U;
+    if ( -1 != ThreadCtl( _NTO_TCTL_RUNMASK_GET_AND_SET, &onlineCpus ) )
+    {
+        for ( unsigned int cpu = 0; cpu < sizeof( onlineCpus ) * 8 && safeCores.size() < count;
+              ++cpu )
+        {
+            if ( 0 != ( onlineCpus & ( 1U << cpu ) ) )
+            {
+                safeCores.push_back( static_cast<int32_t>( cpu ) );
+            }
+        }
+    }
+#endif
+    if ( safeCores.empty() )
+    {
+        /* Fallback: core 0 is virtually always valid on every target/thread. */
+        safeCores.push_back( 0 );
+    }
+    return safeCores;
+}
 
 /* ================================================================
  * Test fixture — resets all mock state before/after each test
@@ -1026,19 +1078,14 @@ static void SetupRemapForRunWithInitNoCT( FadasRemapTestable &r, QCProcessorType
 {
     r.Init( proc, "t", LOGGER_LEVEL_ERROR );
     FadasNormlzParams_t n = { 0, 1, 0 };
-    /* cpuThreadsAffinity is mandatory for CPU processor (see FadasRemap::CreateRemapWorker). */
+    /* cpuThreadsAffinity is mandatory for CPU processor (see FadasRemap::CreateRemapWorker).
+     * Query the device's real online/runnable cores at runtime instead of hardcoding a
+     * platform-wide assumption that does not hold on every target (see
+     * GetSafeCpuThreadsAffinity() comment above). */
     std::vector<int32_t> cpuThreadsAffinity;
     if ( QC_PROCESSOR_CPU == proc )
     {
-#if defined( __linux__ )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
-        cpuThreadsAffinity = { 8, 9, 10, 11 };
-#else
-        cpuThreadsAffinity = { 12, 13, 14, 15 };
-#endif
-#else
-        cpuThreadsAffinity = { 0, 1, 2, 3 };
-#endif
+        cpuThreadsAffinity = GetSafeCpuThreadsAffinity();
     }
     r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm, cpuThreadsAffinity );
     r.SetProcessor( proc );
@@ -1063,19 +1110,14 @@ static void SetupRemapForRunWithInitFull( FadasRemapTestable &r, QCProcessorType
 {
     r.Init( proc, "t", LOGGER_LEVEL_ERROR );
     FadasNormlzParams_t n = { 0, 1, 0 };
-    /* cpuThreadsAffinity is mandatory for CPU processor (see FadasRemap::CreateRemapWorker). */
+    /* cpuThreadsAffinity is mandatory for CPU processor (see FadasRemap::CreateRemapWorker).
+     * Query the device's real online/runnable cores at runtime instead of hardcoding a
+     * platform-wide assumption that does not hold on every target (see
+     * GetSafeCpuThreadsAffinity() comment above). */
     std::vector<int32_t> cpuThreadsAffinity;
     if ( QC_PROCESSOR_CPU == proc )
     {
-#if defined( __linux__ )
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8787 )
-        cpuThreadsAffinity = { 8, 9, 10, 11 };
-#else
-        cpuThreadsAffinity = { 12, 13, 14, 15 };
-#endif
-#else
-        cpuThreadsAffinity = { 0, 1, 2, 3 };
-#endif
+        cpuThreadsAffinity = GetSafeCpuThreadsAffinity();
     }
     r.SetRemapParams( 1, 64, 64, outFmt, n, n, n, false, bNorm, cpuThreadsAffinity );
     r.SetProcessor( proc );
@@ -1770,11 +1812,17 @@ TEST_F( FadasIfaceTest, DestroyMap_CPU_Fail_Fixed )
 /* DestroyWorkers: CPU path — FADAS_ERROR_NONE != retVal */
 TEST_F( FadasIfaceTest, DestroyWorkers_CPU_Fail_Fixed )
 {
+    /* SetupRemapForRunWithInitNoCT() now queries the device's real online cores
+     * at runtime via GetSafeCpuThreadsAffinity() instead of hardcoding
+     * {12,13,14,15}/{0,1,2,3}, so CreateRemapWorker()'s affinity validation
+     * passes regardless of this device's actual runmask and no MockThreadCtl_Set()
+     * arming is needed here anymore. */
     FadasRemapTestable r;
     SetupRemapForRunWithInitNoCT( r, QC_PROCESSOR_CPU, QC_IMAGE_FORMAT_UYVY );
     FadasError_e fail = FADAS_ERROR_FAIL;
     MockApi_Control( MOCK_API_FADAS_REMAP_DESTROY_WORKERS, MOCK_CONTROL_RETURN, &fail );
     EXPECT_EQ( QC_STATUS_FAIL, r.DestroyWorkers() );
+    r.DestroyWorkers();
     r.Deinit();
 }
 
