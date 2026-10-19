@@ -68,7 +68,9 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
     }
 
     m_coreIds = { coreId };
-    m_rsmPriority = Get( config, "rsm_priority", 0 );
+    m_rsmPriority = Get( config, "rsm_priority", SampleIF::kDefaultRsmPriority );
+    m_rsmTimeoutUs = Get( config, "rsm_timeout", SampleIF::kDefaultRsmTimeoutUs );
+    m_rsmDurationUs = Get( config, "rsm_duration", SampleIF::kDefaultRsmDurationUs );
 
     m_outputWidth = Get( config, "output_width", 1920 );
     if ( 0 == m_outputWidth )
@@ -343,7 +345,7 @@ QCStatus_e SampleRemap::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_processor, m_rsmPriority, m_coreIds );
+        ret = SampleIF::Init( m_processor, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )

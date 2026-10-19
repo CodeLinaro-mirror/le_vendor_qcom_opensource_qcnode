@@ -102,9 +102,9 @@ void SampleIF::SetupCompResSchedCmd( compressched_acquire_cmd &cmd )
     }
     cmd.res_details.sub_res_id = NSP_SUB_RES_ID0;
     cmd.res_details.req_type = COMPRESSCHED_BASE_RESOURCE_REQUEST;
-    cmd.priority = m_rsmPriority;
-    cmd.duration_us = 0;
-    cmd.timeout_us = 1000000;
+    cmd.priority = static_cast<compressched_queue_priority>( m_rsmPriority );
+    cmd.duration_us = m_rsmDurationUs;
+    cmd.timeout_us = m_rsmTimeoutUs;
     if ( ( m_processor == QC_PROCESSOR_HTP0 ) && ( m_coreIds.size() > 1 ) )
     {
         cmd.priority = QUEUE_PRIORITY_REALTIME;
@@ -128,8 +128,7 @@ QCStatus_e SampleIF::Init( std::string name, QCNodeType_e type )
     return ret;
 }
 
-QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
-                           std::vector<uint32_t> coreIds )
+QCStatus_e SampleIF::Init( QCProcessorType_e processor, std::vector<uint32_t> coreIds )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
@@ -151,9 +150,9 @@ QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
         memset( &m_acquireCmdV2, 0, sizeof( m_acquireCmdV2 ) );
         m_acquireCmdV2.resource = (rsm_resource_group) processor;
         m_acquireCmdV2.priority = QUEUE_PRIORITY_DEFAULT;
-        m_acquireCmdV2.configure.priority = static_cast<rsm_request_priority>( rsmPriority );
-        m_acquireCmdV2.duration_us = 0;
-        m_acquireCmdV2.timeout_us = 1000000;
+        m_acquireCmdV2.configure.priority = static_cast<rsm_request_priority>( m_rsmPriority );
+        m_acquireCmdV2.duration_us = m_rsmDurationUs;
+        m_acquireCmdV2.timeout_us = m_rsmTimeoutUs;
         int rc = rsm_register_v2( &m_handle );
         if ( 0 != rc )
         {
@@ -190,11 +189,10 @@ QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
                 }
                 m_processor = processor;
                 m_coreIds = coreIds;
-                m_rsmPriority = static_cast<compressched_queue_priority>( rsmPriority );
                 for ( size_t i = 0; i < m_coreIds.size(); i++ )
                 {
                     QC_INFO( "compressched processor %d with core %u priority %d", m_processor,
-                             m_coreIds[i], m_rsmPriority );
+                             m_coreIds[i], static_cast<compressched_queue_priority>( m_rsmPriority ) );
                 }
             }
             else
@@ -208,7 +206,7 @@ QCStatus_e SampleIF::Init( QCProcessorType_e processor, int rsmPriority,
     }
     else
 #endif
-            if ( processor < QC_PROCESSOR_MAX )
+    if ( processor < QC_PROCESSOR_MAX )
     {
         QC_INFO( "global mutex for processor %d cores %zu", processor, coreIds.size() );
         m_processor = processor;

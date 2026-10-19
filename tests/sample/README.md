@@ -329,6 +329,8 @@ The command line template example:
 | core_id        | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
 | cpu_threads_affinity | false | int list | [] | CPU core IDs to pin worker threads to (CPU processor only). If absent or empty, platform defaults are used: [12,13,14,15] on Linux, [0,1,2,3] otherwise |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
+| rsm_timeout   | false     | int    | 1000000 | the RSM acquire timeout in microseconds |
+| rsm_duration  | false     | int    | 0       | the RSM acquire duration in microseconds, 0 is unlimited |
 | output_width  | false    | int       | 1152    | The output image width |
 | output_height | false    | int       | 800     | The output image height |
 | output_format | false    | string    | rgb     | The output image format, options from [rgb, bgr]|
@@ -383,6 +385,8 @@ The command line template example:
 | processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu, gpu] |
 | core_ids      | false    | int list  | 0       | Comma-separated list of core IDs on which the QNN model will run. |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
+| rsm_timeout   | false     | int    | 1000000 | the RSM acquire timeout in microseconds |
+| rsm_duration  | false     | int    | 0       | the RSM acquire duration in microseconds, 0 is unlimited |
 | async         | fasle    | bool      | false   | If true, enable to use QNN Async Execute API, else use QNN Sync Execute API. |
 | model_path    | true     | string    | -       | The QNN model path |
 | load_type     | false    | string    | binary  | The QNN model load type, options: `binary`, `library` |
@@ -524,6 +528,8 @@ The command line template example:
 | processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu, gpu] |
 | core_id       | false    | int     | 0  | The processor core ID, options from [0,1,2,3] |
 | rsm_priority  | false     | int    | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
+| rsm_timeout   | false     | int    | 1000000 | the RSM acquire timeout in microseconds |
+| rsm_duration  | false     | int    | 0       | the RSM acquire duration in microseconds, 0 is unlimited |
 | pillar_size_x | false    | float     | 0.16    | Pillar size in x direction in meters |
 | pillar_size_y | false    | float     | 0.16    | Pillar size in y direction in meters |
 | pillar_size_z | false    | float     | 4.0     | Pillar size in z direction in meters |
@@ -560,6 +566,8 @@ The command line template example:
 | processor     | false    | string    | "htp0"  | The processor type, options from [htp0, htp1, htp2, htp3, cpu] |
 | core_id       | false    | int       | 0       | The processor core ID, options from [0,1,2,3] |
 | rsm_priority  | false    | int       | 0       | the RSM request priority, options [0,1,2,3], 0 is the lowest and 3 is highest priority. |
+| rsm_timeout   | false    | int       | 1000000 | the RSM acquire timeout in microseconds |
+| rsm_duration  | false    | int       | 0       | the RSM acquire duration in microseconds, 0 is unlimited |
 | pillar_size_x | false    | float     | 0.16    | Pillar size in x direction in meters |
 | pillar_size_y | false    | float     | 0.16    | Pillar size in y direction in meters |
 | min_x         | false    | float     | 0.0     | Minimum range value in x direction |

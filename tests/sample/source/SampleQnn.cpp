@@ -150,7 +150,9 @@ QCStatus_e SampleQnn::ParseConfig( SampleConfig_t &config )
     dt.Set<bool>( "extendedUdma", Get( config, "extended_udma", false ) );
     m_dataTree.Set( "static", dt );
     m_processor = Get( config, "processor", QC_PROCESSOR_HTP0 );
-    m_rsmPriority = Get( config, "rsm_priority", 0 );
+    m_rsmPriority = Get( config, "rsm_priority", SampleIF::kDefaultRsmPriority );
+    m_rsmTimeoutUs = Get( config, "rsm_timeout", SampleIF::kDefaultRsmTimeoutUs );
+    m_rsmDurationUs = Get( config, "rsm_duration", SampleIF::kDefaultRsmDurationUs );
 
     return ret;
 }
@@ -196,7 +198,7 @@ QCStatus_e SampleQnn::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_processor, m_rsmPriority, m_coreIds );
+        ret = SampleIF::Init( m_processor, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )

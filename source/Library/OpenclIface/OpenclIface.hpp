@@ -15,6 +15,11 @@
 #include "QC/Infras/Memory/ImageDescriptor.hpp"
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
 
+#ifndef CL_DEVICE_TYPE_SECOND_QCOM
+/* For Nordy specific 2xGPU OpenCL support */
+#define CL_DEVICE_TYPE_SECOND_QCOM ( (cl_device_type) ( 1ULL << 33 ) )
+#endif
+
 using namespace QC;
 using namespace QC::Memory;
 

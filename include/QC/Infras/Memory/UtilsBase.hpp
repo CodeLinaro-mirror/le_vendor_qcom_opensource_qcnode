@@ -86,18 +86,20 @@ public:
     // ------------------------------------------------------------------
 
     /**
-     * @brief Returns all transition types supported by this implementation.
+     * @brief Populates outTypes with all transition types supported by this implementation.
      *
      * All returned types are guaranteed to succeed when passed to CreateTransition().
-     * @return Const reference to a static vector of supported QCMemoryTransition_e values.
+     * @param[out] outTypes  Receives the vector of types; valid only on QC_STATUS_OK.
+     * @return QC_STATUS_OK on success.
      */
-    virtual const std::vector<QCMemoryTransition_e> &GetSupportedTransitionTypes() override;
+    virtual QCStatus_e GetSupportedTransitionTypes(
+            std::vector<QCMemoryTransition_e> &outTypes ) override;
 
     /**
      * @brief Returns a transition callable for the given type.
      *
      * The callable performs a zero-copy transition from an ImageDescriptor_t to a
-     * TensorDescriptor_t, reusing the underlying DMA buffer without any data copy.
+     * TensorDescriptor_t, sharing the underlying buffer pointer without any data copy.
      *
      * @param type   The desired transition type.
      * @param outFn  On success, receives the transition callable.
@@ -109,12 +111,13 @@ public:
                                          QCMemoryTransitionFn_t &outFn ) override;
 
     /**
-     * @brief Returns the supported transition types as a JSON object.
+     * @brief Populates outJson with a JSON object of supported transition types.
      *
      * Keys are enumerator name strings; values are the corresponding integer values.
-     * @return JSON string of supported transition types.
+     * @param[out] outJson  Receives the JSON string; valid only on QC_STATUS_OK.
+     * @return QC_STATUS_OK on success.
      */
-    virtual std::string GetSupportedBufferTransitionTypesJson() override;
+    virtual QCStatus_e GetSupportedBufferTransitionTypesJson( std::string &outJson ) override;
 
 private:
     /**
