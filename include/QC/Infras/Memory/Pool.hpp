@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 #ifndef QC_MEMORY_POOL_HPP
 #define QC_MEMORY_POOL_HPP
+#include "QC/Common/QCList.hpp"
 #include "QC/Common/Types.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/Ifs/QCMemoryAllocatorIfs.hpp"
 #include "QC/Infras/Memory/Ifs/QCMemoryPoolIfs.hpp"
-#include <algorithm>
-#include <functional>
-#include <list>
+#include <limits>
 #include <string>
 namespace QC
 {
@@ -30,68 +29,71 @@ public:
     {
         std::lock_guard<std::mutex> lk( m_lock );
         QCBufferDescriptorBase_t descriptor = MakeDescriptorBase();
-        for ( auto it = m_freeObjects.begin(); it != m_freeObjects.end(); ++it )
+        QCStatus_e status = FreeObjects( m_freeObjects, descriptor );
+        if ( QC_STATUS_OK != status )
         {
-            descriptor.pBuf = it->pBuf;
-            descriptor.dmaHandle = it->dmaHandle;
-            const QCStatus_e freeStatus = GetConfiguration().allocator.Free( descriptor );
-            if ( QC_STATUS_OK != freeStatus )
-            {
-                QC_ERROR( "Failed to free pool object with status %d", freeStatus );
-            }
+            QC_ERROR( "Failed to free pool objects status=%d", status );
         }
-        for ( auto it = m_allocatedObjects.begin(); it != m_allocatedObjects.end(); ++it )
+        status = FreeObjects( m_allocatedObjects, descriptor );
+        if ( QC_STATUS_OK != status )
         {
-            descriptor.pBuf = it->pBuf;
-            descriptor.dmaHandle = it->dmaHandle;
-            const QCStatus_e freeStatus = GetConfiguration().allocator.Free( descriptor );
-            if ( QC_STATUS_OK != freeStatus )
-            {
-                QC_ERROR( "Failed to free allocated pool object with status %d", freeStatus );
-            }
+            QC_ERROR( "Failed to free allocated pool objects status=%d", status );
         }
         (void) QC_LOGGER_DEINIT();
     }
     QCStatus_e Init() override
     {
         QCStatus_e status = QC_STATUS_OK;
-        if ( 0 == GetConfiguration().maxElements )
+        if ( ( 0U == GetConfiguration().maxElements ) ||
+             ( GetConfiguration().maxElements > std::numeric_limits<uint32_t>::max() ) )
         {
-            QC_ERROR( "0 == m_config.m_maxElements" );
+            QC_ERROR( "Invalid maxElements %lu; supported range is 1 to %lu",
+                      static_cast<unsigned long>( GetConfiguration().maxElements ),
+                      static_cast<unsigned long>( std::numeric_limits<uint32_t>::max() ) );
             status = QC_STATUS_BAD_ARGUMENTS;
         }
         else
         {
-            QCBufferPropBase_t request;
-            request.alignment = GetConfiguration().buff.alignment;
-            request.cache = GetConfiguration().buff.cache;
-            request.size = GetConfiguration().buff.size;
-            // the below can reduce effectiveness of pool creations
-            // in case of multiple creations
             std::lock_guard<std::mutex> lk( m_lock );
-            for ( auto elementIndex = GetConfiguration().maxElements; elementIndex-- != 0; )
+            const uint32_t capacity = static_cast<uint32_t>( GetConfiguration().maxElements );
+            status = m_freeObjects.Init( capacity );
+            if ( QC_STATUS_OK == status )
             {
-                QC_DEBUG( "Allocating %d out of %d elements", elementIndex,
-                          GetConfiguration().maxElements );
-                QCBufferDescriptorBase_t response;
-                QCStatus_e loopStatus = GetConfiguration().allocator.Allocate( request, response );
-                if ( QC_STATUS_OK != loopStatus )
+                status = m_allocatedObjects.Init( capacity );
+            }
+            if ( QC_STATUS_OK != status )
+            {
+                QC_ERROR( "Failed to initialize pool object lists status=%d", status );
+            }
+            else
+            {
+                QCBufferPropBase_t request;
+                request.alignment = GetConfiguration().buff.alignment;
+                request.cache = GetConfiguration().buff.cache;
+                request.size = GetConfiguration().buff.size;
+
+                for ( auto elementIndex = GetConfiguration().maxElements; elementIndex-- != 0; )
                 {
-                    status = loopStatus;
-                    QC_ERROR( "Allocation failed with status %d", loopStatus );
-                    break;
-                }
-                else
-                {
-                    poolObjectDB_t poolObj( response );
-                    m_freeObjects.push_back( poolObj );
-                    // verify insertion DB correctness
-                    if ( m_freeObjects.back() != poolObj )
+                    QC_DEBUG( "Allocating %d out of %d elements", elementIndex, GetConfiguration().maxElements );
+                    QCBufferDescriptorBase_t response;
+                    QCStatus_e loopStatus = GetConfiguration().allocator.Allocate( request, response );
+                    if ( QC_STATUS_OK != loopStatus )
                     {
-                        status = QC_STATUS_FAIL;
-                        QC_ERROR( "m_freeObjects.back() != poolObj, pBuf=%p dmaHandle=%ULL",
-                                  poolObj.pBuf, poolObj.dmaHandle );
+                        status = loopStatus;
+                        QC_ERROR( "Allocation failed with status %d", loopStatus );
                         break;
+                    }
+                    else
+                    {
+                        const PoolObject_t poolObject( response );
+                        status = m_freeObjects.PushBack( poolObject );
+                        if ( QC_STATUS_OK != status )
+                        {
+                            (void) GetConfiguration().allocator.Free( response );
+                            QC_ERROR( "Failed to track pool object pBuf=%p dmaHandle=%ULL status=%d",
+                                      poolObject.pBuf, poolObject.dmaHandle, status );
+                            break;
+                        }
                     }
                 }
             }
@@ -102,51 +104,62 @@ public:
     {
         QCStatus_e status = QC_STATUS_OK;
         std::lock_guard<std::mutex> lk( m_lock );
-        if ( !m_freeObjects.empty() )
+        bool isEmpty = false;
+        status = m_freeObjects.Empty( isEmpty );
+        if ( QC_STATUS_OK == status )
         {
-            poolObjectDB_t poolObj = m_freeObjects.front();
-            if ( nullptr == poolObj.pBuf )
+            if ( isEmpty )
             {
-                status = QC_STATUS_NULL_PTR;
-                QC_ERROR( "nullptr == buffer.pBuf" );
+                status = QC_STATUS_NO_RESOURCE;
             }
             else
             {
-                m_freeObjects.pop_front();
-                QC_DEBUG( "extracted %p", poolObj.pBuf );
-                m_allocatedObjects.push_back( poolObj );
-                buffer = MakeDescriptorBase();
-                buffer.pBuf = poolObj.pBuf;
-                buffer.dmaHandle = poolObj.dmaHandle;
-                auto findIt = std::find( m_freeObjects.begin(), m_freeObjects.end(), poolObj );
-                // removal from free objects data base verification
-                if ( findIt != m_freeObjects.end() )
+                PoolObject_t *freeObject = nullptr;
+                status = m_freeObjects.Front( freeObject );
+                if ( QC_STATUS_OK == status )
                 {
-                    status = QC_STATUS_FAIL;
-                    QC_ERROR( "m_freeObjects.find(%p) != m_freeObjects.end()", buffer.pBuf );
-                }
-                // addition to allocated objects data base verification
-                else if ( m_allocatedObjects.back() != buffer )
-                {
-                    status = QC_STATUS_FAIL;
-                    QC_ERROR( "m_allocatedObjects.back()!= buffer.pBuf %p", buffer.pBuf );
-                }
-                else
-                {
+                    if ( nullptr == freeObject->pBuf )
+                    {
+                        status = QC_STATUS_NULL_PTR;
+                        QC_ERROR( "nullptr == buffer.pBuf" );
+                    }
+                    else
+                    {
+                        const PoolObject_t poolObject = *freeObject;
+                        status = m_allocatedObjects.PushBack( poolObject );
+                        if ( QC_STATUS_OK == status )
+                        {
+                            status = m_freeObjects.PopFront();
+                            if ( QC_STATUS_OK != status )
+                            {
+                                (void) m_allocatedObjects.PopBack();
+                            }
+                        }
+                        if ( QC_STATUS_OK == status )
+                        {
+                            QC_DEBUG( "extracted %p", poolObject.pBuf );
+                            buffer = MakeDescriptorBase();
+                            buffer.pBuf = poolObject.pBuf;
+                            buffer.dmaHandle = poolObject.dmaHandle;
+                        }
+                        else
+                        {
+                            QC_ERROR( "Failed to move pool object pBuf=%p to allocated objects status=%d",
+                                      poolObject.pBuf, status );
+                        }
+                    }
                 }
             }
         }
-        else
+        if ( QC_STATUS_OK != status )
         {
-            status = QC_STATUS_NO_RESOURCE;
-            QC_ERROR( "No resources in pool" );
+            QC_ERROR( "Failed to get free pool object status=%d", status );
         }
         return status;
     }
     QCStatus_e PutElement( const QCBufferDescriptorBase_t &buffer ) override
     {
         QCStatus_e status = QC_STATUS_BAD_ARGUMENTS;
-        bool inDataBase = false;
         // check the match from allocator perspective
         if ( GetConfiguration().allocator.GetConfiguration().type != buffer.allocatorType )
         {
@@ -161,37 +174,44 @@ public:
         else
         {
             std::lock_guard<std::mutex> lk( m_lock );
-            for ( auto it = m_allocatedObjects.begin(); it != m_allocatedObjects.end(); ++it )
+            const PoolObject_t poolObject( buffer );
+            QCList<PoolObject_t>::Iterator current;
+            QCList<PoolObject_t>::Iterator end;
+            status = m_allocatedObjects.Begin( current );
+            if ( QC_STATUS_OK == status )
             {
-                poolObjectDB_t pollObj = *it;
-                if ( pollObj == buffer )
+                status = m_allocatedObjects.End( end );
+            }
+            if ( QC_STATUS_OK == status )
+            {
+                status = QC_STATUS_BAD_ARGUMENTS;
+                while ( end != current )
                 {
-                    inDataBase = true;
-                    (void) m_allocatedObjects.erase( it );
-                    m_freeObjects.push_back( pollObj );
-                    status = QC_STATUS_OK;
-                    // removal from allocated objects data base verification
-                    auto findIt = std::find( m_allocatedObjects.begin(), m_allocatedObjects.end(),
-                                             pollObj );
-                    if ( findIt != m_allocatedObjects.end() )
+                    if ( *current == poolObject )
                     {
-                        status = QC_STATUS_FAIL;
-                        QC_ERROR( "m_allocatedObjects.find(%p) != m_allocatedObjects.end()",
-                                  buffer.pBuf );
+                        status = m_freeObjects.PushBack( *current );
+                        if ( QC_STATUS_OK == status )
+                        {
+                            QCList<PoolObject_t>::Iterator next;
+                            status = m_allocatedObjects.Erase( current, next );
+                            if ( QC_STATUS_OK != status )
+                            {
+                                (void) m_freeObjects.PopBack();
+                                QC_ERROR( "Failed to remove pool object pBuf=%p from allocated objects status=%d",
+                                          buffer.pBuf, status );
+                            }
+                        }
+                        else
+                        {
+                            QC_ERROR( "Failed to add pool object pBuf=%p to free objects status=%d",
+                                      buffer.pBuf, status );
+                        }
+                        break;
                     }
-                    // addition to allocated objects data base verification
-                    else if ( m_freeObjects.back() != pollObj )
-                    {
-                        status = QC_STATUS_FAIL;
-                        QC_ERROR( "m_freeObjects.back() != pollObj.pBuf %p", pollObj.pBuf );
-                    }
-                    else
-                    {
-                    }
-                    break;
+                    ++current;
                 }
             }
-            if ( false == inDataBase )
+            if ( QC_STATUS_OK != status )
             {
                 QC_ERROR( "the pointer %p was not allocated from this pool", buffer.pBuf );
             }
@@ -200,43 +220,62 @@ public:
     }
 
 private:
-    typedef struct poolObjectDB
+    struct PoolObject
     {
         void *pBuf = nullptr;
-        uint64_t dmaHandle = 0;
-        poolObjectDB() = default;
-        // operators between QCBufferDescriptorBase_t to poolObjectDB
-        explicit poolObjectDB( const QCBufferDescriptorBase_t &rhs )
-            : pBuf( rhs.pBuf ),
-              dmaHandle( rhs.dmaHandle ) {};
-        poolObjectDB &operator=( const QCBufferDescriptorBase_t &rhs )
+        uint64_t dmaHandle = 0U;
+
+        PoolObject() noexcept = default;
+        explicit PoolObject( const QCBufferDescriptorBase_t &descriptor ) noexcept
+            : pBuf( descriptor.pBuf ),
+              dmaHandle( descriptor.dmaHandle )
+        {}
+        bool operator==( const PoolObject &rhs ) const noexcept
         {
-            pBuf = rhs.pBuf;
-            dmaHandle = rhs.dmaHandle;
-            return *this;
+            return ( pBuf == rhs.pBuf ) && ( dmaHandle == rhs.dmaHandle );
         }
-        bool operator==( const QCBufferDescriptorBase_t &rhs ) const
-        {
-            return pBuf == rhs.pBuf && dmaHandle == rhs.dmaHandle;
-        }
-        bool operator!=( const QCBufferDescriptorBase_t &rhs ) { return !( *this == rhs ); }
-        // operators between poolObjectDB to itself
-        bool operator==( const poolObjectDB &rhs ) const noexcept
-        {
-            return pBuf == rhs.pBuf && dmaHandle == rhs.dmaHandle;
-        }
-        bool operator!=( const poolObjectDB &rhs ) const noexcept { return !( *this == rhs ); }
-        bool operator<( const poolObjectDB &rhs ) const
-        {
-            // Keep only ONE operator< now
-            return ( pBuf < rhs.pBuf ) || ( pBuf == rhs.pBuf && dmaHandle < rhs.dmaHandle );
-        }
-    } poolObjectDB_t;
-    std::list<poolObjectDB_t> m_freeObjects;
-    std::list<poolObjectDB_t> m_allocatedObjects;
+    };
+
+    using PoolObject_t = PoolObject;
+
+    QCList<PoolObject_t> m_freeObjects;
+    QCList<PoolObject_t> m_allocatedObjects;
     QC_DECLARE_LOGGER();
 
 private:
+    QCStatus_e FreeObjects( QCList<PoolObject_t> &objects, QCBufferDescriptorBase_t &descriptor )
+    {
+        QCStatus_e result = QC_STATUS_OK;
+        PoolObject_t *poolObject = nullptr;
+        while ( QC_STATUS_OK == objects.Front( poolObject ) )
+        {
+            descriptor.pBuf = poolObject->pBuf;
+            descriptor.dmaHandle = poolObject->dmaHandle;
+            const QCStatus_e freeStatus = GetConfiguration().allocator.Free( descriptor );
+            if ( QC_STATUS_OK != freeStatus )
+            {
+                QC_ERROR( "Failed to free pool object pBuf=%p status=%d", descriptor.pBuf,
+                          freeStatus );
+                if ( QC_STATUS_OK == result )
+                {
+                    result = freeStatus;
+                }
+            }
+            const QCStatus_e popStatus = objects.PopFront();
+            if ( QC_STATUS_OK != popStatus )
+            {
+                QC_ERROR( "Failed to remove pool object pBuf=%p status=%d", descriptor.pBuf,
+                          popStatus );
+                if ( QC_STATUS_OK == result )
+                {
+                    result = popStatus;
+                }
+                break;
+            }
+        }
+        return result;
+    }
+
     QCBufferDescriptorBase_t MakeDescriptorBase()
     {
         QCBufferDescriptorBase_t d;
