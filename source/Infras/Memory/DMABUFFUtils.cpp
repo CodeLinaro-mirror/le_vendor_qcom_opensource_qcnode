@@ -10,7 +10,7 @@ namespace QC
 namespace Memory
 {
 
-DMABUFFUtils::DMABUFFUtils() : UtilsBase( "DMABUFFUtils" ) {}
+DMABUFFUtils::DMABUFFUtils() = default;
 
 DMABUFFUtils::~DMABUFFUtils() = default;
 

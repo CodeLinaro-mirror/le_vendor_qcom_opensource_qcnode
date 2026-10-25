@@ -45,6 +45,9 @@ class QCLoggerRegistry;
 /** @brief Define a logger that to be used by a class. */
 #define QC_DECLARE_LOGGER() Logger m_logger
 
+/** @brief Use the process-wide default logger without owning a backend. */
+#define QC_USE_DEFAULT_LOGGER() Logger &m_logger = Logger::GetDefault()
+
 /** @brief Do initialization of the logger. */
 #define QC_LOGGER_INIT( pName, level ) m_logger.Init( ( pName ), ( level ) )
 
@@ -110,6 +113,8 @@ class QCLoggerRegistry;
     QC_LOGGER_LOG( Logger::GetDefault(), LOGGER_LEVEL_ERROR, "ERROR: " format, ##__VA_ARGS__ )
 #else
 #define QC_DECLARE_LOGGER()
+
+#define QC_USE_DEFAULT_LOGGER()
 
 #define QC_LOGGER_INIT( pName, level ) QC_STATUS_OK
 #define QC_LOGGER_DEINIT() QC_STATUS_OK

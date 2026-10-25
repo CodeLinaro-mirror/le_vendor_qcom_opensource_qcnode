@@ -55,11 +55,6 @@ public:
      */
     virtual QCStatus_e MemoryUnMap( const QCBufferDescriptorBase_t &buff );
 
-private:
-    /**
-     * @brief Declare the logger for this class.
-     */
-    QC_DECLARE_LOGGER();
 };
 
 }   // namespace Memory

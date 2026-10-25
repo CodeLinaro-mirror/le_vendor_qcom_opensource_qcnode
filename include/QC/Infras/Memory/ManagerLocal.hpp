@@ -288,7 +288,7 @@ private:
     /**
      * @brief Declare the logger for this class.
      */
-    QC_DECLARE_LOGGER();
+    QC_USE_DEFAULT_LOGGER();
 
     /**
      * @var m_multiThreadLock

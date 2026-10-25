@@ -15,7 +15,6 @@ DMABUFFAllocator::DMABUFFAllocator( const QCMemoryAllocatorConfigInit_t &config,
                                     const QCMemoryAllocator_e allocator )
     : QCMemoryAllocatorIfs( config, allocator )
 {
-    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_ERROR );
     m_dmaBufDevFdCached = dmabufheap_init( ID_DMA_BUF_HEAP_CACHED );
     QC_DEBUG( " dmabufheap_init(ID_DMA_BUF_HEAP_CACHED) = %d ", m_dmaBufDevFdCached );
 }
@@ -24,7 +23,6 @@ DMABUFFAllocator::~DMABUFFAllocator()
 {
     (void) dmabufheap_release( m_dmaBufDevFdCached );
     m_dmaBufDevFdCached = DMABUF_HEAP_ALLOCATOR_DEFAULT_FD_CACHED;
-    (void) QC_LOGGER_DEINIT();
 }
 
 

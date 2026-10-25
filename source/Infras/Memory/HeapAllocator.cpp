@@ -15,14 +15,9 @@ namespace Memory
 
 HeapAllocator::HeapAllocator()
     : QCMemoryAllocatorIfs( { "Heap Allocator" }, QC_MEMORY_ALLOCATOR_HEAP )
-{
-    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_ERROR );
-}
+{}
 
-HeapAllocator::~HeapAllocator()
-{
-    (void) QC_LOGGER_DEINIT();
-};
+HeapAllocator::~HeapAllocator() = default;
 
 QCStatus_e HeapAllocator::Allocate( const QCBufferPropBase_t &request,
                                     QCBufferDescriptorBase_t &response )

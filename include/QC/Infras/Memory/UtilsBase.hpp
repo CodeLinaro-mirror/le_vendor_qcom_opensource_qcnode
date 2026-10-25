@@ -226,9 +226,7 @@ public:
     virtual ~UtilsBase();
 
 protected:
-    explicit UtilsBase( const char *loggerName );
-
-    QC_DECLARE_LOGGER();
+    QC_USE_DEFAULT_LOGGER();
 
 public:
 
