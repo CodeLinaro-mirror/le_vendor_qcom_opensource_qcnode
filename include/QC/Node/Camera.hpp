@@ -18,7 +18,7 @@ namespace Node
 /** @brief The QCNode Camera Version */
 #define QCNODE_CAMERA_VERSION_MAJOR 2U
 #define QCNODE_CAMERA_VERSION_MINOR 5U
-#define QCNODE_CAMERA_VERSION_PATCH 1U
+#define QCNODE_CAMERA_VERSION_PATCH 2U
 
 #define QCNODE_CAMERA_VERSION                                                                      \
     ( ( QCNODE_CAMERA_VERSION_MAJOR << 16U ) | ( QCNODE_CAMERA_VERSION_MINOR << 8U ) |             \
@@ -40,20 +40,20 @@ class CameraImpl;
  * @brief Interface for Node Camera Configuration.
  *
  * This class provides an interface for configuring camera nodes. It extends the
- * NodeConfigIfs class and includes additional functionality specific to camera
+ * NodeConfigBase class and includes additional functionality specific to camera
  * configuration.
  */
-class CameraConfig : public NodeConfigIfs
+class CameraConfig : public NodeConfigBase
 {
 public:
     /**
      * @brief Constructor for CameraConfig.
      * Initializes the CameraConfig with a logger and a CameraImpl object.
-     * @param[in] logger A reference to the logger to be shared and used by CameraConfig.  
+     * @param[in] logger A reference to the logger to be shared and used by CameraConfig.
      * @param[in] pCamImpl A pointer to the CameraImpl object to be used by CameraConfig.
      */
     CameraConfig( Logger &logger, CameraImpl *pCamImpl )
-        : NodeConfigIfs( logger ),
+        : NodeConfigBase( logger ),
           m_pCamImpl( pCamImpl )
     {}
 
@@ -165,7 +165,8 @@ public:
 
     /**
      * @brief Get the configuration options as a string.
-     * @return A reference to the configuration options string.
+     * @param[out] options JSON configuration options string.
+     * @return QCStatus_e indicating success or failure.
      */
     virtual QCStatus_e GetOptions( std::string &options );
 
@@ -229,7 +230,8 @@ public:
 
     /**
      * @brief Get the QCNode monitor options as a string.
-     * @return A reference to the QCNode monitor options string.
+     * @param[out] options JSON monitoring options string.
+     * @return QCStatus_e indicating success or failure.
      */
     virtual QCStatus_e GetOptions( std::string &options );
 

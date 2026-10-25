@@ -1615,15 +1615,22 @@ TEST( NodeVideoEncoder, ProcessFrameDescriptor_OutputNullPtr_BadArguments )
     Mockup_Cfg_Reset();
 }
 
-// 8) Event forwarding: verify event id string reaches callback
+// 8) Event forwarding: verify event id reaches callback
 TEST( NodeVideoEncoder, EventCallback_ForwardsEventId_ToUserCallback )
 {
     Mockup_Cfg_Reset();
-    std::vector<std::string> eventNames;
-    auto cb = [&eventNames]( const QCNodeEventInfo_t &info ) {
+    g_mockup_cfg.use_open_mockup = true;
+    g_mockup_cfg.use_ioctl_mockup = true;
+    g_mockup_cfg.use_close_mockup = true;
+    std::vector<VideoEncoder_EventType_e> eventIds;
+    auto cb = [&eventIds]( const QCNodeEventInfo_t &info ) {
         auto &fd = info.frameDesc;
         auto &out = fd.GetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID );
-        if ( !out.name.empty() ) eventNames.push_back( out.name );
+        if ( nullptr != out.pBuf )
+        {
+            const auto *pErrorInfo = static_cast<const VideoEncoderErrorInfo_t *>( out.pBuf );
+            eventIds.push_back( pErrorInfo->eventId );
+        }
     };
 
     DataTree dt;
@@ -1649,14 +1656,14 @@ TEST( NodeVideoEncoder, EventCallback_ForwardsEventId_ToUserCallback )
     QCNodeIfs *node = new QC::Node::VideoEncoder();
     ASSERT_EQ( QC_STATUS_OK, node->Initialize( init ) );
     ASSERT_EQ( QC_STATUS_OK, node->Start() );
-    g_mockup_cfg.use_ioctl_mockup = true;
+    eventIds.clear();
 
     emit_evt( VIDC_EVT_RESP_PAUSE );
     emit_evt( VIDC_EVT_RESP_RESUME );
 
-    ASSERT_GE( eventNames.size(), 2u );
-    EXPECT_EQ( eventNames[0], std::to_string( VIDC_IOCTL_PAUSE ) );
-    EXPECT_EQ( eventNames[1], std::to_string( VIDC_IOCTL_SET_BUFFER ) );
+    ASSERT_GE( eventIds.size(), 2u );
+    EXPECT_EQ( eventIds[0], VIDEO_CODEC_EVT_RESP_PAUSE );
+    EXPECT_EQ( eventIds[1], VIDEO_CODEC_EVT_RESP_RESUME );
     (void) node->Stop();
     Mockup_Cfg_Reset();
 }

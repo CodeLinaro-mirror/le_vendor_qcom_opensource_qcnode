@@ -83,7 +83,7 @@ typedef struct
  */
 class RemapImpl;
 
-class RemapConfig : public NodeConfigIfs
+class RemapConfig : public NodeConfigBase
 {
 public:
     /**
@@ -93,7 +93,7 @@ public:
      * @return None
      */
     RemapConfig( Logger &logger, RemapImpl *pRemapImpl )
-        : NodeConfigIfs( logger ),
+        : NodeConfigBase( logger ),
           m_pRemapImpl( pRemapImpl )
     {}
 

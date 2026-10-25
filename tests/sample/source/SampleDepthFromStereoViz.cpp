@@ -83,7 +83,7 @@ static const char *s_pSourceDispColor = KernelCode(   //
             }
         } );
 
-SampleDepthFromStereoViz::SampleDepthFromStereoViz() {}
+SampleDepthFromStereoViz::SampleDepthFromStereoViz() : m_openclSrvObj( m_logger ) {}
 SampleDepthFromStereoViz::~SampleDepthFromStereoViz() {}
 
 #ifdef QC_ENABLE_HS
@@ -180,7 +180,7 @@ QCStatus_e SampleDepthFromStereoViz::Init( std::string name, SampleConfig_t &con
     {
         if ( QC_PROCESSOR_GPU == m_processor )
         {
-            ret = m_openclSrvObj.Init( name.c_str(), LOGGER_LEVEL_ERROR );
+            ret = m_openclSrvObj.Init();
 
             if ( QC_STATUS_OK == ret )
             {

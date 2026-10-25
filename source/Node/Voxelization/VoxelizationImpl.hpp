@@ -7,10 +7,11 @@
 #include <cinttypes>
 #include <cmath>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unistd.h>
-#include <unordered_map>
 
+#include "QC/Common/QCMap.hpp"
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
 #include "QC/Infras/NodeTrace/NodeTrace.hpp"
 #include "QC/Node/Voxelization.hpp"
@@ -221,7 +222,7 @@ private:
     QCStatus_e RegisterBuffer( QCBufferDescriptorBase_t &buffer, FadasBufType_e bufferType );
     QCStatus_e DeRegisterBuffer( QCBufferDescriptorBase_t &buffer );
     QCStatus_e DeRegisterAllBuffers();
-
+    QCStatus_e ValidateBufferCount();
 
     QCStatus_e SetupGlobalBufferIdMap();
 
@@ -268,7 +269,14 @@ private:
         int fd;
     };
 
-    std::unordered_map<uint64_t, MemInfo> m_bufferMap;
+    // Upper bound on concurrently-registered buffers: inputPcdBufferIds +
+    // outputPlrBufferIds + outputFeatureBufferIds (all config-supplied, no schema
+    // maxItems) + 2 internal GPU-path buffers (plrPoints, coordToPlrIdx). Sized with
+    // headroom above observed usage; Initialize() rejects configs that would exceed it.
+    static constexpr size_t QC_NODE_VOXELIZATION_MAX_BUFFERS = 32;
+
+    QCMap<uint64_t, MemInfo, QC_NODE_VOXELIZATION_MAX_BUFFERS> m_bufferMap;
+    std::mutex m_bufferMapMutex;
 
     QC_DECLARE_NODETRACE();
 

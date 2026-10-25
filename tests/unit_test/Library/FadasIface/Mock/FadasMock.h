@@ -78,6 +78,20 @@ extern "C"
     void MockApi_ResetAll( void );
     void MockDlsymForSymbol( const char *symbol, void *returnValue );
 
+    /* ---- ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET) mock control (QNX affinity validation) ----
+     * rc:        value __wrap_ThreadCtl returns (e.g. -1 to simulate failure)
+     * runmask:   value written into the caller's runmask out-param on success
+     * Call MockThreadCtl_Set(rc, runmask) to arm, MockThreadCtl_Reset() to restore passthrough. */
+    void MockThreadCtl_Set( int rc, unsigned int runmask );
+    void MockThreadCtl_Reset( void );
+
+    /* ---- sched_getaffinity() mock control (Linux affinity validation) ----
+     * rc: value __wrap_sched_getaffinity returns (e.g. -1 to simulate failure)
+     * Call MockSchedGetaffinity_SetFail(1) to arm, MockSchedGetaffinity_Reset()
+     * to restore passthrough. On failure, errno is set to EFAULT. */
+    void MockSchedGetaffinity_SetFail( int fail );
+    void MockSchedGetaffinity_Reset( void );
+
     /* ---- remote_system_request mock controls (FadasSrvStubs.cpp) ---- */
     /* STUB_FASTRPC_* values: ALL_DOMAINS=0, NSP=1, LPASS=2, SDSP=3, MDSP=4, HPASS=5 */
     void MockRemoteSystemRequest_SetFailFirst( int fail );

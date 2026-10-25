@@ -14,7 +14,7 @@ namespace Node
 /** @brief The QCNode Voxelization Version */
 #define QCNODE_VOXELIZATION_VERSION_MAJOR 2U
 #define QCNODE_VOXELIZATION_VERSION_MINOR 2U
-#define QCNODE_VOXELIZATION_VERSION_PATCH 0U
+#define QCNODE_VOXELIZATION_VERSION_PATCH 1U
 
 #define QCNODE_VOXELIZATION_VERSION                                                                \
     ( ( QCNODE_VOXELIZATION_VERSION_MAJOR << 16U ) | ( QCNODE_VOXELIZATION_VERSION_MINOR << 8U ) | \
@@ -40,10 +40,11 @@ class VoxelizationImpl;
 /**
  * @brief Interface for Node Voxelization Configuration.
  *
- * This class provides an interface for configuring Voxelization nodes. It extends the NodeConfigIfs
- * class and includes additional functionality specific to Voxelization configuration.
+ * This class provides an interface for configuring Voxelization nodes. It extends the
+ * NodeConfigBase class and includes additional functionality specific to Voxelization
+ * configuration.
  */
-class VoxelizationConfig : public NodeConfigIfs
+class VoxelizationConfig : public NodeConfigBase
 {
 public:
     /**
@@ -54,7 +55,7 @@ public:
      * VoxelizationConfig.
      */
     VoxelizationConfig( Logger &logger, VoxelizationImpl *pVoxelImpl )
-        : NodeConfigIfs( logger ),
+        : NodeConfigBase( logger ),
           m_pVoxelImpl( pVoxelImpl )
     {}
 

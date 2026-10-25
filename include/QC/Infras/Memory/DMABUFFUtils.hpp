@@ -25,11 +25,13 @@ public:
      * This constructor Intilizes members which do not require external parameters
      */
     DMABUFFUtils();
+    DMABUFFUtils( const DMABUFFUtils & ) = delete;
+    DMABUFFUtils &operator=( const DMABUFFUtils & ) = delete;
     /**
      * @brief Destructor for the DMABUFFUtils class.
      * This destructor releases any resources allocated by the ManagerLocal object.
      */
-    ~DMABUFFUtils();
+    ~DMABUFFUtils() override;
 
     /**
      * @brief Maps a buffer into memory.
@@ -39,8 +41,8 @@ public:
      * @param mapped The buffer descriptor mapped into memory.
      * @return The status of the memory mapping operation.
      */
-    virtual QCStatus_e MemoryMap( const QCBufferDescriptorBase_t &orig,
-                                  QCBufferDescriptorBase_t &mapped );
+    QCStatus_e MemoryMap( const QCBufferDescriptorBase_t &orig,
+                          QCBufferDescriptorBase_t &mapped ) override;
 
     /**
      * @brief Unmaps a buffer from memory.
@@ -49,13 +51,7 @@ public:
      * @param buff The buffer descriptor to unmap from memory.
      * @return The status of the memory unmapping operation.
      */
-    virtual QCStatus_e MemoryUnMap( const QCBufferDescriptorBase_t &buff );
-
-private:
-    /**
-     * @brief Declare the logger for this class.
-     */
-    QC_DECLARE_LOGGER();
+    QCStatus_e MemoryUnMap( const QCBufferDescriptorBase_t &buff ) override;
 };
 
 }   // namespace Memory

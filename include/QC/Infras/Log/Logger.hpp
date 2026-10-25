@@ -4,14 +4,16 @@
 #ifndef QC_LOGGER_HPP
 #define QC_LOGGER_HPP
 
-#include "QC/Common/Types.hpp"
+#include "QC/Infras/Log/Ifs/QCLoggerBackendIfs.hpp"
+#include "QC/Infras/Log/Ifs/QCLoggerIfs.hpp"
+#include <memory>
 #include <mutex>
-#include <stdarg.h>
-#include <stdio.h>
 #include <string>
 
 namespace QC
 {
+
+class QCLoggerRegistry;
 
 #ifndef DISABLE_QC_LOG
 
@@ -127,153 +129,112 @@ namespace QC
 #define QC_LOG_ERROR( format, ... )
 #endif
 
-/** @brief The message log level */
-typedef enum
-{
-    LOGGER_LEVEL_VERBOSE, /**< The level for the verbose message */
-    LOGGER_LEVEL_DEBUG,   /**< The level for the debug message */
-    LOGGER_LEVEL_INFO,    /**< The level for the information message */
-    LOGGER_LEVEL_WARN,    /**< The level for the warning message */
-    LOGGER_LEVEL_ERROR,   /**< The level for the error message */
-    LOGGER_LEVEL_MAX
-} Logger_Level_e;
-
-
-/** @brief The handle to the log system  */
-typedef void *Logger_Handle_t;
-
-/**
- * @brief A callback to log a message
- * @param[in] hHandle the customer used log system handle
- * @param[in] level the message log level
- * @param[in] pFormat the message format
- * @param[in] args variable arguments
- * @return void
- */
-typedef void ( *Logger_Log_t )( Logger_Handle_t hHandle, Logger_Level_e level, const char *pFormat,
-                                va_list args );
-
-/**
- * @brief A callback to create the customer used log system handle
- * @param[in] pName the name of the logger
- * @param[in] level the message log level
- * @param[out] pHandle [out] the pointer to return the created customer used log system handle
- * @return QC_STATUS_OK on success, others on failure
- */
-typedef QCStatus_e ( *Logger_Create_t )( const char *pName, Logger_Level_e level,
-                                         Logger_Handle_t *pHandle );
-
-/**
- * @brief A callback to destroy the customer used log system handle
- * @param[in] hHandle the customer used log system handle
- * @return void
- */
-typedef void ( *Logger_Destroy_t )( Logger_Handle_t hHandle );
-
-/**
- * @brief qcnode::Logger
- *
- * Logger
- */
-class Logger
+/** @brief qcnode::Logger */
+class Logger : public QCLoggerIfs
 {
 public:
+    /** @brief Construct an uninitialized Logger. */
     Logger() noexcept;
-    Logger( const Logger & ) = default;
-    Logger& operator=( const Logger& ) = default;
-    ~Logger();
+    Logger( const Logger & ) = delete;
+    Logger &operator=( const Logger & ) = delete;
+
+    /** @brief Destroy the Logger and release its active backend. */
+    ~Logger() override;
 
     /**
-     * @brief Initialize the logger
-     * @param[in] pName the name of the logger
-     * @param[in] level the message log level
-     * @return QC_STATUS_OK on success, others on failure
+     * @brief Initialize the logger.
+     * @param[in] pName The name of the logger.
+     * @param[in] level The message log level.
+     * @param[in] backend The backend used to output log messages.
+     * @return QC_STATUS_OK on success, others on failure.
      */
-    QCStatus_e Init( const char *pName, Logger_Level_e level = LOGGER_LEVEL_ERROR );
+    QCStatus_e Init( const char *pName, Logger_Level_e level = LOGGER_LEVEL_ERROR,
+                     LoggerBackend_e backend = LOGGER_BACKEND_DEFAULT ) override;
 
     /**
-     * @brief deinitialize the logger
-     * @return QC_STATUS_OK on success, others on failure
+     * @brief Deinitialize the logger.
+     * @return QC_STATUS_OK on success, otherwise an error status.
      */
-    QCStatus_e Deinit();
+    QCStatus_e Deinit() override;
 
     /**
-     * @brief Do log a message
-     * @param[in] level the message log level
-     * @param[in] pFormat the message format
-     * @param[in] ... variable arguments
+     * @brief Log a message with variable arguments.
+     * @param[in] level The message log level.
+     * @param[in] pFormat The message format string.
+     * @param[in] ... The variable arguments for the format string.
      * @return void
-     * Note: if the logger object is not initialized or the initialization is failed, the message
-     * will be dropped, and this API will return without any fault or error.
      */
-    void Log( Logger_Level_e level, const char *pFormat, ... ) const;
+    void Log( Logger_Level_e level, const char *pFormat, ... ) const override;
 
     /**
-     * @brief Do log a message
-     * @param[in] level the message log level
-     * @param[in] pFormat the message format
-     * @param[in] args variable arguments
+     * @brief Log a message with a variable-argument list.
+     * @param[in] level The message log level.
+     * @param[in] pFormat The message format string.
+     * @param[in] args The variable arguments for the format string.
      * @return void
-     * Note: if the logger object is not initialized or the initialization is failed, the message
-     * will be dropped, and this API will return without any fault or error.
      */
-    void Log( Logger_Level_e level, const char *pFormat, va_list args ) const;
+    void Log( Logger_Level_e level, const char *pFormat, va_list args ) const override;
 
     /**
-     * @brief Get the acutal logger level of this logger
-     * @return The current the logger level
+     * @brief Get the actual log level of this logger.
+     * @return The current Logger message level.
      */
-    Logger_Level_e GetLevel() { return m_level; }
+    Logger_Level_e GetLevel() const override { return m_level; }
 
     /**
-     * @brief Setup the logger backend fuction pointers
-     * @param[in] logFnc the function pointer that do log
-     * @param[in] createFnc the function pointer that do create the implementation related handle
-     * @param[in] destoryFnc the function pointer that do destroy the implementation related handle
-     * @return QC_STATUS_OK on success, others on failure
+     * @brief Set the message log level of this logger.
+     * @param[in] level The message log level.
+     * @return QC_STATUS_OK on success, otherwise an error status.
      */
-    static QCStatus_e Setup( Logger_Log_t logFnc, Logger_Create_t createFnc,
-                             Logger_Destroy_t destoryFnc );
+    QCStatus_e SetLevel( Logger_Level_e level ) override;
+
     /**
-     * @brief Get a default QC logger
-     * @return void
+     * @brief Switch the output backend while retaining the logger name and level.
+     * @param[in] backend The backend used to output log messages.
+     * @return QC_STATUS_OK on success, otherwise an error status.
+     */
+    QCStatus_e SwitchBackend( LoggerBackend_e backend ) override;
+
+    /**
+     * @brief Get the name used to register this logger.
+     * @return The Logger name.
+     */
+    const char *GetName() const { return m_name.c_str(); }
+
+    /**
+     * @brief Get the default QC logger.
+     * @return The default Logger instance.
      */
     static Logger &GetDefault();
 
-private:
     /**
-     * @brief Decide the logger actual level used
-     * @param[in] pName the name of the logger
-     * @param[in] level the message log level
-     * @return The actual level used
+     * @brief Set the level used when the default logger is first initialized.
+     * @param[in] level The default message log level.
+     * @return QC_STATUS_OK on success, otherwise an error status.
      */
-    Logger_Level_e DecideLoggerLevel( std::string name, Logger_Level_e level );
+    static QCStatus_e SetDefaultLevel( Logger_Level_e level );
 
-#ifdef LOGGER_UNIT_TEST
-public:
-#endif
-    static void DefaultLog( Logger_Handle_t hHandle, Logger_Level_e level, const char *pFormat,
-                            va_list args );
-    static QCStatus_e DefaultCreate( const char *pName, Logger_Level_e level,
-                                     Logger_Handle_t *pHandle );
-    static void DefaultDestory( Logger_Handle_t hHandle );
+    /**
+     * @brief Set the backend used when the default logger is first initialized.
+     * @param[in] backend The default output backend.
+     * @return QC_STATUS_OK on success, otherwise an error status.
+     */
+    static QCStatus_e SetDefaultBackend( LoggerBackend_e backend );
 
 private:
-    Logger_Handle_t m_hHandle = nullptr;
+    friend class QCLoggerRegistry;
+
+    void SetNameForRegistry( const std::string &name ) { m_name = name; }
+    Logger_Level_e DecideLoggerLevel( const char *pName, Logger_Level_e level ) const;
+
+    std::unique_ptr<QCLoggerBackendIfs> m_pBackend;
     Logger_Level_e m_level = LOGGER_LEVEL_ERROR;
-
-    Logger_Log_t m_logFnc;
-    Logger_Create_t m_createFnc;
-    Logger_Destroy_t m_destroyFnc;
-
-    static Logger_Log_t s_logFnc;
-    static Logger_Create_t s_createFnc;
-    static Logger_Destroy_t s_destroyFnc;
-
-    static std::mutex s_lock;
+    std::string m_name;
+    static LoggerBackend_e s_defaultBackend;
+    static Logger_Level_e s_defaultLevel;
     static Logger s_defaultLogger;
-
-};   // class Logger
+    static std::mutex s_defaultLoggerLock;
+};
 
 }   // namespace QC
 

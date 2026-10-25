@@ -5,6 +5,9 @@
 #ifndef QC_NODE_DEPTH_FROM_STEREO_HPP
 #define QC_NODE_DEPTH_FROM_STEREO_HPP
 
+#include <mutex>
+
+#include "QC/Common/QCMap.hpp"
 #include "QC/Node/NodeBase.hpp"
 #include "svStereoDisparity.h"
 #include "svUtils.h"
@@ -19,7 +22,7 @@ using namespace SV;
 /** @brief The QCNode Depth from Stereo Version */
 #define QCNODE_DFS_VERSION_MAJOR 2U
 #define QCNODE_DFS_VERSION_MINOR 1U
-#define QCNODE_DFS_VERSION_PATCH 0U
+#define QCNODE_DFS_VERSION_PATCH 1U
 
 #define QCNODE_DFS_VERSION                                                                         \
     ( ( QCNODE_DFS_VERSION_MAJOR << 16U ) | ( QCNODE_DFS_VERSION_MINOR << 8U ) |                   \
@@ -34,6 +37,10 @@ typedef enum
     QC_NODE_DFS_LAST_BUFF_ID = 4
 } QCNodeDepthFromStereoBufferId_e;
 
+/** @brief Maximum number of buffers m_memMap can track: 4 buffer roles, each
+ *  supporting up to 16 ping-pong buffers. */
+static constexpr uint32_t QC_NODE_DFS_MAX_BUFFERS = QC_NODE_DFS_LAST_BUFF_ID * 16u;
+
 
 typedef struct DepthFromStereoBufferMapping
 {
@@ -41,7 +48,7 @@ typedef struct DepthFromStereoBufferMapping
         : primaryImageBufferId( QC_NODE_DFS_PRIMARY_IMAGE_BUFF_ID ),
           auxilaryImageBufferId( QC_NODE_DFS_AUXILARY_IMAGE_BUFF_ID ),
           disparityMapBufferId( QC_NODE_DFS_DISPARITY_MAP_BUFF_ID ),
-          disparityConfidenceMapBufferId( QC_NODE_DFS_DISPARITY_CONFIDANCE_MAP_BUFF_ID ){};
+          disparityConfidenceMapBufferId( QC_NODE_DFS_DISPARITY_CONFIDANCE_MAP_BUFF_ID ) {};
 
     uint32_t primaryImageBufferId;
     uint32_t auxilaryImageBufferId;
@@ -149,7 +156,7 @@ public:
 } DepthFromStereo_Config_t;
 
 
-class DepthFromStereoConfigIfs : public NodeConfigIfs
+class DepthFromStereoConfigIfs : public NodeConfigBase
 {
 public:
     /**
@@ -158,7 +165,7 @@ public:
      * NodeDepthFromStereoConfigIfs.
      * @return None
      */
-    DepthFromStereoConfigIfs( Logger &logger ) : NodeConfigIfs( logger ) {}
+    DepthFromStereoConfigIfs( Logger &logger ) : NodeConfigBase( logger ) {}
 
     /**
      * @brief NodeDepthFromStereoConfigIfs Destructor
@@ -300,13 +307,13 @@ public:
           sessionConfigMap(),
           configMap(),
           m_session( nullptr ),
-          m_stereoDisparity( nullptr ){};
+          m_stereoDisparity( nullptr ) {};
 
     /**
      * @brief NodeDepthFromStereo Destructor
      * @return None
      */
-    ~DepthFromStereo(){};
+    ~DepthFromStereo() {};
 
     /**
      * @brief Initializes Node Depth From Stereo.
@@ -374,7 +381,8 @@ private:
     Session *m_session;
     StereoDisparity *m_stereoDisparity;
     QCObjectState_e m_state = QC_OBJECT_STATE_INITIAL;
-    std::map<void *, Buffer> m_memMap;
+    QCMap<void *, Buffer, QC_NODE_DFS_MAX_BUFFERS> m_memMap;
+    std::mutex m_memMapMutex;
     StereoDisparity::Penalties penalties;
     StereoDisparity::FeatureNoiseToleranceOffset noiseToleranceOffset;
     StereoDisparity::FeatureNoiseToleranceScale noiseToleranceScale;

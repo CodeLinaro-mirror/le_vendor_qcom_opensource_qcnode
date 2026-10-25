@@ -5,8 +5,11 @@
 #ifndef QC_SAMPLE_QNN_HPP
 #define QC_SAMPLE_QNN_HPP
 
+#include "NodeFrameDescriptorPool.hpp"
 #include "QC/Node/QNN.hpp"
 #include "QC/sample/SampleIF.hpp"
+
+#include <deque>
 
 namespace QC
 {
@@ -76,6 +79,7 @@ private:
 private:
     SampleQnnImageConvertType_e m_imageConvertType = SAMPLE_QNN_IMAGE_CONVERT_DEFAULT;
     uint32_t m_poolSize = 4;
+    QCAllocationCache_e m_bufferCache = QC_CACHEABLE;
     bool m_bAsync = false;
     std::condition_variable m_condVar;
 
@@ -92,7 +96,7 @@ private:
     std::vector<TensorInfo_t> m_inputsInfo;
     std::vector<TensorInfo_t> m_outputsInfo;
 
-    std::vector<SharedBufferPool> m_tensorPools;
+    std::deque<SharedBufferPool> m_tensorPools;
 
     DataSubscriber<DataFrames_t> m_sub;
     DataPublisher<DataFrames_t> m_pub;
@@ -104,7 +108,6 @@ private:
     uint64_t m_asyncResult;
     QCProcessorType_e m_processor;
     std::vector<uint32_t> m_coreIds = { 0u };
-    int m_rsmPriority;
 
     NodeFrameDescriptorPool *m_pFrameDescPool = nullptr;
     uint64_t m_frameId = 0; /* track current processed frame Id */

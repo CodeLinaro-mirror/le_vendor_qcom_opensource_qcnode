@@ -40,20 +40,20 @@
  * 'status' is an OUTPUT (rout) — it must NOT be included in crcTx.
  * There is no crcRx returned by this function.
  */
-AEEResult FadasIface_FadasInit( remote_handle64 _h, int32_t *status )
+AEEResult FadasIface_FadasInit( remote_handle64 h, int32_t *status )
 {
     uint32_t crcRx = 0U;
     AEEResult ret = AEE_SUCCESS;
 
-    ret = FadasIface_FadasInitSafe( _h, status, &crcRx );
+    ret = FadasIface_FadasInitSafe( h, status, &crcRx );
     if ( ret == AEE_SUCCESS )
     {
         struct scatter_buffer sbRx[1] = { { 0 } };
         sbRx[0].buf = reinterpret_cast<const char *>( status );
         sbRx[0].len = sizeof( *status );
 
-        error_type crc_retval = crc32_verify_scatter( sbRx, 1, crcRx );
-        if ( (int) crc_retval != CRC_RET_SUCCESS_VALUE )
+        error_type crc_retval = crc32_verify_scatter( &sbRx[0], 1U, crcRx );
+        if ( crc_retval != static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
         {
             ret = AEE_EFAILED;
         }
@@ -73,25 +73,24 @@ AEEResult FadasIface_FadasInit( remote_handle64 _h, int32_t *status )
  * 'versionLen' is the buffer capacity passed as input.
  * crcRx covers the returned version bytes.
  */
-AEEResult FadasIface_FadasVersion( remote_handle64 _h, uint8_t *version, int versionLen )
+AEEResult FadasIface_FadasVersion( remote_handle64 h, uint8_t *version, int versionLen )
 {
     uint32_t crcTx = 0U;
     uint32_t crcRx = 0U;
-    uint32_t sbNum = 0U;
     AEEResult ret = AEE_SUCCESS;
 
     struct scatter_buffer sbTx[1] = {};
     sbTx[0].buf = reinterpret_cast<const char *>( &versionLen );
     sbTx[0].len = static_cast<sl_size_t>( sizeof( versionLen ) );
 
-    if ( (int) crc32_generate_scatter( sbTx, 1, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], 1U, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_FadasVersionSafe( _h, version, versionLen, crcTx, &crcRx );
+        ret = FadasIface_FadasVersionSafe( h, version, versionLen, crcTx, &crcRx );
         if ( ret == AEE_SUCCESS )
         {
             /* Verify CRC over the returned version bytes. */
@@ -99,8 +98,10 @@ AEEResult FadasIface_FadasVersion( remote_handle64 _h, uint8_t *version, int ver
             {
                 struct scatter_buffer sbRx[1] = {};
                 sbRx[0].buf = reinterpret_cast<const char *>( version );
-                sbRx[0].len = static_cast<sl_size_t>( sizeof( *version ) * versionLen );
-                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
+                sbRx[0].len = static_cast<sl_size_t>( sizeof( *version ) *
+                                                      static_cast<size_t>( versionLen ) );
+                if ( crc32_verify_scatter( &sbRx[0], 1U, crcRx ) !=
+                     static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
                 {
                     ret = AEE_EFAILED;
                 }
@@ -126,17 +127,17 @@ AEEResult FadasIface_FadasVersion( remote_handle64 _h, uint8_t *version, int ver
 /*
  * IDL: AEEResult FadasDeInitSafe()   — no CRC parameters at all.
  */
-AEEResult FadasIface_FadasDeInit( remote_handle64 _h )
+AEEResult FadasIface_FadasDeInit( remote_handle64 h )
 {
-    return FadasIface_FadasDeInitSafe( _h );
+    return FadasIface_FadasDeInitSafe( h );
 }
 
 /* ------------------------------------------------------------------ */
 /*  FadasRemap_CreateMapFromMap                                         */
 /* ------------------------------------------------------------------ */
 AEEResult FadasIface_FadasRemap_CreateMapFromMap(
-        remote_handle64 _h, uint64 *mapPtr, uint32_t camWidth, uint32_t camHeight,
-        uint32_t mapWidth, uint32_t mapHeight, int32_t mapXFd, int32_t mapYFd, uint32_t mapStride,
+        remote_handle64 h, uint64 *mapPtr, uint32_t camWidth, uint32_t camHeight, uint32_t mapWidth,
+        uint32_t mapHeight, int32_t mapXFd, int32_t mapYFd, uint32_t mapStride,
         FadasIface_FadasRemapPipeline_e imgFormat, uint8_t borderConst )
 {
     uint32_t crcTx = 0U;
@@ -167,24 +168,24 @@ AEEResult FadasIface_FadasRemap_CreateMapFromMap(
         sbTx[7].len = sizeof( imgFormat );
         sbTx[8].buf = reinterpret_cast<const char *>( &borderConst );
         sbTx[8].len = sizeof( borderConst );
-        if ( (int) crc32_generate_scatter( sbTx, 9, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-             CRC_RET_SUCCESS_VALUE )
+        if ( crc32_generate_scatter( &sbTx[0], 9U, &crcTx ) !=
+             static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
         {
             ret = AEE_EFAILED;
         }
         else
         {
             ret = FadasIface_FadasRemap_CreateMapFromMapSafe(
-                    _h, mapPtr, camWidth, camHeight, mapWidth, mapHeight, mapXFd, mapYFd, mapStride,
+                    h, mapPtr, camWidth, camHeight, mapWidth, mapHeight, mapXFd, mapYFd, mapStride,
                     imgFormat, borderConst, crcTx, &crcRx );
             if ( ret == AEE_SUCCESS )
             {
                 /* Verify CRC over the returned mapPtr value. */
                 struct scatter_buffer sbRx[1] = { { 0 } };
-                uint32_t rxNum = 0U;
                 sbRx[0].buf = reinterpret_cast<const char *>( mapPtr );
                 sbRx[0].len = sizeof( *mapPtr );
-                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
+                if ( crc32_verify_scatter( &sbRx[0], 1U, crcRx ) !=
+                     static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
                 {
                     ret = AEE_EFAILED;
                 }
@@ -203,7 +204,7 @@ AEEResult FadasIface_FadasRemap_CreateMapFromMap(
 /* ------------------------------------------------------------------ */
 /*  FadasRemap_CreateMapNoUndistortion                                  */
 /* ------------------------------------------------------------------ */
-AEEResult FadasIface_FadasRemap_CreateMapNoUndistortion( remote_handle64 _h, uint64 *mapPtr,
+AEEResult FadasIface_FadasRemap_CreateMapNoUndistortion( remote_handle64 h, uint64 *mapPtr,
                                                          uint32_t camWidth, uint32_t camHeight,
                                                          uint32_t mapWidth, uint32_t mapHeight,
                                                          FadasIface_FadasRemapPipeline_e imgFormat,
@@ -232,23 +233,24 @@ AEEResult FadasIface_FadasRemap_CreateMapNoUndistortion( remote_handle64 _h, uin
         sbTx[5].buf = reinterpret_cast<const char *>( &borderConst );
         sbTx[5].len = sizeof( borderConst );
 
-        if ( (int) crc32_generate_scatter( sbTx, 6, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-             CRC_RET_SUCCESS_VALUE )
+        if ( crc32_generate_scatter( &sbTx[0], 6U, &crcTx ) !=
+             static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
         {
             ret = AEE_EFAILED;
         }
         else
         {
-            ret = FadasIface_FadasRemap_CreateMapNoUndistortionSafe(
-                    _h, mapPtr, camWidth, camHeight, mapWidth, mapHeight, imgFormat, borderConst,
-                    crcTx, &crcRx );
+            ret = FadasIface_FadasRemap_CreateMapNoUndistortionSafe( h, mapPtr, camWidth, camHeight,
+                                                                     mapWidth, mapHeight, imgFormat,
+                                                                     borderConst, crcTx, &crcRx );
             if ( ret == AEE_SUCCESS )
             {
                 struct scatter_buffer sbRx[1] = { { 0 } };
                 uint32_t rxNum = 0U;
                 sbRx[0].buf = reinterpret_cast<const char *>( mapPtr );
                 sbRx[0].len = sizeof( *mapPtr );
-                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
+                if ( crc32_verify_scatter( &sbRx[0], 1U, crcRx ) !=
+                     static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
                 {
                     ret = AEE_EFAILED;
                 }
@@ -271,7 +273,7 @@ AEEResult FadasIface_FadasRemap_CreateMapNoUndistortion( remote_handle64 _h, uin
  * IDL: AEEResult FadasRemap_DestroyMapSafe(in uint64 mapPtr, in uint32_t crcTx)
  * No crcRx.
  */
-AEEResult FadasIface_FadasRemap_DestroyMap( remote_handle64 _h, uint64 mapPtr )
+AEEResult FadasIface_FadasRemap_DestroyMap( remote_handle64 h, uint64 mapPtr )
 {
     uint32_t crcTx = 0U;
     struct scatter_buffer sbTx[1] = { { 0 } };
@@ -279,14 +281,14 @@ AEEResult FadasIface_FadasRemap_DestroyMap( remote_handle64 _h, uint64 mapPtr )
     sbTx[0].buf = reinterpret_cast<const char *>( &mapPtr );
     sbTx[0].len = sizeof( mapPtr );
 
-    if ( (int) crc32_generate_scatter( sbTx, 1, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], 1U, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_FadasRemap_DestroyMapSafe( _h, mapPtr, crcTx );
+        ret = FadasIface_FadasRemap_DestroyMapSafe( h, mapPtr, crcTx );
     }
     return ret;
 }
@@ -294,7 +296,7 @@ AEEResult FadasIface_FadasRemap_DestroyMap( remote_handle64 _h, uint64 mapPtr )
 /* ------------------------------------------------------------------ */
 /*  FadasRemap_CreateWorkers                                            */
 /* ------------------------------------------------------------------ */
-AEEResult FadasIface_FadasRemap_CreateWorkers( remote_handle64 _h, uint64 *worker_ptr,
+AEEResult FadasIface_FadasRemap_CreateWorkers( remote_handle64 h, uint64 *worker_ptr,
                                                uint32_t nThreads,
                                                FadasIface_FadasRemapPipeline_e imgFormat )
 {
@@ -312,21 +314,22 @@ AEEResult FadasIface_FadasRemap_CreateWorkers( remote_handle64 _h, uint64 *worke
         sbTx[0].len = sizeof( nThreads );
         sbTx[1].buf = reinterpret_cast<const char *>( &imgFormat );
         sbTx[1].len = sizeof( imgFormat );
-        if ( (int) crc32_generate_scatter( sbTx, 2, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-             CRC_RET_SUCCESS_VALUE )
+        if ( crc32_generate_scatter( &sbTx[0], 2U, &crcTx ) !=
+             static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
         {
             ret = AEE_EFAILED;
         }
         else
         {
-            ret = FadasIface_FadasRemap_CreateWorkersSafe( _h, worker_ptr, nThreads, imgFormat,
+            ret = FadasIface_FadasRemap_CreateWorkersSafe( h, worker_ptr, nThreads, imgFormat,
                                                            crcTx, &crcRx );
             if ( ret == AEE_SUCCESS )
             {
                 struct scatter_buffer sbRx[1] = {};
                 sbRx[0].buf = reinterpret_cast<const char *>( worker_ptr );
                 sbRx[0].len = sizeof( *worker_ptr );
-                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
+                if ( crc32_verify_scatter( &sbRx[0], 1U, crcRx ) !=
+                     static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
                 {
                     ret = AEE_EFAILED;
                 }
@@ -349,7 +352,7 @@ AEEResult FadasIface_FadasRemap_CreateWorkers( remote_handle64 _h, uint64 *worke
  * IDL: AEEResult FadasRemap_DestroyWorkersSafe(in uint64 worker_ptr, in uint32_t crcTx)
  * No crcRx.
  */
-AEEResult FadasIface_FadasRemap_DestroyWorkers( remote_handle64 _h, uint64 worker_ptr )
+AEEResult FadasIface_FadasRemap_DestroyWorkers( remote_handle64 h, uint64 worker_ptr )
 {
     uint32_t crcTx = 0U;
     struct scatter_buffer sbTx[1] = { { 0 } };
@@ -358,14 +361,14 @@ AEEResult FadasIface_FadasRemap_DestroyWorkers( remote_handle64 _h, uint64 worke
     sbTx[0].buf = reinterpret_cast<const char *>( &worker_ptr );
     sbTx[0].len = sizeof( worker_ptr );
 
-    if ( (int) crc32_generate_scatter( sbTx, 1, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], 1U, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_FadasRemap_DestroyWorkersSafe( _h, worker_ptr, crcTx );
+        ret = FadasIface_FadasRemap_DestroyWorkersSafe( h, worker_ptr, crcTx );
     }
     return ret;
 }
@@ -382,7 +385,7 @@ AEEResult FadasIface_FadasRemap_DestroyWorkers( remote_handle64 _h, uint64 worke
  *   + dstFd + dstLen + dstProps + dstROIs + dstROIsLen + normlz + normlzLen
  *   = 17 entries.
  */
-AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerPtrs,
+AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 h, const uint64 *workerPtrs,
                                        int workerPtrsLen, const uint64 *mapPtrs, int mapPtrsLen,
                                        const int32_t *srcFds, int srcFdsLen,
                                        const uint32_t *offsets, int offsetsLen,
@@ -409,7 +412,8 @@ AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerP
     if ( ret == AEE_SUCCESS )
     {
         sbTx[sbNum].buf = reinterpret_cast<const char *>( workerPtrs );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *workerPtrs ) * workerPtrsLen );
+        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *workerPtrs ) *
+                                                  static_cast<size_t>( workerPtrsLen ) );
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &workerPtrsLen );
@@ -417,7 +421,8 @@ AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerP
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( mapPtrs );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *mapPtrs ) * mapPtrsLen );
+        sbTx[sbNum].len =
+                static_cast<sl_size_t>( sizeof( *mapPtrs ) * static_cast<size_t>( mapPtrsLen ) );
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &mapPtrsLen );
@@ -425,7 +430,8 @@ AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerP
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( srcFds );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *srcFds ) * srcFdsLen );
+        sbTx[sbNum].len =
+                static_cast<sl_size_t>( sizeof( *srcFds ) * static_cast<size_t>( srcFdsLen ) );
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &srcFdsLen );
@@ -433,7 +439,8 @@ AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerP
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( offsets );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *offsets ) * offsetsLen );
+        sbTx[sbNum].len =
+                static_cast<sl_size_t>( sizeof( *offsets ) * static_cast<size_t>( offsetsLen ) );
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &offsetsLen );
@@ -441,7 +448,8 @@ AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerP
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( srcProps );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *srcProps ) * srcPropsLen );
+        sbTx[sbNum].len =
+                static_cast<sl_size_t>( sizeof( *srcProps ) * static_cast<size_t>( srcPropsLen ) );
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &srcPropsLen );
@@ -461,7 +469,8 @@ AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerP
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( dstROIs );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *dstROIs ) * dstROIsLen );
+        sbTx[sbNum].len =
+                static_cast<sl_size_t>( sizeof( *dstROIs ) * static_cast<size_t>( dstROIsLen ) );
         sbNum++;
 
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &dstROIsLen );
@@ -471,22 +480,23 @@ AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerP
         if ( normlz != nullptr && normlzLen > 0 )
         {
             sbTx[sbNum].buf = reinterpret_cast<const char *>( normlz );
-            sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *normlz ) * normlzLen );
+            sbTx[sbNum].len =
+                    static_cast<sl_size_t>( sizeof( *normlz ) * static_cast<size_t>( normlzLen ) );
             sbNum++;
         }
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &normlzLen );
         sbTx[sbNum].len = sizeof( normlzLen );
         sbNum++;
 
-        if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-             CRC_RET_SUCCESS_VALUE )
+        if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+             static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
         {
             ret = AEE_EFAILED;
         }
         else
         {
             ret = FadasIface_FadasRemap_RunMTSafe(
-                    _h, workerPtrs, workerPtrsLen, mapPtrs, mapPtrsLen, srcFds, srcFdsLen, offsets,
+                    h, workerPtrs, workerPtrsLen, mapPtrs, mapPtrsLen, srcFds, srcFdsLen, offsets,
                     offsetsLen, srcProps, srcPropsLen, dstFd, dstLen, dstProps, dstROIs, dstROIsLen,
                     normlz, normlzLen, crcTx );
         }
@@ -501,7 +511,7 @@ AEEResult FadasIface_FadasRemap_RunMT( remote_handle64 _h, const uint64 *workerP
  * IDL: AEEResult mmapSafe(in int32_t bufFd, in uint32_t bufSize, in uint32_t crcTx)
  * No crcRx.
  */
-AEEResult FadasIface_mmap( remote_handle64 _h, int32_t bufFd, uint32_t bufSize )
+AEEResult FadasIface_mmap( remote_handle64 h, int32_t bufFd, uint32_t bufSize )
 {
     uint32_t crcTx = 0U;
     uint32_t sbNum = 0U;
@@ -515,14 +525,14 @@ AEEResult FadasIface_mmap( remote_handle64 _h, int32_t bufFd, uint32_t bufSize )
     sbTx[sbNum].len = sizeof( bufSize );
     sbNum++;
 
-    if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_mmapSafe( _h, bufFd, bufSize, crcTx );
+        ret = FadasIface_mmapSafe( h, bufFd, bufSize, crcTx );
     }
     return ret;
 }
@@ -534,7 +544,7 @@ AEEResult FadasIface_mmap( remote_handle64 _h, int32_t bufFd, uint32_t bufSize )
  * IDL: AEEResult munmapSafe(in int32_t bufFd, in uint32_t bufSize, in uint32_t crcTx)
  * No crcRx.
  */
-AEEResult FadasIface_munmap( remote_handle64 _h, int32_t bufFd, uint32_t bufSize )
+AEEResult FadasIface_munmap( remote_handle64 h, int32_t bufFd, uint32_t bufSize )
 {
     uint32_t crcTx = 0U;
     uint32_t sbNum = 0U;
@@ -548,14 +558,14 @@ AEEResult FadasIface_munmap( remote_handle64 _h, int32_t bufFd, uint32_t bufSize
     sbTx[sbNum].len = sizeof( bufSize );
     sbNum++;
 
-    if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_munmapSafe( _h, bufFd, bufSize, crcTx );
+        ret = FadasIface_munmapSafe( h, bufFd, bufSize, crcTx );
     }
     return ret;
 }
@@ -567,7 +577,7 @@ AEEResult FadasIface_munmap( remote_handle64 _h, int32_t bufFd, uint32_t bufSize
  * IDL: AEEResult FadasRegBufSafe(..., in uint32_t crcTx)
  * No crcRx.
  */
-AEEResult FadasIface_FadasRegBuf( remote_handle64 _h, FadasIface_FadasBufType_e bufType,
+AEEResult FadasIface_FadasRegBuf( remote_handle64 h, FadasIface_FadasBufType_e bufType,
                                   int32_t bufFd, uint32_t bufSize, uint32_t bufOffset,
                                   uint32_t batchSize )
 {
@@ -592,15 +602,14 @@ AEEResult FadasIface_FadasRegBuf( remote_handle64 _h, FadasIface_FadasBufType_e 
     sbTx[sbNum].len = sizeof( batchSize );
     sbNum++;
 
-    if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_FadasRegBufSafe( _h, bufType, bufFd, bufSize, bufOffset, batchSize,
-                                          crcTx );
+        ret = FadasIface_FadasRegBufSafe( h, bufType, bufFd, bufSize, bufOffset, batchSize, crcTx );
     }
     return ret;
 }
@@ -612,7 +621,7 @@ AEEResult FadasIface_FadasRegBuf( remote_handle64 _h, FadasIface_FadasBufType_e 
  * IDL: AEEResult FadasDeregBufSafe(..., in uint32_t crcTx)
  * No crcRx.
  */
-AEEResult FadasIface_FadasDeregBuf( remote_handle64 _h, int32_t bufFd, uint32_t bufSize,
+AEEResult FadasIface_FadasDeregBuf( remote_handle64 h, int32_t bufFd, uint32_t bufSize,
                                     uint32_t bufOffset, uint32_t batchSize )
 {
     uint32_t crcTx = 0U;
@@ -633,14 +642,14 @@ AEEResult FadasIface_FadasDeregBuf( remote_handle64 _h, int32_t bufFd, uint32_t 
     sbTx[sbNum].len = sizeof( batchSize );
     sbNum++;
 
-    if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_FadasDeregBufSafe( _h, bufFd, bufSize, bufOffset, batchSize, crcTx );
+        ret = FadasIface_FadasDeregBufSafe( h, bufFd, bufSize, bufOffset, batchSize, crcTx );
     }
     return ret;
 }
@@ -648,7 +657,7 @@ AEEResult FadasIface_FadasDeregBuf( remote_handle64 _h, int32_t bufFd, uint32_t 
 /* ------------------------------------------------------------------ */
 /*  PointPillarCreate                                                   */
 /* ------------------------------------------------------------------ */
-AEEResult FadasIface_PointPillarCreate( remote_handle64 _h, const FadasIface_Pt3D_t *pPlrSize,
+AEEResult FadasIface_PointPillarCreate( remote_handle64 h, const FadasIface_Pt3D_t *pPlrSize,
                                         const FadasIface_Pt3D_t *pMinRange,
                                         const FadasIface_Pt3D_t *pMaxRange, uint32_t maxNumInPts,
                                         uint32_t numInFeatureDim, uint32_t maxNumPlrs,
@@ -700,14 +709,14 @@ AEEResult FadasIface_PointPillarCreate( remote_handle64 _h, const FadasIface_Pt3
         sbTx[sbNum].len = sizeof( numOutFeatureDim );
         sbNum++;
 
-        if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-             CRC_RET_SUCCESS_VALUE )
+        if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+             static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
         {
             ret = AEE_EFAILED;
         }
         else
         {
-            ret = FadasIface_PointPillarCreateSafe( _h, pPlrSize, pMinRange, pMaxRange, maxNumInPts,
+            ret = FadasIface_PointPillarCreateSafe( h, pPlrSize, pMinRange, pMaxRange, maxNumInPts,
                                                     numInFeatureDim, maxNumPlrs, maxNumPtsPerPlr,
                                                     numOutFeatureDim, phPreProc, crcTx, &crcRx );
             if ( ret == AEE_SUCCESS )
@@ -717,7 +726,8 @@ AEEResult FadasIface_PointPillarCreate( remote_handle64 _h, const FadasIface_Pt3
                     struct scatter_buffer sbRx[1] = { { 0 } };
                     sbRx[0].buf = reinterpret_cast<const char *>( phPreProc );
                     sbRx[0].len = sizeof( *phPreProc );
-                    if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
+                    if ( crc32_verify_scatter( &sbRx[0], 1U, crcRx ) !=
+                         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
                     {
                         ret = AEE_EFAILED;
                     }
@@ -740,7 +750,7 @@ AEEResult FadasIface_PointPillarCreate( remote_handle64 _h, const FadasIface_Pt3
 /* ------------------------------------------------------------------ */
 /*  PointPillarRun                                                      */
 /* ------------------------------------------------------------------ */
-AEEResult FadasIface_PointPillarRun( remote_handle64 _h, uint64_t hPreProc, uint32_t numPts,
+AEEResult FadasIface_PointPillarRun( remote_handle64 h, uint64_t hPreProc, uint32_t numPts,
                                      int32_t fdInPts, uint32_t inPtsOffset, uint32_t inPtsSize,
                                      int32_t fdOutPlrs, uint32_t outPlrsOffset,
                                      uint32_t outPlrsSize, int32_t fdOutFeature,
@@ -785,14 +795,14 @@ AEEResult FadasIface_PointPillarRun( remote_handle64 _h, uint64_t hPreProc, uint
     sbTx[sbNum].buf = reinterpret_cast<const char *>( &outFeatureSize );
     sbTx[sbNum].len = sizeof( outFeatureSize );
     sbNum++;
-    if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_PointPillarRunSafe( _h, hPreProc, numPts, fdInPts, inPtsOffset, inPtsSize,
+        ret = FadasIface_PointPillarRunSafe( h, hPreProc, numPts, fdInPts, inPtsOffset, inPtsSize,
                                              fdOutPlrs, outPlrsOffset, outPlrsSize, fdOutFeature,
                                              outFeatureOffset, outFeatureSize, pNumOutPlrs, crcTx,
                                              &crcRx );
@@ -803,7 +813,8 @@ AEEResult FadasIface_PointPillarRun( remote_handle64 _h, uint64_t hPreProc, uint
                 struct scatter_buffer sbRx[1] = { { 0 } };
                 sbRx[0].buf = reinterpret_cast<const char *>( pNumOutPlrs );
                 sbRx[0].len = sizeof( *pNumOutPlrs );
-                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
+                if ( crc32_verify_scatter( &sbRx[0], 1U, crcRx ) !=
+                     static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
                 {
                     ret = AEE_EFAILED;
                 }
@@ -830,7 +841,7 @@ AEEResult FadasIface_PointPillarRun( remote_handle64 _h, uint64_t hPreProc, uint
  * IDL: AEEResult PointPillarDestroySafe(in uint64_t hPreProc, in uint32_t crcTx)
  * No crcRx.
  */
-AEEResult FadasIface_PointPillarDestroy( remote_handle64 _h, uint64_t hPreProc )
+AEEResult FadasIface_PointPillarDestroy( remote_handle64 h, uint64_t hPreProc )
 {
     uint32_t crcTx = 0U;
     uint32_t sbNum = 0U;
@@ -841,21 +852,21 @@ AEEResult FadasIface_PointPillarDestroy( remote_handle64 _h, uint64_t hPreProc )
     sbTx[sbNum].len = sizeof( hPreProc );
     sbNum++;
 
-    if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_PointPillarDestroySafe( _h, hPreProc, crcTx );
+        ret = FadasIface_PointPillarDestroySafe( h, hPreProc, crcTx );
     }
     return ret;
 }
 /* ------------------------------------------------------------------ */
 /*  ExtractBBoxCreate                                                   */
 /* ------------------------------------------------------------------ */
-AEEResult FadasIface_ExtractBBoxCreate( remote_handle64 _h, uint32_t maxNumInPts,
+AEEResult FadasIface_ExtractBBoxCreate( remote_handle64 h, uint32_t maxNumInPts,
                                         uint32_t numInFeatureDim, uint32_t maxNumDetOut,
                                         uint32_t numClass, const FadasIface_Grid2D_t *pGrid,
                                         float threshScore, float threshIOU, float minCentreX,
@@ -920,7 +931,8 @@ AEEResult FadasIface_ExtractBBoxCreate( remote_handle64 _h, uint32_t maxNumInPts
         if ( labelSelect != nullptr && labelSelectLen > 0 )
         {
             sbTx[sbNum].buf = reinterpret_cast<const char *>( labelSelect );
-            sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *labelSelect ) * labelSelectLen );
+            sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *labelSelect ) *
+                                                      static_cast<size_t>( labelSelectLen ) );
             sbNum++;
         }
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &labelSelectLen );
@@ -929,15 +941,15 @@ AEEResult FadasIface_ExtractBBoxCreate( remote_handle64 _h, uint32_t maxNumInPts
         sbTx[sbNum].buf = reinterpret_cast<const char *>( &maxNumFilter );
         sbTx[sbNum].len = sizeof( maxNumFilter );
         sbNum++;
-        if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-             CRC_RET_SUCCESS_VALUE )
+        if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+             static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
         {
             ret = AEE_EFAILED;
         }
         else
         {
             ret = FadasIface_ExtractBBoxCreateSafe(
-                    _h, maxNumInPts, numInFeatureDim, maxNumDetOut, numClass, pGrid, threshScore,
+                    h, maxNumInPts, numInFeatureDim, maxNumDetOut, numClass, pGrid, threshScore,
                     threshIOU, minCentreX, minCentreY, minCentreZ, maxCentreX, maxCentreY,
                     maxCentreZ, labelSelect, labelSelectLen, maxNumFilter, phPostProc, crcTx,
                     &crcRx );
@@ -948,7 +960,8 @@ AEEResult FadasIface_ExtractBBoxCreate( remote_handle64 _h, uint32_t maxNumInPts
                     struct scatter_buffer sbRx[1] = { { 0 } };
                     sbRx[0].buf = reinterpret_cast<const char *>( phPostProc );
                     sbRx[0].len = sizeof( *phPostProc );
-                    if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
+                    if ( crc32_verify_scatter( &sbRx[0], 1U, crcRx ) !=
+                         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
                     {
                         ret = AEE_EFAILED;
                     }
@@ -971,7 +984,7 @@ AEEResult FadasIface_ExtractBBoxCreate( remote_handle64 _h, uint32_t maxNumInPts
 /* ------------------------------------------------------------------ */
 /*  ExtractBBoxRun                                                      */
 /* ------------------------------------------------------------------ */
-AEEResult FadasIface_ExtractBBoxRun( remote_handle64 _h, uint64_t hPostProc, uint32_t numPts,
+AEEResult FadasIface_ExtractBBoxRun( remote_handle64 h, uint64_t hPostProc, uint32_t numPts,
                                      const int32_t *fds, int fdsLen, const uint32_t *offsets,
                                      int offsetsLen, const uint32_t *sizes, int sizesLen,
                                      uint8_t bMapPtsToBBox, uint8_t bBBoxFilter,
@@ -991,7 +1004,7 @@ AEEResult FadasIface_ExtractBBoxRun( remote_handle64 _h, uint64_t hPostProc, uin
     if ( fds != nullptr && fdsLen > 0 )
     {
         sbTx[sbNum].buf = reinterpret_cast<const char *>( fds );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *fds ) * fdsLen );
+        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *fds ) * static_cast<size_t>( fdsLen ) );
         sbNum++;
     }
     sbTx[sbNum].buf = reinterpret_cast<const char *>( &fdsLen );
@@ -1000,7 +1013,8 @@ AEEResult FadasIface_ExtractBBoxRun( remote_handle64 _h, uint64_t hPostProc, uin
     if ( offsets != nullptr && offsetsLen > 0 )
     {
         sbTx[sbNum].buf = reinterpret_cast<const char *>( offsets );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *offsets ) * offsetsLen );
+        sbTx[sbNum].len =
+                static_cast<sl_size_t>( sizeof( *offsets ) * static_cast<size_t>( offsetsLen ) );
         sbNum++;
     }
     sbTx[sbNum].buf = reinterpret_cast<const char *>( &offsetsLen );
@@ -1009,7 +1023,8 @@ AEEResult FadasIface_ExtractBBoxRun( remote_handle64 _h, uint64_t hPostProc, uin
     if ( sizes != nullptr && sizesLen > 0 )
     {
         sbTx[sbNum].buf = reinterpret_cast<const char *>( sizes );
-        sbTx[sbNum].len = static_cast<sl_size_t>( sizeof( *sizes ) * sizesLen );
+        sbTx[sbNum].len =
+                static_cast<sl_size_t>( sizeof( *sizes ) * static_cast<size_t>( sizesLen ) );
         sbNum++;
     }
     sbTx[sbNum].buf = reinterpret_cast<const char *>( &sizesLen );
@@ -1021,16 +1036,16 @@ AEEResult FadasIface_ExtractBBoxRun( remote_handle64 _h, uint64_t hPostProc, uin
     sbTx[sbNum].buf = reinterpret_cast<const char *>( &bBBoxFilter );
     sbTx[sbNum].len = sizeof( bBBoxFilter );
     sbNum++;
-    if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_ExtractBBoxRunSafe( _h, hPostProc, numPts, fds, fdsLen, offsets,
-                                             offsetsLen, sizes, sizesLen, bMapPtsToBBox,
-                                             bBBoxFilter, pNumDetOut, crcTx, &crcRx );
+        ret = FadasIface_ExtractBBoxRunSafe( h, hPostProc, numPts, fds, fdsLen, offsets, offsetsLen,
+                                             sizes, sizesLen, bMapPtsToBBox, bBBoxFilter,
+                                             pNumDetOut, crcTx, &crcRx );
         if ( ret == AEE_SUCCESS )
         {
             if ( pNumDetOut != nullptr )
@@ -1038,7 +1053,8 @@ AEEResult FadasIface_ExtractBBoxRun( remote_handle64 _h, uint64_t hPostProc, uin
                 struct scatter_buffer sbRx[1] = { { 0 } };
                 sbRx[0].buf = reinterpret_cast<const char *>( pNumDetOut );
                 sbRx[0].len = sizeof( *pNumDetOut );
-                if ( (int) crc32_verify_scatter( sbRx, 1, crcRx ) != CRC_RET_SUCCESS_VALUE )
+                if ( crc32_verify_scatter( &sbRx[0], 1U, crcRx ) !=
+                     static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
                 {
                     ret = AEE_EFAILED;
                 }
@@ -1065,7 +1081,7 @@ AEEResult FadasIface_ExtractBBoxRun( remote_handle64 _h, uint64_t hPostProc, uin
  * IDL: AEEResult ExtractBBoxDestroySafe(in uint64_t hPostProc, in uint32_t crcTx)
  * No crcRx.
  */
-AEEResult FadasIface_ExtractBBoxDestroy( remote_handle64 _h, uint64_t hPostProc )
+AEEResult FadasIface_ExtractBBoxDestroy( remote_handle64 h, uint64_t hPostProc )
 {
     uint32_t crcTx = 0U;
     uint32_t sbNum = 0U;
@@ -1076,14 +1092,14 @@ AEEResult FadasIface_ExtractBBoxDestroy( remote_handle64 _h, uint64_t hPostProc 
     sbTx[sbNum].len = sizeof( hPostProc );
     sbNum++;
 
-    if ( (int) crc32_generate_scatter( sbTx, sbNum, reinterpret_cast<sl_u32_t *>( &crcTx ) ) !=
-         CRC_RET_SUCCESS_VALUE )
+    if ( crc32_generate_scatter( &sbTx[0], sbNum, &crcTx ) !=
+         static_cast<error_type>( CRC_RET_SUCCESS_VALUE ) )
     {
         ret = AEE_EFAILED;
     }
     else
     {
-        ret = FadasIface_ExtractBBoxDestroySafe( _h, hPostProc, crcTx );
+        ret = FadasIface_ExtractBBoxDestroySafe( h, hPostProc, crcTx );
     }
     return ret;
 }

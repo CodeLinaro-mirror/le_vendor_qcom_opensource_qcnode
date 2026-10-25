@@ -14,4 +14,5 @@ set(CMAKE_CXX_COMPILER g++)
 # Third-party libraries installed alongside the project build
 include_directories($ENV{QCNODE_INSTALL_DIR}/opt/qcnode/include)
 include_directories($ENV{QCNODE_INSTALL_DIR}/opt/qcnode/include/WF)
+include_directories($ENV{QCNODE_INSTALL_DIR}/opt/qcnode/include/sv)
 add_link_options("-L$ENV{QCNODE_INSTALL_DIR}/opt/qcnode/lib")

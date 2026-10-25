@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <iterator>
 #include <string>
 #include <vector>
 
@@ -43,6 +44,8 @@ public:
      */
     ImageBasicProps() : BufferProps() {}
 
+    ~ImageBasicProps() override = default;
+
 
     /**
      * @brief Constructor for ImageBasicProps.
@@ -56,14 +59,14 @@ public:
      * @note This constructor sets up the properties of the buffer with the given parameters, while
      * most other properties are set to their default suggested values.
      */
-    ImageBasicProps( uint32_t width, uint32_t height, QCImageFormat_e format,
-                     QCMemoryAllocator_e allocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA,
-                     QCAllocationCache_e cache = QC_CACHEABLE )
-        : BufferProps( 0, allocatorType, cache ),
-          format( format ),
+    ImageBasicProps( uint32_t imageWidth, uint32_t imageHeight, QCImageFormat_e imageFormat,
+                     QCMemoryAllocator_e requestedAllocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA,
+                     QCAllocationCache_e requestedCache = QC_CACHEABLE )
+        : BufferProps( 0, requestedAllocatorType, requestedCache ),
+          format( imageFormat ),
           batchSize( 1 ),
-          width( width ),
-          height( height )
+          width( imageWidth ),
+          height( imageHeight )
     {}
 
 
@@ -80,14 +83,15 @@ public:
      * @note This constructor sets up the properties of the image with the given parameters, while
      * most other properties are set to their default suggested values.
      */
-    ImageBasicProps( uint32_t batchSize, uint32_t width, uint32_t height, QCImageFormat_e format,
-                     QCMemoryAllocator_e allocator = QC_MEMORY_ALLOCATOR_DMA_CAMERA,
-                     QCAllocationCache_e cache = QC_CACHEABLE )
-        : BufferProps( 0, allocator, cache ),
-          format( format ),
-          batchSize( batchSize ),
-          width( width ),
-          height( height )
+    ImageBasicProps( uint32_t imageBatchSize, uint32_t imageWidth, uint32_t imageHeight,
+                     QCImageFormat_e imageFormat,
+                     QCMemoryAllocator_e requestedAllocator = QC_MEMORY_ALLOCATOR_DMA_CAMERA,
+                     QCAllocationCache_e requestedCache = QC_CACHEABLE )
+        : BufferProps( 0, requestedAllocator, requestedCache ),
+          format( imageFormat ),
+          batchSize( imageBatchSize ),
+          width( imageWidth ),
+          height( imageHeight )
     {}
 
     QCImageFormat_e format;
@@ -129,9 +133,9 @@ public:
      */
     ImageProps() : ImageBasicProps()
     {
-        std::memset( stride, 0, sizeof( stride ) );
-        std::memset( actualHeight, 0, sizeof( actualHeight ) );
-        std::memset( planeBufSize, 0, sizeof( planeBufSize ) );
+        std::fill( std::begin( stride ), std::end( stride ), 0U );
+        std::fill( std::begin( actualHeight ), std::end( actualHeight ), 0U );
+        std::fill( std::begin( planeBufSize ), std::end( planeBufSize ), 0U );
     }
 
     /**
@@ -150,21 +154,34 @@ public:
      * @return None.
      * @note This constructor sets up the properties of the image with the given parameters, while
      * most other properties are set to their default suggested values.
-     * @note The user must ensure the sizes of the vector strides, actualHeights, and numPlanes are
-     * equal to the number of planes in the image format, and must ensure the size is less than or
-     * equal to QC_NUM_IMAGE_PLANES.
+     * @note Each vector is copied independently. The number of entries copied from each vector
+     * never exceeds QC_NUM_IMAGE_PLANES.
      */
-    ImageProps( uint32_t batchSize, uint32_t width, uint32_t height, QCImageFormat_e format,
-                std::vector<uint32_t> strides, std::vector<uint32_t> actualHeights,
-                std::vector<uint32_t> planeBufSizes,
-                QCMemoryAllocator_e allocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA,
-                QCAllocationCache_e cache = QC_CACHEABLE )
-        : ImageBasicProps( batchSize, width, height, format, allocatorType, cache )
+    ImageProps( uint32_t imageBatchSize, uint32_t imageWidth, uint32_t imageHeight,
+                QCImageFormat_e imageFormat, std::vector<uint32_t> strides,
+                std::vector<uint32_t> actualHeights, std::vector<uint32_t> planeBufSizes,
+                QCMemoryAllocator_e requestedAllocatorType = QC_MEMORY_ALLOCATOR_DMA_CAMERA,
+                QCAllocationCache_e requestedCache = QC_CACHEABLE )
+        : ImageBasicProps( imageBatchSize, imageWidth, imageHeight, imageFormat,
+                           requestedAllocatorType, requestedCache )
     {
-        numPlanes = static_cast<uint32_t>( strides.size() );
-        std::copy( strides.begin(), strides.end(), stride );
-        std::copy( actualHeights.begin(), actualHeights.end(), actualHeight );
-        std::copy( planeBufSizes.begin(), planeBufSizes.end(), planeBufSize );
+        std::fill( std::begin( stride ), std::end( stride ), 0U );
+        std::fill( std::begin( actualHeight ), std::end( actualHeight ), 0U );
+        std::fill( std::begin( planeBufSize ), std::end( planeBufSize ), 0U );
+
+        const uint32_t numberOfStrides =
+                std::min( static_cast<uint32_t>( strides.size() ), (uint32_t) QC_NUM_IMAGE_PLANES );
+        const uint32_t numberOfActualHeights = std::min(
+                static_cast<uint32_t>( actualHeights.size() ), (uint32_t) QC_NUM_IMAGE_PLANES );
+        const uint32_t numberOfPlaneBufSizes = std::min(
+                static_cast<uint32_t>( planeBufSizes.size() ), (uint32_t) QC_NUM_IMAGE_PLANES );
+
+        numPlanes = numberOfStrides;
+        (void) std::copy_n( strides.begin(), numberOfStrides, std::begin( stride ) );
+        (void) std::copy_n( actualHeights.begin(), numberOfActualHeights,
+                            std::begin( actualHeight ) );
+        (void) std::copy_n( planeBufSizes.begin(), numberOfPlaneBufSizes,
+                            std::begin( planeBufSize ) );
     }
     uint32_t stride[QC_NUM_IMAGE_PLANES];
     uint32_t actualHeight[QC_NUM_IMAGE_PLANES];
@@ -226,6 +243,8 @@ public:
 
     ImageDescriptor( const ImageDescriptor &other ) = default;
 
+    using BufferDescriptor::operator=;
+
     /**
      * @brief Sets up the image descriptor from another buffer descriptor object.
      * @param[in] other The buffer descriptor object from which buffer members are copied.
@@ -262,7 +281,7 @@ public:
      * @return QC_STATUS_OK on success, other status codes on failure.
      */
     QCStatus_e GetImageDesc( ImageDescriptor &imageDesc, uint32_t batchOffset,
-                             uint32_t batchSize = 1 ) const;
+                             uint32_t requestedBatchSize = 1 ) const;
 
     QCImageFormat_e format;
     uint32_t batchSize;

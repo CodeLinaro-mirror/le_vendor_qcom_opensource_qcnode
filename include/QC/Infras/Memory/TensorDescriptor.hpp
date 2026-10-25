@@ -53,14 +53,14 @@ public:
      * @note The user must ensure the sizes of the vector dims is less than or equal to
      * QC_NUM_TENSOR_DIMS.
      */
-    TensorProps( QCTensorType_e tensorType, std::vector<uint32_t> dims,
-                 QCMemoryAllocator_e allocatorType = QC_MEMORY_ALLOCATOR_DMA_HTP,
-                 QCAllocationCache_e cache = QC_CACHEABLE )
-        : BufferProps( 0, allocatorType, cache ),
-          tensorType( tensorType )
+    TensorProps( QCTensorType_e requestedTensorType, std::vector<uint32_t> requestedDims,
+                 QCMemoryAllocator_e requestedAllocatorType = QC_MEMORY_ALLOCATOR_DMA_HTP,
+                 QCAllocationCache_e requestedCache = QC_CACHEABLE )
+        : BufferProps( 0, requestedAllocatorType, requestedCache ),
+          tensorType( requestedTensorType )
     {
-        numDims = static_cast<uint32_t>( dims.size() );
-        std::copy( dims.begin(), dims.end(), this->dims );
+        numDims = std::min( static_cast<uint32_t>( requestedDims.size() ), (uint32_t) QC_NUM_TENSOR_DIMS );
+        (void) std::copy_n( requestedDims.begin(), numDims, std::begin( this->dims ) );
     }
     QCTensorType_e tensorType;
     uint32_t dims[QC_NUM_TENSOR_DIMS];
@@ -99,6 +99,8 @@ public:
     ~TensorDescriptor() override = default;
 
     TensorDescriptor( const TensorDescriptor &other ) = default;
+
+    using BufferDescriptor::operator=;
 
     /**
      * @brief Sets up the tensor descriptor from another buffer descriptor object.

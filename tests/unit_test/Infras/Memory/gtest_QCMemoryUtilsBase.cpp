@@ -18,6 +18,23 @@ protected:
     void TearDown() override {}
 };
 
+TEST_F( Test_QCMemoryUtilsBase, ImagePropsConstructor_CopiesEachVectorIndependently )
+{
+    const ImageProps_t imageProps( 1, 64, 64, QC_IMAGE_FORMAT_NV12, { 64, 128, 256 }, { 64 },
+                                   { 4096, 8192 } );
+
+    EXPECT_EQ( 3U, imageProps.numPlanes );
+    EXPECT_EQ( 64U, imageProps.stride[0] );
+    EXPECT_EQ( 64U, imageProps.actualHeight[0] );
+    EXPECT_EQ( 4096U, imageProps.planeBufSize[0] );
+    EXPECT_EQ( 128U, imageProps.stride[1] );
+    EXPECT_EQ( 0U, imageProps.actualHeight[1] );
+    EXPECT_EQ( 8192U, imageProps.planeBufSize[1] );
+    EXPECT_EQ( 256U, imageProps.stride[2] );
+    EXPECT_EQ( 0U, imageProps.actualHeight[2] );
+    EXPECT_EQ( 0U, imageProps.planeBufSize[2] );
+}
+
 TEST_F( Test_QCMemoryUtilsBase, SANITY )
 {
 
@@ -237,6 +254,30 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     status = Ifs.SetImageDescFromImageProp( imageProp, imgDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
+    /* testing for invalid stride */
+    imageProp.format = QC_IMAGE_FORMAT_RGB888;
+    imageProp.batchSize = 1;
+    imageProp.width = 1024;
+    imageProp.height = 768;
+    imageProp.numPlanes = 1;
+    imageProp.stride[0] = 1024 * 2; // too small, should be 1024 * 3
+    imageProp.actualHeight[0] = 768;
+    imageProp.planeBufSize[0] = 0;
+    status = Ifs.SetImageDescFromImageProp( imageProp, imgDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* testing for invalid actualHeight */
+    imageProp.stride[0] = 1024 * 3;
+    imageProp.actualHeight[0] = 767; // too small, should be 768
+    status = Ifs.SetImageDescFromImageProp( imageProp, imgDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* testing for invalid planeBufSize */
+    imageProp.actualHeight[0] = 768;
+    imageProp.planeBufSize[0] = 1024 * 3 * 767; // too small
+    status = Ifs.SetImageDescFromImageProp( imageProp, imgDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
     // Tensor
     tensProp = TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 128, 128, 10 } );
     status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
@@ -262,6 +303,16 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
     tensProp.numDims = 10;
+    status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* testing for invalid tensorType < 0 */
+    tensProp = TensorProps_t( (QCTensorType_e)-1, { 1, 128, 128, 10 } );
+    status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
+    /* testing for dimension 0 at different index */
+    tensProp = TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 128, 0, 10 } );
     status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
@@ -328,14 +379,16 @@ static ImageDescriptor_t MakeDualPlaneImage( void *buf, size_t bufSize, uint32_t
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_NotEmpty )
 {
     UtilsBase utils;
-    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    std::vector<QCMemoryTransition_e> types;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( types ), QC_STATUS_OK );
     ASSERT_FALSE( types.empty() );
 }
 
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_ContainsAllExpectedTypes )
 {
     UtilsBase utils;
-    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    std::vector<QCMemoryTransition_e> types;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( types ), QC_STATUS_OK );
 
     auto contains = [&]( QCMemoryTransition_e t ) {
         return std::find( types.begin(), types.end(), t ) != types.end();
@@ -353,7 +406,8 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_ContainsAllExpectedT
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_DoesNotContainLast )
 {
     UtilsBase utils;
-    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    std::vector<QCMemoryTransition_e> types;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( types ), QC_STATUS_OK );
     auto it = std::find( types.begin(), types.end(), QC_MEMORY_TRANSITION_LAST );
     ASSERT_EQ( types.end(), it );
 }
@@ -382,7 +436,9 @@ TEST_F( Test_QCMemoryUtilsBase, CreateTransition_UnsupportedType_Invalid )
 TEST_F( Test_QCMemoryUtilsBase, CreateTransition_AllSupportedTypes_ReturnOkAndNonNullFn )
 {
     UtilsBase utils;
-    for ( QCMemoryTransition_e type : utils.GetSupportedTransitionTypes() )
+    std::vector<QCMemoryTransition_e> supported;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( supported ), QC_STATUS_OK );
+    for ( QCMemoryTransition_e type : supported )
     {
         QCMemoryTransitionFn_t fn;
         QCStatus_e status = utils.CreateTransition( type, fn );
@@ -570,19 +626,21 @@ TEST_F( Test_QCMemoryUtilsBase, CreateTransition_P010_ToChroma_WrongFormat )
 }
 
 // ---------------------------------------------------------------------------
-// Test GetSupportedBufferTransitionTypesJson
+// Test GetSupportedTransitionTypesJson
 // ---------------------------------------------------------------------------
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_NotEmpty )
 {
     UtilsBase utils;
-    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    std::string json;
+    ASSERT_EQ( utils.GetSupportedBufferTransitionTypesJson( json ), QC_STATUS_OK );
     ASSERT_FALSE( json.empty() );
 }
 
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ValidFormat )
 {
     UtilsBase utils;
-    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    std::string json;
+    ASSERT_EQ( utils.GetSupportedBufferTransitionTypesJson( json ), QC_STATUS_OK );
     ASSERT_EQ( '{', json.front() );
     ASSERT_EQ( '}', json.back() );
 }
@@ -590,7 +648,8 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ValidForma
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ContainsAllExpectedKeys )
 {
     UtilsBase utils;
-    std::string json = utils.GetSupportedBufferTransitionTypesJson();
+    std::string json;
+    ASSERT_EQ( utils.GetSupportedBufferTransitionTypesJson( json ), QC_STATUS_OK );
 
     ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_RGB_TO_TENSOR" ) );
     ASSERT_NE( std::string::npos, json.find( "QC_MEMORY_TRANSITION_BGR_TO_TENSOR" ) );
@@ -604,10 +663,12 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_ContainsAl
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_MatchesVector )
 {
     UtilsBase utils;
-    std::string json = utils.GetSupportedBufferTransitionTypesJson();
-    const std::vector<QCMemoryTransition_e> &types = utils.GetSupportedTransitionTypes();
+    std::string json;
+    ASSERT_EQ( utils.GetSupportedBufferTransitionTypesJson( json ), QC_STATUS_OK );
+    std::vector<QCMemoryTransition_e> types;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( types ), QC_STATUS_OK );
 
-    size_t commaCount = static_cast<size_t>( std::count( json.begin(), json.end(), ',' ) );
+    size_t commaCount = std::count( json.begin(), json.end(), ',' );
     ASSERT_EQ( types.size() - 1, commaCount );
 }
 
@@ -617,12 +678,84 @@ TEST_F( Test_QCMemoryUtilsBase, GetSupportedBufferTransitionTypesJson_MatchesVec
 TEST_F( Test_QCMemoryUtilsBase, GetSupportedTransitionTypes_Consistency )
 {
     UtilsBase utils;
-    for ( QCMemoryTransition_e type : utils.GetSupportedTransitionTypes() )
+    std::vector<QCMemoryTransition_e> supported;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( supported ), QC_STATUS_OK );
+    for ( QCMemoryTransition_e type : supported )
     {
         QCMemoryTransitionFn_t fn;
         QCStatus_e status = utils.CreateTransition( type, fn );
         ASSERT_EQ( QC_STATUS_OK, status )
                 << "Failed to create transition for type: " << static_cast<int>( type );
         ASSERT_NE( nullptr, fn ) << "Null callable for type: " << static_cast<int>( type );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Test error paths of all transition type callables to maximize coverage
+// ---------------------------------------------------------------------------
+TEST_F( Test_QCMemoryUtilsBase, CreateTransition_AllTypes_ErrorPaths )
+{
+    UtilsBase utils;
+    std::vector<QCMemoryTransition_e> supported;
+    ASSERT_EQ( utils.GetSupportedTransitionTypes( supported ), QC_STATUS_OK );
+
+    uint8_t buf[256] = {};
+
+    for ( QCMemoryTransition_e type : supported )
+    {
+        QCMemoryTransitionFn_t fn;
+        ASSERT_EQ( QC_STATUS_OK, utils.CreateTransition( type, fn ) );
+        ASSERT_NE( nullptr, fn );
+
+        // 1. Wrong source descriptor type (not ImageDescriptor)
+        QCBufferDescriptorBase_t wrongSrc;
+        TensorDescriptor_t tensor;
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, fn( wrongSrc, tensor ) );
+
+        // 2. Wrong destination descriptor type (not TensorDescriptor)
+        ImageDescriptor_t img = MakeSinglePlaneImage( buf, sizeof( buf ), 2, 2, QC_IMAGE_FORMAT_RGB888, 3u );
+        QCBufferDescriptorBase_t wrongDst;
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, fn( img, wrongDst ) );
+
+        // 3. Wrong image format for the transition
+        QCImageFormat_e wrongFormat = QC_IMAGE_FORMAT_RGB888;
+        // Determine an incorrect format for the specific transition type
+        switch ( type )
+        {
+            case QC_MEMORY_TRANSITION_RGB_TO_TENSOR:
+                wrongFormat = QC_IMAGE_FORMAT_BGR888;
+                break;
+            case QC_MEMORY_TRANSITION_BGR_TO_TENSOR:
+                wrongFormat = QC_IMAGE_FORMAT_RGB888;
+                break;
+            case QC_MEMORY_TRANSITION_UYVY_TO_TENSOR:
+                wrongFormat = QC_IMAGE_FORMAT_RGB888;
+                break;
+            case QC_MEMORY_TRANSITION_NV12_TO_GRAY:
+            case QC_MEMORY_TRANSITION_NV12_TO_CHROMA:
+                wrongFormat = QC_IMAGE_FORMAT_P010;
+                break;
+            case QC_MEMORY_TRANSITION_P010_TO_GRAY:
+            case QC_MEMORY_TRANSITION_P010_TO_CHROMA:
+                wrongFormat = QC_IMAGE_FORMAT_NV12;
+                break;
+            default:
+                wrongFormat = QC_IMAGE_FORMAT_RGB888;
+                break;
+        }
+
+        // We can create a dual-plane or single-plane wrong format descriptor depending on wrongFormat
+        ImageDescriptor_t wrongFormatImg;
+        if ( wrongFormat == QC_IMAGE_FORMAT_NV12 || wrongFormat == QC_IMAGE_FORMAT_P010 )
+        {
+            wrongFormatImg = MakeDualPlaneImage( buf, sizeof( buf ), 4, 4, wrongFormat, 2u );
+        }
+        else
+        {
+            wrongFormatImg = MakeSinglePlaneImage( buf, sizeof( buf ), 4, 4, wrongFormat, 3u );
+        }
+
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, fn( wrongFormatImg, tensor ) )
+                << "Failed to reject wrong format for transition type: " << static_cast<int>( type );
     }
 }

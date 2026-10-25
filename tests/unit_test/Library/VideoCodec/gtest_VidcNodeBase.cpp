@@ -307,12 +307,12 @@ public:
     }
 
     // Small utility to fully wire the *real* VidcDrvClient as VidcNodeBase expects:
-    //  - Init the client (name, log level, enc/dec type, buf counts)
+    //  - Init the client (enc/dec type, buffer counts)
     //  - Open the device with our static callbacks that forward to EventCallback
-    void WireRealClient( const std::string &name, Logger_Level_e level, VideoEncDecType_e type,
-                         const VidcNodeBase_Config_t &cfg, const VidcCodecMeta_t &meta )
+    void WireRealClient( VideoEncDecType_e type, const VidcNodeBase_Config_t &cfg,
+                         const VidcCodecMeta_t &meta )
     {
-        m_drvClient.Init( name, level, type, cfg );   // sets m_bufNum[], type
+        m_drvClient.Init( type, cfg );   // sets m_bufNum[], type
         ASSERT_EQ( QC_STATUS_OK, m_drvClient.OpenDriver( &TestableVidcNodeBase::InDoneCb,
                                                          &TestableVidcNodeBase::OutDoneCb,
                                                          &TestableVidcNodeBase::EvtCb,
@@ -407,7 +407,7 @@ protected:
         node.SetConfig( &m_cfg );
 
         // Wire the real client & open the device with callbacks to node.EventCallback
-        node.WireRealClient( "vidc-node", LOGGER_LEVEL_DEBUG, VIDEO_ENC, m_cfg,
+        node.WireRealClient( VIDEO_ENC, m_cfg,
                              m_meta );   // encoder path uses RESP_START → RUNNING
     }
 
@@ -544,7 +544,7 @@ TEST_F( VidcNodeBaseTest, PostInit_InvalidLoadResourcesState )
 {
     // Precondition not achievable required by EventCallback for RESP_LOAD_RESOURCES → STATE_ERROR.
     node.SetState( QC_OBJECT_STATE_ERROR );
-    EXPECT_NE( QC_OBJECT_STATE_READY, node.PostInit() );
+    EXPECT_NE( QC_STATUS_OK, node.PostInit() );
 }
 
 TEST_F( VidcNodeBaseTest, PostInit_TransitionsToReadyViaRealClientEvents )
@@ -1051,7 +1051,7 @@ protected:
         m_meta.frameRate = m_cfg.frameRate;
 
         node.SetConfig( &m_cfg );
-        node.WireRealClient( "vidc-dec", LOGGER_LEVEL_DEBUG, VIDEO_DEC, m_cfg, m_meta );
+        node.WireRealClient( VIDEO_DEC, m_cfg, m_meta );
     }
     void TearDown() override { node.CloseDriver(); }
 };

@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "QC/Node/SimulationNode.hpp"
+#include "QC/Infras/Memory/ImageDescriptor.hpp"
+#include "QC/Infras/Memory/TensorDescriptor.hpp"
 #include <chrono>
 #include <cstring>
 #include <thread>
@@ -419,7 +421,12 @@ QCStatus_e SimulationNode::ProcessBuffers( QCFrameDescriptorNodeIfs &frameDesc )
         BufferDescriptor_t *pInputBuffer = dynamic_cast<BufferDescriptor_t *>( &inputBuffer );
         BufferDescriptor_t *pOutputBuffer = dynamic_cast<BufferDescriptor_t *>( &outputBuffer );
 
-        pOutputBuffer->size = pInputBuffer->size;
+        // Propagate the input's buffer type and valid payload size to the output so
+        // downstream nodes and tests see the correct type (e.g. TENSOR) and validSize
+        // after a conversion transition.
+        pOutputBuffer->type      = pInputBuffer->type;
+        pOutputBuffer->size      = pInputBuffer->size;
+        pOutputBuffer->validSize = pInputBuffer->validSize;
 
         if ( pInputBuffer->pBuf && pOutputBuffer->pBuf )
         {
@@ -434,6 +441,52 @@ QCStatus_e SimulationNode::ProcessBuffers( QCFrameDescriptorNodeIfs &frameDesc )
         else
         {
             QC_WARN( "Null buffer pointer detected for buffer pair %u", i );
+        }
+
+        // If both input and output are TensorDescriptor_t, propagate tensor metadata
+        // (tensorType, numDims, dims[]) so the output carries a fully-formed tensor
+        // descriptor that downstream nodes and tests can inspect without a separate
+        // capture mechanism.
+        const Memory::TensorDescriptor_t *pTensorIn =
+                dynamic_cast<const Memory::TensorDescriptor_t *>( &inputBuffer );
+        Memory::TensorDescriptor_t *pTensorOut =
+                dynamic_cast<Memory::TensorDescriptor_t *>( &outputBuffer );
+        if ( pTensorIn != nullptr && pTensorOut != nullptr )
+        {
+            pTensorOut->tensorType = pTensorIn->tensorType;
+            const uint32_t safeDims = std::min( pTensorIn->numDims,
+                                                static_cast<uint32_t>( QC_NUM_TENSOR_DIMS ) );
+            pTensorOut->numDims = safeDims;
+            std::copy( pTensorIn->dims,
+                       pTensorIn->dims + safeDims,
+                       pTensorOut->dims );
+        }
+
+        // Same for ImageDescriptor_t: propagate format/batchSize/width/height and the
+        // per-plane stride/actualHeight/planeBufSize arrays.
+        const Memory::ImageDescriptor_t *pImageIn =
+                dynamic_cast<const Memory::ImageDescriptor_t *>( &inputBuffer );
+        Memory::ImageDescriptor_t *pImageOut =
+                dynamic_cast<Memory::ImageDescriptor_t *>( &outputBuffer );
+        if ( pImageIn != nullptr && pImageOut != nullptr )
+        {
+            pImageOut->format    = pImageIn->format;
+            pImageOut->batchSize = pImageIn->batchSize;
+            pImageOut->width     = pImageIn->width;
+            pImageOut->height    = pImageIn->height;
+
+            const uint32_t safePlanes = std::min( pImageIn->numPlanes,
+                                                  static_cast<uint32_t>( QC_NUM_IMAGE_PLANES ) );
+            pImageOut->numPlanes = safePlanes;
+            std::copy( pImageIn->stride,
+                       pImageIn->stride + safePlanes,
+                       pImageOut->stride );
+            std::copy( pImageIn->actualHeight,
+                       pImageIn->actualHeight + safePlanes,
+                       pImageOut->actualHeight );
+            std::copy( pImageIn->planeBufSize,
+                       pImageIn->planeBufSize + safePlanes,
+                       pImageOut->planeBufSize );
         }
     }
 

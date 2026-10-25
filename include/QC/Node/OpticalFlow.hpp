@@ -5,6 +5,9 @@
 #ifndef QC_NODE_OPTICAL_FLOW_HPP
 #define QC_NODE_OPTICAL_FLOW_HPP
 
+#include <mutex>
+
+#include "QC/Common/QCMap.hpp"
 #include "QC/Node/NodeBase.hpp"
 #include "svLme.h"
 #include "svUtils.h"
@@ -19,7 +22,7 @@ using namespace SV;
 /** @brief The QCNode OpticalFlow Version */
 #define QCNODE_OFL_VERSION_MAJOR 2U
 #define QCNODE_OFL_VERSION_MINOR 1U
-#define QCNODE_OFL_VERSION_PATCH 0U
+#define QCNODE_OFL_VERSION_PATCH 1U
 
 #define QCNODE_OFL_VERSION                                                                         \
     ( ( QCNODE_OFL_VERSION_MAJOR << 16U ) | ( QCNODE_OFL_VERSION_MINOR << 8U ) |                   \
@@ -36,6 +39,11 @@ typedef enum
     QC_NODE_OF_LAST_BUFF_ID = 6
 } QCOpticalFlowBufferId_e;
 
+/** @brief Maximum number of buffers m_memMap can track: 6 buffer roles, each
+ *  supporting up to 16 ping-pong buffers, rounded up to the next power of 2
+ *  (QCMap's pool capacity must be a power of 2). */
+static constexpr uint32_t QC_NODE_OF_MAX_BUFFERS = 128u;
+
 
 typedef struct OpticalFlowBufferMapping
 {
@@ -45,7 +53,7 @@ typedef struct OpticalFlowBufferMapping
           fwdMotionBufferId( QC_NODE_OF_FWD_MOTION_BUFF_ID ),
           bwdMotionBufferId( QC_NODE_OF_BWD_MOTION_BUFF_ID ),
           fwdConfBufferId( QC_NODE_OF_FWD_CONF_BUFF_ID ),
-          bwdConfBufferId( QC_NODE_OF_BWD_CONF_BUFF_ID ){};
+          bwdConfBufferId( QC_NODE_OF_BWD_CONF_BUFF_ID ) {};
 
     uint32_t referenceImageBufferId;
     uint32_t currentImageBufferId;
@@ -166,7 +174,7 @@ public:
 
 } OpticalFlow_Config_t;
 
-class OpticalFlowConfigIfs : public NodeConfigIfs
+class OpticalFlowConfigIfs : public NodeConfigBase
 {
 public:
     /**
@@ -175,7 +183,7 @@ public:
      * OpticalFlowConfigIfs.
      * @return None
      */
-    OpticalFlowConfigIfs( Logger &logger ) : NodeConfigIfs( logger ) {}
+    OpticalFlowConfigIfs( Logger &logger ) : NodeConfigBase( logger ) {}
 
     /**
      * @brief OpticalFlowConfigIfs Destructor
@@ -303,13 +311,13 @@ public:
      * @brief OpticalFlow Constructor
      * @return None
      */
-    OpticalFlow() : m_configIfs( m_logger ){};
+    OpticalFlow() : m_configIfs( m_logger ) {};
 
     /**
      * @brief OpticalFlow Destructor
      * @return None
      */
-    ~OpticalFlow(){};
+    ~OpticalFlow() {};
 
     /**
      * @brief Initializes Node Optical Flow.
@@ -394,7 +402,8 @@ private:
     Session *m_session;
     LME *m_Lme;
     QCObjectState_e m_state = QC_OBJECT_STATE_INITIAL;
-    std::map<void *, Buffer> m_memMap;
+    QCMap<void *, Buffer, QC_NODE_OF_MAX_BUFFERS> m_memMap;
+    std::mutex m_memMapMutex;
     LME::FeatureNoiseTolerances noiseTolerances;
     LME::Penalties penalties;
     PixelFormat GetInputImageFormat( QCImageFormat_e imageFormat );

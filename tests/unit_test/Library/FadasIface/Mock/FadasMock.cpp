@@ -444,7 +444,7 @@ void *FadasVM_PointPillar_Create( FadasPt_3Df32_t plrSize, FadasPt_3Df32_t minRa
     if ( MOCK_CONTROL_RETURN == s_MockParams[MOCK_API_FADAS_VM_POINTPILLAR_CREATE].action )
     {
         if ( ret ) free( ret );
-        ret = s_MockParams[MOCK_API_FADAS_VM_POINTPILLAR_CREATE].param;
+        ret = *(void **)s_MockParams[MOCK_API_FADAS_VM_POINTPILLAR_CREATE].param;
         s_MockParams[MOCK_API_FADAS_VM_POINTPILLAR_CREATE].action = MOCK_CONTROL_NONE;
     }
     return ret;
@@ -841,7 +841,6 @@ extern "C" void *__wrap_dlopen(const char *filename, int flags)
     }
     return __real_dlopen(filename, flags);
 }
-
 /* Symbol-aware dlsym mock */
 static const char *g_dlsym_mock_symbol = nullptr;
 static void       *g_dlsym_mock_return = nullptr;
@@ -869,4 +868,85 @@ extern "C" void *__wrap_dlsym( void *handle, const char *symbol )
     }
     return __real_dlsym( handle, symbol );
 }
+
+#if defined( __QNXNTO__ )
+/* ThreadCtl(_NTO_TCTL_RUNMASK_GET_AND_SET) mock — used by FadasRemap::CreateRemapWorker
+ * to validate cpuThreadsAffinity on QNX. Lets tests force a failure (rc=-1) or a
+ * specific runmask, to reach branches a real ThreadCtl call can't reliably hit. */
+#include <sys/neutrino.h>
+
+static bool         g_threadctl_mock_armed  = false;
+static int          g_threadctl_mock_rc     = 0;
+static unsigned int g_threadctl_mock_runmask = 0U;
+
+extern "C" void MockThreadCtl_Set( int rc, unsigned int runmask )
+{
+    g_threadctl_mock_armed   = true;
+    g_threadctl_mock_rc      = rc;
+    g_threadctl_mock_runmask = runmask;
+}
+
+extern "C" void MockThreadCtl_Reset( void )
+{
+    g_threadctl_mock_armed   = false;
+    g_threadctl_mock_rc      = 0;
+    g_threadctl_mock_runmask = 0U;
+}
+
+extern "C" int __real_ThreadCtl( int cmd, void *data );
+extern "C" int __wrap_ThreadCtl( int cmd, void *data )
+{
+    if ( g_threadctl_mock_armed && ( _NTO_TCTL_RUNMASK_GET_AND_SET == cmd ) )
+    {
+        if ( ( -1 != g_threadctl_mock_rc ) && ( nullptr != data ) )
+        {
+            *static_cast<unsigned int *>( data ) = g_threadctl_mock_runmask;
+        }
+        return g_threadctl_mock_rc;
+    }
+    return __real_ThreadCtl( cmd, data );
+}
+#else
+/* Non-QNX builds don't have ThreadCtl to wrap; keep the mock control API
+ * link-compatible so callers don't need platform guards of their own. */
+extern "C" void MockThreadCtl_Set( int /*rc*/, unsigned int /*runmask*/ ) {}
+extern "C" void MockThreadCtl_Reset( void ) {}
+#endif
+
+#if defined( __linux__ )
+/* sched_getaffinity() mock — used by FadasRemap::CreateRemapWorker to
+ * validate cpuThreadsAffinity on Linux. Lets tests force a failure, to
+ * reach the branch a real sched_getaffinity call can't reliably hit. */
+#include <sched.h>
+#include <sys/types.h>
+#include <cerrno>
+
+static bool g_sched_getaffinity_mock_fail = false;
+
+extern "C" void MockSchedGetaffinity_SetFail( int fail )
+{
+    g_sched_getaffinity_mock_fail = ( 0 != fail );
+}
+
+extern "C" void MockSchedGetaffinity_Reset( void )
+{
+    g_sched_getaffinity_mock_fail = false;
+}
+
+extern "C" int __real_sched_getaffinity( pid_t pid, size_t cpusetsize, cpu_set_t *mask );
+extern "C" int __wrap_sched_getaffinity( pid_t pid, size_t cpusetsize, cpu_set_t *mask )
+{
+    if ( g_sched_getaffinity_mock_fail )
+    {
+        errno = EFAULT;
+        return -1;
+    }
+    return __real_sched_getaffinity( pid, cpusetsize, mask );
+}
+#else
+/* Non-Linux builds don't have sched_getaffinity to wrap; keep the mock
+ * control API link-compatible so callers don't need platform guards. */
+extern "C" void MockSchedGetaffinity_SetFail( int /*fail*/ ) {}
+extern "C" void MockSchedGetaffinity_Reset( void ) {}
+#endif
 

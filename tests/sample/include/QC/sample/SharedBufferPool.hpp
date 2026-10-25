@@ -31,7 +31,7 @@ typedef struct SharedBuffer
 public:
     SharedBuffer() : dummy(), buffer( dummy )
     {
-        dummy.name = "dummy";
+        (void) dummy.name.Assign( "dummy" );
         dummy.pBuf = nullptr;
         dummy.size = 0;
         dummy.type = QC_BUFFER_TYPE_MAX;
@@ -180,6 +180,10 @@ class SharedBufferPool
 {
 public:
     SharedBufferPool();
+    SharedBufferPool( const SharedBufferPool & ) = delete;
+    SharedBufferPool &operator=( const SharedBufferPool & ) = delete;
+    SharedBufferPool( SharedBufferPool && ) = delete;
+    SharedBufferPool &operator=( SharedBufferPool && ) = delete;
     ~SharedBufferPool();
 
     /**

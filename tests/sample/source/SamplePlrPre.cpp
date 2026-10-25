@@ -99,7 +99,9 @@ QCStatus_e SamplePlrPre::ParseConfig( SampleConfig_t &config )
     m_bLatest = Get( config, "latest", true );
 
     m_processor = m_config.GetProcessorType( "processorType", QC_PROCESSOR_CPU );
-    m_rsmPriority = Get( config, "rsm_priority", 0 );
+    m_rsmPriority = Get( config, "rsm_priority", SampleIF::kDefaultRsmPriority );
+    m_rsmTimeoutUs = Get( config, "rsm_timeout", SampleIF::kDefaultRsmTimeoutUs );
+    m_rsmDurationUs = Get( config, "rsm_duration", SampleIF::kDefaultRsmDurationUs );
     uint32_t coreId = Get( config, "core_id", 0 );
     m_coreIds = { coreId };
 
@@ -324,7 +326,7 @@ QCStatus_e SamplePlrPre::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_processor, m_rsmPriority, m_coreIds );
+        ret = SampleIF::Init( m_processor, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )
@@ -367,6 +369,44 @@ QCStatus_e SamplePlrPre::Start()
     return ret;
 }
 
+QCStatus_e SamplePlrPre::SetupFrameDescriptor( NodeFrameDescriptor &frameDesc, DataFrames_t &frames,
+                                               std::shared_ptr<SharedBuffer_t> &pOutputPlrBuffer,
+                                               std::shared_ptr<SharedBuffer_t> &pOutputFeatBuffer )
+{
+    QCBufferDescriptorBase_t &buffer = frames.GetBuffer( 0 );
+    QCStatus_e ret = frameDesc.SetBuffer( 0, buffer );
+
+    if ( QC_STATUS_OK == ret )
+    {
+        ret = frameDesc.SetBuffer( 1, pOutputPlrBuffer->GetBuffer() );
+    }
+
+    if ( QC_STATUS_OK == ret )
+    {
+        ret = frameDesc.SetBuffer( 2, pOutputFeatBuffer->GetBuffer() );
+    }
+
+    return ret;
+}
+
+void SamplePlrPre::PublishOutput( DataFrames_t &frames,
+                                  std::shared_ptr<SharedBuffer_t> &pOutputPlrBuffer,
+                                  std::shared_ptr<SharedBuffer_t> &pOutputFeatBuffer )
+{
+    DataFrames_t outFrames;
+    DataFrame_t frame;
+
+    frame.buffer = pOutputPlrBuffer;
+    frame.frameId = frames.FrameId( 0 );
+    frame.timestamp = frames.Timestamp( 0 );
+    outFrames.Add( frame );
+
+    frame.buffer = pOutputFeatBuffer;
+    outFrames.Add( frame );
+
+    m_pub.Publish( outFrames );
+}
+
 void SamplePlrPre::Execute()
 {
     QCStatus_e ret = QC_STATUS_OK;
@@ -390,48 +430,28 @@ void SamplePlrPre::Execute()
         std::shared_ptr<SharedBuffer_t> pOutputFeatBuffer = m_outputFeatureBufferPool.Get();
         if ( ( nullptr != pOutputPlrBuffer ) && ( nullptr != pOutputFeatBuffer ) )
         {
-            QCBufferDescriptorBase_t &buffer = frames.GetBuffer( 0 );
-            ret = frameDesc.SetBuffer( 0, buffer );
-
-            if ( QC_STATUS_OK == ret )
-            {
-                ret = frameDesc.SetBuffer( 1, pOutputPlrBuffer->GetBuffer() );
-            }
-
-            if ( QC_STATUS_OK == ret )
-            {
-                ret = frameDesc.SetBuffer( 2, pOutputFeatBuffer->GetBuffer() );
-            }
+            ret = SetupFrameDescriptor( frameDesc, frames, pOutputPlrBuffer, pOutputFeatBuffer );
 
             if ( QC_STATUS_OK == ret )
             {
                 ret = SampleIF::Lock();
+                if ( QC_STATUS_OK == ret )
+                {
+                    PROFILER_BEGIN();
+                    ret = m_voxel.ProcessFrameDescriptor( frameDesc );
+                    if ( QC_STATUS_OK == ret )
+                    {
+                        PROFILER_END();
+                        PublishOutput( frames, pOutputPlrBuffer, pOutputFeatBuffer );
+                    }
+                    (void) SampleIF::Unlock();
+                }
             }
 
-            if ( QC_STATUS_OK == ret )
-            {
-                PROFILER_BEGIN();
-                ret = m_voxel.ProcessFrameDescriptor( frameDesc );
-            }
-
-            if ( QC_STATUS_OK == ret )
-            {
-                PROFILER_END();
-                DataFrames_t outFrames;
-                DataFrame_t frame;
-                frame.buffer = pOutputPlrBuffer;
-                frame.frameId = frames.FrameId( 0 );
-                frame.timestamp = frames.Timestamp( 0 );
-                outFrames.Add( frame );
-                frame.buffer = pOutputFeatBuffer;
-                outFrames.Add( frame );
-                m_pub.Publish( outFrames );
-            }
-            else
+            if ( QC_STATUS_OK != ret )
             {
                 QC_ERROR( "Pillarize failed for %" PRIu64 " : %d", frames.FrameId( 0 ), ret );
             }
-            (void) SampleIF::Unlock();
         }
     }
 #ifdef QC_ENABLE_HS

@@ -5,11 +5,13 @@
 #ifndef QC_NODE_FRAME_DESCRIPTOR_HPP
 #define QC_NODE_FRAME_DESCRIPTOR_HPP
 
+#include <array>
 #include <functional>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "QC/Node/Ifs/QCFrameDescriptorNodeIfs.hpp"
@@ -30,7 +32,7 @@ typedef struct QCDummyBufferDescriptor : public QCBufferDescriptorBase_t
 public:
     QCDummyBufferDescriptor() noexcept
     {
-        name = "Dummy";
+        (void) name.Assign( "Dummy" );
         type = QC_BUFFER_TYPE_MAX;
     }
     virtual ~QCDummyBufferDescriptor() = default;
@@ -138,6 +140,99 @@ private:
 
     std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> m_buffers;
     static QCDummyBufferDescriptor_t s_dummy;
+};
+
+template<uint32_t N>
+class NodeFrameDescriptorFlat : public QCFrameDescriptorNodeIfs
+{
+public:
+    NodeFrameDescriptorFlat() noexcept
+        : m_buffers( MakeDummyBuffers( Dummy(), std::make_index_sequence<N>{} ) )
+    {}
+
+    NodeFrameDescriptorFlat( const NodeFrameDescriptorFlat &other ) = default;
+    ~NodeFrameDescriptorFlat() override = default;
+
+    QCFrameDescriptorNodeIfs &operator=( QCFrameDescriptorNodeIfs &other ) override
+    {
+        if ( this != &other )
+        {
+            for ( uint32_t i = 0u; i < N; ++i )
+            {
+                QCBufferDescriptorBase_t &bufDesc = other.GetBuffer( i );
+                m_buffers[i] = bufDesc;
+            }
+        }
+        return *this;
+    }
+
+    NodeFrameDescriptorFlat &operator=( NodeFrameDescriptorFlat &other )
+    {
+        if ( this != &other )
+        {
+            for ( uint32_t i = 0u; i < N; ++i )
+            {
+                QCBufferDescriptorBase_t &bufDesc = other.GetBuffer( i );
+                m_buffers[i] = bufDesc;
+            }
+        }
+        return *this;
+    }
+
+    QCBufferDescriptorBase_t &GetBuffer( uint32_t globalBufferId ) override
+    {
+        std::reference_wrapper<QCBufferDescriptorBase_t> buffer = Dummy();
+
+        if ( globalBufferId < N )
+        {
+            buffer = m_buffers[globalBufferId];
+        }
+
+        return buffer;
+    }
+
+    QCStatus_e SetBuffer( uint32_t globalBufferId, QCBufferDescriptorBase_t &buffer ) override
+    {
+        QCStatus_e status = QC_STATUS_OK;
+
+        if ( globalBufferId < N )
+        {
+            m_buffers[globalBufferId] = buffer;
+        }
+        else
+        {
+            status = QC_STATUS_OUT_OF_BOUND;
+        }
+
+        return status;
+    }
+
+    void Clear() override
+    {
+        for ( auto &buffer : m_buffers )
+        {
+            buffer = Dummy();
+        }
+    }
+
+private:
+    using BufferReference = std::reference_wrapper<QCBufferDescriptorBase_t>;
+
+    template<std::size_t... I>
+    static std::array<BufferReference, N> MakeDummyBuffers(
+            QCBufferDescriptorBase_t &buffer,
+            std::index_sequence<I...> ) noexcept
+    {
+        return { { ( static_cast<void>( I ), std::ref( buffer ) )... } };
+    }
+
+    QCDummyBufferDescriptor_t &Dummy()
+    {
+        static QCDummyBufferDescriptor_t s_dummy;
+        return s_dummy;
+    }
+
+    std::array<BufferReference, N> m_buffers;
 };
 
 }   // namespace Node

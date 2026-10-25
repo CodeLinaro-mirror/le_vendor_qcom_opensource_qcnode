@@ -9,6 +9,7 @@
 #include "QC/Node/Ifs/QCNodeDefs.hpp"
 #include "QC/Node/Ifs/QCNodeMonitoringIfs.hpp"
 #include <functional>
+#include <vector>
 
 namespace QC
 {
@@ -16,12 +17,12 @@ namespace QC
 typedef struct QCNodeEventInfo
 {
     QCNodeEventInfo() = delete;
-    QCNodeEventInfo( QCFrameDescriptorNodeIfs &frameDesc, const QCNodeID_t &node, QCStatus_e status,
-                     QCObjectState_e state )
-        : frameDesc( frameDesc ),
-          node( node ),
-          status( status ),
-          state( state ){};
+    QCNodeEventInfo( QCFrameDescriptorNodeIfs &eventFrameDesc, const QCNodeID_t &eventNode,
+                     QCStatus_e eventStatus, QCObjectState_e eventState )
+        : frameDesc( eventFrameDesc ),
+          node( eventNode ),
+          status( eventStatus ),
+          state( eventState ){};
     QCFrameDescriptorNodeIfs &frameDesc;
     QCNodeID_t node;
     QCStatus_e status;
@@ -42,6 +43,7 @@ class QCNodeIfs
 {
 
 public:
+    virtual ~QCNodeIfs() = default;
     virtual QCStatus_e Initialize( QCNodeInit_t &config ) = 0;
     virtual QCStatus_e DeInitialize() = 0;
     virtual QCStatus_e Start() = 0;

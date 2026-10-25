@@ -62,6 +62,10 @@ typedef SampleIF *( *Sample_CreateFunction_t )();
 class SampleIF
 {
 public:
+    static constexpr int kDefaultRsmPriority = 0;
+    static constexpr uint32_t kDefaultRsmTimeoutUs = 1000000;
+    static constexpr uint32_t kDefaultRsmDurationUs = 0;
+
     SampleIF();
     ~SampleIF() = default;
 
@@ -251,8 +255,7 @@ public:
 protected:
     QCStatus_e Init( std::string name, QCNodeType_e type = QC_NODE_TYPE_CUSTOM_0 );
 
-    QCStatus_e Init( QCProcessorType_e processor, int rsmPriority = 0,
-                     std::vector<uint32_t> coreIds = { 0u } );
+    QCStatus_e Init( QCProcessorType_e processor, std::vector<uint32_t> coreIds = { 0u } );
     QCStatus_e Lock();
     QCStatus_e Unlock();
 
@@ -281,6 +284,9 @@ protected:
 #ifdef QC_ENABLE_HS
     bool m_bOrchestratorEnabled = false;
 #endif
+    int m_rsmPriority = kDefaultRsmPriority;
+    uint32_t m_rsmTimeoutUs = kDefaultRsmTimeoutUs;
+    uint32_t m_rsmDurationUs = kDefaultRsmDurationUs;
     QC_DECLARE_NODETRACE();
     QC_DECLARE_LOGGER();
 
@@ -300,7 +306,6 @@ private:
     compressched_handle m_crsHandle = 0;
     compressched_platform_query m_crsPlatfromQuery = {};
     void SetupCompResSchedCmd( compressched_acquire_cmd &cmd );
-    compressched_queue_priority m_rsmPriority = QUEUE_PRIORITY_DEFAULT;
 #endif
 
     QCProcessorType_e m_processor = QC_PROCESSOR_MAX;

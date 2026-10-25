@@ -99,7 +99,7 @@ class VidcNodeBase : public NodeBase
 {
 public:
     /** @brief Default constructor */
-    VidcNodeBase() : m_state( QC_OBJECT_STATE_INITIAL ) {}
+    VidcNodeBase() : m_state( QC_OBJECT_STATE_INITIAL ), m_drvClient( m_logger ) {}
 
     /** @brief Default destructor */
     virtual ~VidcNodeBase() = default;

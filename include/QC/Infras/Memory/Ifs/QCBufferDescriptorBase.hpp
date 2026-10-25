@@ -5,6 +5,7 @@
 #define QC_BUFFER_DESCRIPTOR_BASE_HPP
 
 #include "QC/Common/QCDefs.hpp"
+#include "QC/Common/QCString.hpp"
 #include "QC/Infras/Memory/Ifs/QCMemoryDefs.hpp"
 #include <string>
 
@@ -95,16 +96,19 @@ public:
             result = allocatorType < other.allocatorType;
         }
         else
-        {}
+        {
+        }
         return result;
     }
 
     /**
      * @var name
      * @brief The name of the buffer.
-     * This string specifies the name of the buffer, which can be used for identification
-     * and debugging purposes. */
-    std::string name;
+     * A fixed-capacity string (QC_BUFFER_NAME_MAX_LEN characters, see
+     * QCMemoryDefs.hpp) used for identification and debugging purposes.
+     * `name = "..."` assigns silently; call Assign() instead to check the
+     * returned QCStatus_e, and CStr() to read. */
+    QCString<QC_BUFFER_NAME_MAX_LEN> name;
 
     /**
      * @var pBuf
@@ -175,6 +179,18 @@ public:
      * @return size_t Number of bytes of valid data in the buffer.
      */
     virtual size_t GetDataSize() const { return size; }
+
+    /**
+     * @brief Returns the type-level configuration schema for this buffer type.
+     *
+     * Describes valid constraints for this buffer type (size ranges, alignment requirements,
+     * cache attributes). Returns static type-level data, not runtime instance state.
+     * Override in each concrete descriptor type; base returns "{}" as a safe default.
+     *
+     * @param[out] options JSON schema string.
+     * @return QCStatus_e indicating success or failure.
+     */
+    virtual QCStatus_e GetOptions( std::string &options ) { options = "{}"; return QC_STATUS_UNSUPPORTED; }
 
 } QCBufferDescriptorBase_t;
 

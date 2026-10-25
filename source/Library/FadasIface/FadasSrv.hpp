@@ -19,6 +19,7 @@ extern "C"
 #include <dlfcn.h>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Common/QCMap.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/Ifs/QCBufferDescriptorBase.hpp"
 #include "QC/Infras/Memory/ImageDescriptor.hpp"
@@ -57,6 +58,10 @@ using namespace QC::Memory;
 #define NSP_CORES_ID_MAX 3
 #endif
 
+#ifndef FADAS_MAX_REGISTERED_BUFFERS
+#define FADAS_MAX_REGISTERED_BUFFERS 1024U
+#endif
+
 
 #define QC_AEE_ENOSUCHMAP 0x80000448
 
@@ -81,8 +86,9 @@ typedef FadasError_e ( *FuncFadasRemap_DestroyMapGPU_t )( FadasRemapMap_t *map )
 class FadasSrv
 {
 public:
-    QCStatus_e Init( QCProcessorType_e processor, const char *pName, Logger_Level_e level,
-                     uint32_t coreId = 0 );
+    explicit FadasSrv( Logger &logger ) : m_logger( logger ) {}
+
+    QCStatus_e Init( QCProcessorType_e processor, uint32_t coreId = 0 );
     QCStatus_e Deinit();
     int32_t RegBuf( const QCBufferDescriptorBase_t &bufDesc, FadasBufType_e bufferType );
     void DeregBuf( void *pBuffer );
@@ -128,7 +134,8 @@ private:
     static remote_handle64 s_handle64[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
     static uint64_t s_useRef[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
     static bool s_initialized[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
-    static std::map<void *, MemInfo> s_memMaps[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
+    static QCMap<void *, MemInfo, FADAS_MAX_REGISTERED_BUFFERS>
+            s_memMaps[QC_PROCESSOR_MAX + NSP_CORES_ID_MAX];
     static long int s_client;
     static FuncFadasInitGPU_t s_FadasInitGPU;
     static FuncFadasDeInitGPU_t s_FadasDeInitGPU;
@@ -144,7 +151,7 @@ protected:
 
 
 protected:
-    QC_DECLARE_LOGGER();
+    Logger &m_logger;
 };
 
 

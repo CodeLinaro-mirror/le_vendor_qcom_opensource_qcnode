@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 #include <chrono>
 #include <condition_variable>
+#include <fstream>
 #include <mutex>
 #include <stdio.h>
 #include <string>
@@ -372,7 +373,7 @@ protected:
             auto readSize = fread( buffer.get(), 1, bufferSize, pFile );
             ASSERT_EQ( readSize, bufferSize );
             fclose( pFile );
-            ctxBufDesc.name = modelPath;
+            (void) ctxBufDesc.name.Assign( modelPath.c_str() );
             ctxBufDesc.pBuf = buffer.get();
             ctxBufDesc.size = bufferSize;
             config.buffers.push_back( ctxBufDesc );
@@ -656,6 +657,346 @@ TEST_F( QnnTest, Perf )
     Deinit();
 }
 
+TEST_F( QnnTest, GetOptions )
+{
+    // Verifies the pre-init schema emission: GetOptions() must return the
+    // full Draft 2020-12 schema (config wrapper + $defs + capability +
+    // empty buffers + version) immediately, without requiring a model to
+    // be loaded. The post-init behaviour (model.inputs/outputs and
+    // populated buffers) is exercised indirectly by every other test that
+    // calls AllocateBuffers() after Init().
+    QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_BAD_STATE, cfgIfs.GetOptions( opts ) );
+    DataTree dt;
+    ret = dt.Load( opts, errors );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    // version
+    ASSERT_TRUE( dt.Exists( "version" ) );
+    EXPECT_EQ( static_cast<uint32_t>( QCNODE_QNN_VERSION ), dt.Get<uint32_t>( "version", 0 ) );
+
+    // config wrapper — small object schema with $refs into config.$defs
+    ASSERT_TRUE( dt.Exists( "config" ) );
+    EXPECT_EQ( "object", dt.Get<std::string>( "config.type", "" ) );
+    EXPECT_EQ( "#/$defs/staticConfig", dt.Get<std::string>( "config.properties.static.$ref", "" ) );
+    EXPECT_EQ( "#/$defs/dynamicConfig",
+               dt.Get<std::string>( "config.properties.dynamic.$ref", "" ) );
+    EXPECT_FALSE( dt.Get<bool>( "config.additionalProperties", true ) );
+
+    // config.$defs.staticConfig — schema body with const type "QNN" and
+    // a $ref to the shared schemaVersion def. The schemaVersion def itself
+    // (with const "2.0.0") is checked separately below.
+    ASSERT_TRUE( dt.Exists( "config.$defs.staticConfig" ) );
+    EXPECT_EQ( "QNN Static Config", dt.Get<std::string>( "config.$defs.staticConfig.title", "" ) );
+    EXPECT_EQ(
+            "#/$defs/schemaVersion",
+            dt.Get<std::string>( "config.$defs.staticConfig.properties.schemaVersion.$ref", "" ) );
+    EXPECT_EQ( "QNN",
+               dt.Get<std::string>( "config.$defs.staticConfig.properties.type.const", "" ) );
+    // Default executeMode is "sync" — callers without a callback in
+    // QCNodeInit_t get blocking behaviour without overriding anything.
+    EXPECT_EQ( "sync", dt.Get<std::string>(
+                               "config.$defs.staticConfig.properties.executeMode.default", "" ) );
+
+    // SOC discriminator: properties.socId.const is patched to QC_TARGET_SOC
+    // at construction. The allOf array carries SOC-narrowing branches; the
+    // branch whose `if.properties.socId.const` matches the build's SOC is
+    // the one that actually fires at validation time.
+    EXPECT_EQ( static_cast<uint32_t>( QC_TARGET_SOC ),
+               dt.Get<uint32_t>( "config.$defs.staticConfig.properties.socId.const", 0U ) );
+
+    // The SOC narrowing rules live in the allOf array — find the branch
+    // whose `if.properties.socId.const` matches the build SOC, then verify
+    // its `then.properties.processorType.enum` and `coreIds` bounds match
+    // what the implementation declares for this SOC.
+    std::vector<DataTree> allOf;
+    ret = dt.Get( "config.$defs.staticConfig.allOf", allOf );
+    ASSERT_EQ( QC_STATUS_OK, ret );
+    EXPECT_GE( allOf.size(), 4u );   // 3 loadType branches + ≥1 SOC branch
+
+    bool foundSocBranch = false;
+    for ( auto &branch : allOf )
+    {
+        if ( false == branch.Exists( "if.properties.socId.const" ) )
+        {
+            continue;
+        }
+        uint32_t branchSoc = branch.Get<uint32_t>( "if.properties.socId.const", UINT32_MAX );
+        if ( branchSoc != static_cast<uint32_t>( QC_TARGET_SOC ) )
+        {
+            continue;
+        }
+        foundSocBranch = true;
+
+        // The build SOC's branch must declare a narrower processorType
+        // enum and concrete coreIds bounds.
+        EXPECT_TRUE( branch.Exists( "then.properties.processorType.enum" ) );
+        EXPECT_TRUE( branch.Exists( "then.properties.coreIds.items.maximum" ) );
+        EXPECT_TRUE( branch.Exists( "then.properties.coreIds.maxItems" ) );
+
+#if ( QC_TARGET_SOC == 8650 )
+        constexpr uint32_t kExpectedCoreMax = 0U;
+        constexpr uint32_t kExpectedCoreCount = 1U;
+        std::vector<std::string> kExpectedProcs = { "cpu", "gpu", "htp0", "htp1" };
+#elif ( QC_TARGET_SOC == 8797 )
+        constexpr uint32_t kExpectedCoreMax = 3U;
+        constexpr uint32_t kExpectedCoreCount = 4U;
+        std::vector<std::string> kExpectedProcs = { "cpu", "gpu", "htp0", "htp1", "htp2", "htp3" };
+#else
+        constexpr uint32_t kExpectedCoreMax = 0U;
+        constexpr uint32_t kExpectedCoreCount = 1U;
+        std::vector<std::string> kExpectedProcs = { "cpu", "gpu" };
+#endif
+        EXPECT_EQ( kExpectedCoreMax,
+                   branch.Get<uint32_t>( "then.properties.coreIds.items.maximum", 0U ) );
+        EXPECT_EQ( kExpectedCoreCount,
+                   branch.Get<uint32_t>( "then.properties.coreIds.maxItems", 0U ) );
+        std::vector<std::string> actualProcs = branch.Get<std::string>(
+                "then.properties.processorType.enum", std::vector<std::string>{} );
+        EXPECT_EQ( kExpectedProcs, actualProcs );
+        break;
+    }
+    EXPECT_TRUE( foundSocBranch ) << "No allOf branch matched QC_TARGET_SOC = " << QC_TARGET_SOC;
+
+    // contextBufferId / bufferIds use uint16 max (65535) as their upper
+    // bound — they are opaque indices into QCNodeInit_t.buffers, not
+    // HW-bounded core/device IDs, so a wide range is appropriate.
+    EXPECT_EQ( 65535U,
+               dt.Get<uint32_t>( "config.$defs.staticConfig.properties.contextBufferId.maximum",
+                                 0U ) );
+    EXPECT_EQ( 65535U,
+               dt.Get<uint32_t>( "config.$defs.staticConfig.properties.bufferIds.items.maximum",
+                                 0U ) );
+    EXPECT_EQ( 65535U,
+               dt.Get<uint32_t>( "config.$defs.staticConfig.properties.bufferIds.maxItems", 0U ) );
+
+    // config.$defs.dynamicConfig — also $refs the shared schemaVersion def.
+    ASSERT_TRUE( dt.Exists( "config.$defs.dynamicConfig" ) );
+    EXPECT_EQ(
+            "#/$defs/schemaVersion",
+            dt.Get<std::string>( "config.$defs.dynamicConfig.properties.schemaVersion.$ref", "" ) );
+
+    // config.$defs.schemaVersion — single source of truth for the version
+    // const. Both static and dynamic point here via $ref.
+    ASSERT_TRUE( dt.Exists( "config.$defs.schemaVersion" ) );
+    EXPECT_EQ( "2.0.0", dt.Get<std::string>( "config.$defs.schemaVersion.const", "" ) );
+
+    // config carries its own $schema declaration so JEdison auto-detects
+    // the Draft 2020-12 dialect.
+    EXPECT_EQ( "https://json-schema.org/draft/2020-12/schema",
+               dt.Get<std::string>( "config.$schema", "" ) );
+
+    // qnnSdkVersion.buildId — string from QnnSdkBuildId.h identifying the
+    // QNN SDK package this build was compiled against (e.g.
+    // "v2.45.0.260326154327"). Always present; non-empty.
+    EXPECT_TRUE( dt.Exists( "qnnSdkVersion.buildId" ) );
+    EXPECT_FALSE( dt.Get<std::string>( "qnnSdkVersion.buildId", "" ).empty() );
+
+    // qnnSdkVersion.backendCoreApiVersion / backendApiVersion / systemApiVersion
+    // are runtime-discovered (populated when QnnImpl walks the providers
+    // list and calls backendGetApiVersion during Initialize). NOT
+    // expected pre-init.
+    EXPECT_FALSE( dt.Exists( "qnnSdkVersion.backendCoreApiVersion" ) );
+    EXPECT_FALSE( dt.Exists( "qnnSdkVersion.backendApiVersion" ) );
+    EXPECT_FALSE( dt.Exists( "qnnSdkVersion.systemApiVersion" ) );
+
+    // Reference configuration examples — staticConfig and dynamicConfig
+    // each carry an `examples` array (per JSON Schema 2020-12) so a tool
+    // like JEdison can offer "load example" buttons in the form. At least
+    // one example each.
+    std::vector<DataTree> staticExamples;
+    ret = dt.Get( "config.$defs.staticConfig.examples", staticExamples );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    EXPECT_GT( staticExamples.size(), 0u );
+
+    std::vector<DataTree> dynamicExamples;
+    ret = dt.Get( "config.$defs.dynamicConfig.examples", dynamicExamples );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    EXPECT_GT( dynamicExamples.size(), 0u );
+
+    // buffers — present but empty before model load.
+    ASSERT_TRUE( dt.Exists( "buffers" ) );
+    std::vector<DataTree> bufInputs, bufOutputs;
+    ret = dt.Get( "buffers.inputs", bufInputs );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    EXPECT_EQ( 0u, bufInputs.size() );
+    ret = dt.Get( "buffers.outputs", bufOutputs );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    EXPECT_EQ( 0u, bufOutputs.size() );
+
+    // bufferIdMap — present but empty before model load. The node
+    // populates it from input/output tensor names once the model is loaded;
+    // the user can copy it verbatim into static.globalBufferIdMap as a
+    // starting point for a custom mapping. (Output field is `bufferIdMap`;
+    // the corresponding static config input field stays `globalBufferIdMap`
+    // for cross-node API compatibility.)
+    ASSERT_TRUE( dt.Exists( "bufferIdMap" ) );
+    std::vector<DataTree> globalMap;
+    ret = dt.Get( "bufferIdMap", globalMap );
+    EXPECT_EQ( QC_STATUS_OK, ret );
+    EXPECT_EQ( 0u, globalMap.size() );
+
+    // model — should NOT be populated before init.
+    EXPECT_FALSE( dt.Exists( "model.inputs" ) );
+    EXPECT_FALSE( dt.Exists( "model.outputs" ) );
+
+    // Dump the GetOptions output to a JSON file for offline inspection
+    // (e.g. pasting `config` into JEdison). Written to the current working
+    // directory; printed path on success.
+    const char *kOutPath = "qnn_get_options.json";
+    std::ofstream ofs( kOutPath );
+    ASSERT_TRUE( ofs.is_open() ) << "failed to open " << kOutPath << " for write";
+    ofs << opts;
+    ofs.close();
+    printf( "GetOptions output written to %s (%zu bytes)\n", kOutPath, opts.size() );
+
+    // Post-init dump: run the same flow as the Perf test (binary load on
+    // htp0) and re-emit GetOptions. After Init, the cached schema is
+    // augmented with concrete model.inputs/outputs and bufferDescriptors
+    // (bufferType="tensor" + tensorProps populated from the loaded model).
+    Init( "PERF", "binary", "data/centernet/program.bin", "htp0" );
+    std::string optsAfter;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( optsAfter ) );
+
+    const char *kOutPathAfter = "qnn_get_options_after_init.json";
+    std::ofstream ofs2( kOutPathAfter );
+    ASSERT_TRUE( ofs2.is_open() ) << "failed to open " << kOutPathAfter << " for write";
+    ofs2 << optsAfter;
+    ofs2.close();
+    printf( "GetOptions output (post-init) written to %s (%zu bytes)\n", kOutPathAfter,
+            optsAfter.size() );
+
+    Deinit();
+}
+
+// Reset() side effects: DeInit() must clear model.*, buffers.*, and
+// bufferIdMap while leaving the schema intact.
+TEST_F( QnnTest, GetOptions_PostDeInit_ClearsModel )
+{
+    Init( "PostDeInitClear", "binary", "data/centernet/program.bin", "htp0" );
+
+    QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
+
+    // Snapshot post-init: model + buffers + bufferIdMap must be populated
+    // once GetInputTensors / GetOutputTensors succeed.
+    std::string optsAfterInit;
+    ASSERT_EQ( QC_STATUS_OK, cfgIfs.GetOptions( optsAfterInit ) );
+    DataTree dtAfterInit;
+    ASSERT_EQ( QC_STATUS_OK, dtAfterInit.Load( optsAfterInit, errors ) );
+
+    std::vector<DataTree> inputsAfterInit;
+    std::vector<DataTree> outputsAfterInit;
+    ASSERT_EQ( QC_STATUS_OK, dtAfterInit.Get( "model.inputs", inputsAfterInit ) );
+    ASSERT_EQ( QC_STATUS_OK, dtAfterInit.Get( "model.outputs", outputsAfterInit ) );
+    EXPECT_GT( inputsAfterInit.size(), 0u );
+    EXPECT_GT( outputsAfterInit.size(), 0u );
+
+    std::vector<DataTree> bufInputsAfterInit;
+    std::vector<DataTree> bufOutputsAfterInit;
+    ASSERT_EQ( QC_STATUS_OK, dtAfterInit.Get( "buffers.inputs", bufInputsAfterInit ) );
+    ASSERT_EQ( QC_STATUS_OK, dtAfterInit.Get( "buffers.outputs", bufOutputsAfterInit ) );
+    EXPECT_GT( bufInputsAfterInit.size(), 0u );
+    EXPECT_GT( bufOutputsAfterInit.size(), 0u );
+
+    std::vector<DataTree> globalMapAfterInit;
+    ASSERT_EQ( QC_STATUS_OK, dtAfterInit.Get( "bufferIdMap", globalMapAfterInit ) );
+    EXPECT_GT( globalMapAfterInit.size(), 0u );
+
+    // DeInitialize() invokes QnnConfig::Reset(), which clears the
+    // model-derived keys and re-dumps m_options.
+    ret = qnn.DeInitialize();
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    // Post-DeInit GetOptions: GetInputTensors() returns BAD_STATE
+    // because the model is unloaded; m_options still carries the
+    // Reset()-cleared schema-only view (options assignment at the
+    // tail of GetOptions runs regardless of the returned status).
+    std::string optsAfterDeInit;
+    EXPECT_EQ( QC_STATUS_BAD_STATE, cfgIfs.GetOptions( optsAfterDeInit ) );
+    DataTree dtAfterDeInit;
+    ASSERT_EQ( QC_STATUS_OK, dtAfterDeInit.Load( optsAfterDeInit, errors ) );
+
+    // Schema (config.$defs.*) must still be present — Reset() only
+    // touches model.* / buffers.* / bufferIdMap.
+    EXPECT_TRUE( dtAfterDeInit.Exists( "config.$defs.staticConfig" ) );
+    EXPECT_TRUE( dtAfterDeInit.Exists( "config.$defs.dynamicConfig" ) );
+    EXPECT_TRUE( dtAfterDeInit.Exists( "config.$defs.schemaVersion" ) );
+
+    // Model-derived arrays cleared to empty.
+    std::vector<DataTree> inputsAfterDeInit;
+    std::vector<DataTree> outputsAfterDeInit;
+    ASSERT_EQ( QC_STATUS_OK, dtAfterDeInit.Get( "model.inputs", inputsAfterDeInit ) );
+    ASSERT_EQ( QC_STATUS_OK, dtAfterDeInit.Get( "model.outputs", outputsAfterDeInit ) );
+    EXPECT_EQ( 0u, inputsAfterDeInit.size() );
+    EXPECT_EQ( 0u, outputsAfterDeInit.size() );
+
+    std::vector<DataTree> bufInputsAfterDeInit;
+    std::vector<DataTree> bufOutputsAfterDeInit;
+    ASSERT_EQ( QC_STATUS_OK, dtAfterDeInit.Get( "buffers.inputs", bufInputsAfterDeInit ) );
+    ASSERT_EQ( QC_STATUS_OK, dtAfterDeInit.Get( "buffers.outputs", bufOutputsAfterDeInit ) );
+    EXPECT_EQ( 0u, bufInputsAfterDeInit.size() );
+    EXPECT_EQ( 0u, bufOutputsAfterDeInit.size() );
+
+    std::vector<DataTree> globalMapAfterDeInit;
+    ASSERT_EQ( QC_STATUS_OK, dtAfterDeInit.Get( "bufferIdMap", globalMapAfterDeInit ) );
+    EXPECT_EQ( 0u, globalMapAfterDeInit.size() );
+}
+
+// Reset() guard: Init + DeInit with no GetOptions() call in between
+// must hit the `false == m_bSchemaLoaded` branch and skip the tree
+// clears — no crash, no state corruption. The subsequent first-ever
+// GetOptions() must still build the schema cleanly.
+TEST_F( QnnTest, GetOptions_Reset_PreSchemaLoad )
+{
+    // qnn is default-constructed, m_bSchemaLoaded is false, m_optionsTree
+    // is empty, GetOptions() has never been called.
+    Init( "ResetPreSchemaLoad", "binary", "data/centernet/program.bin", "htp0" );
+    ret = qnn.DeInitialize();
+    ASSERT_EQ( QC_STATUS_OK, ret );
+
+    // First-ever GetOptions() after DeInit: schema loads (m_bSchemaLoaded
+    // false -> true), GetInputTensors returns BAD_STATE (model unloaded),
+    // status stays BAD_STATE. m_options carries the schema-only view.
+    QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
+    std::string opts;
+    EXPECT_EQ( QC_STATUS_BAD_STATE, cfgIfs.GetOptions( opts ) );
+
+    DataTree dt;
+    ASSERT_EQ( QC_STATUS_OK, dt.Load( opts, errors ) );
+    EXPECT_TRUE( dt.Exists( "config.$defs.staticConfig" ) );
+
+    // model.* absent — schema-only view, never populated.
+    EXPECT_FALSE( dt.Exists( "model.inputs" ) );
+    EXPECT_FALSE( dt.Exists( "model.outputs" ) );
+
+    // Idempotency: a second DeInitialize() must be safe (state is
+    // already INITIAL -> BAD_STATE) and must not crash. Reset() now
+    // runs with m_bSchemaLoaded=true (set by the GetOptions() above),
+    // so it takes the tree-clear branch — legitimately adding empty
+    // model.inputs/outputs to m_optionsTree that weren't there in
+    // `opts`. We check semantics, not byte-for-byte equality.
+    ret = qnn.DeInitialize();
+    EXPECT_EQ( QC_STATUS_BAD_STATE, ret );
+
+    std::string opts2;
+    EXPECT_EQ( QC_STATUS_BAD_STATE, cfgIfs.GetOptions( opts2 ) );
+
+    DataTree dt2;
+    ASSERT_EQ( QC_STATUS_OK, dt2.Load( opts2, errors ) );
+    EXPECT_TRUE( dt2.Exists( "config.$defs.staticConfig" ) );
+
+    // Model arrays present (added by Reset() on the 2nd DeInit path)
+    // but empty — no real tensor data since the model was never
+    // re-loaded.
+    std::vector<DataTree> inputs2;
+    std::vector<DataTree> outputs2;
+    ASSERT_EQ( QC_STATUS_OK, dt2.Get( "model.inputs", inputs2 ) );
+    ASSERT_EQ( QC_STATUS_OK, dt2.Get( "model.outputs", outputs2 ) );
+    EXPECT_EQ( 0u, inputs2.size() );
+    EXPECT_EQ( 0u, outputs2.size() );
+}
+
 TEST_F( QnnTest, RegisterBuffer )
 {
     Init( "MODEL_FROM_BUF", "binary", "data/centernet/program.bin", "htp0" );
@@ -778,7 +1119,13 @@ TEST_F( QnnTest, StateMachine )
     QCNodeConfigIfs &cfgIfs = qnn.GetConfigurationIfs();
     std::string options;
     ASSERT_EQ( QC_STATUS_BAD_STATE, cfgIfs.GetOptions( options ) );
-    ASSERT_EQ( "{}", options );
+    // Pre-init: GetOptions() now returns the self-describing config schema
+    // (m_bSchemaLoaded path) even before Initialize() is called. The schema
+    // JSON is non-empty and contains the "config" key; model-derived keys
+    // (model.inputs / model.outputs) are absent until Initialize() succeeds.
+    ASSERT_FALSE( options.empty() );
+    ASSERT_NE( std::string::npos, options.find( "\"config\"" ) );
+    ASSERT_EQ( std::string::npos, options.find( "\"model\"" ) );
 
     ret = qnn.Start();
     ASSERT_EQ( QC_STATUS_BAD_STATE, ret );

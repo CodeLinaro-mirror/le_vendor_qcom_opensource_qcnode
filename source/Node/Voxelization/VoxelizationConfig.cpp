@@ -295,7 +295,7 @@ QCStatus_e VoxelizationConfig::VerifyAndSet( const std::string config, std::stri
     QCStatus_e ret = QC_STATUS_OK;
     DataTree dt;
 
-    ret = NodeConfigIfs::VerifyAndSet( config, errors );
+    ret = NodeConfigBase::VerifyAndSet( config, errors );
     if ( QC_STATUS_OK == ret )
     {
         ret = m_dataTree.Get( "static", dt );

@@ -4,6 +4,7 @@
 #ifndef QC_NODE_VIDEO_ENCODER_HPP
 #define QC_NODE_VIDEO_ENCODER_HPP
 
+#include <cstddef>
 #include <mutex>
 #include <queue>
 #include <string>
@@ -64,6 +65,13 @@ typedef enum
 
 /** @brief This data type list the different VideoEncoder Callback Event Type */
 typedef VideoCodec_EventType_e VideoEncoder_EventType_e;
+
+typedef struct VideoEncoderErrorInfo
+{
+    VideoEncoder_EventType_e eventId;
+    void *pEvent;
+    size_t size;
+} VideoEncoderErrorInfo_t;
 
 /** @brief This data type list the different VideoEncoder Property that can set dynamically */
 typedef enum

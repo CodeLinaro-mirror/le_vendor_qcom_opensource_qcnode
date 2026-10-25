@@ -6,6 +6,8 @@
 
 #include "HTP/QnnHtpContext.h"
 #include "HTP/QnnHtpDevice.h"
+#include "QC/Common/QCMap.hpp"
+#include "QC/Common/QCVector.hpp"
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
 #include "QC/Infras/NodeTrace/NodeTrace.hpp"
 #include "QC/Node/QNN.hpp"
@@ -29,6 +31,18 @@ using namespace QC::Memory;
 #endif
 
 #define QNN_NOTIFY_MAGIC ( 0x464900544F4E4E51ull )
+
+#ifndef QNN_MAX_DMA_MEM_REF_MAP_ENTRIES
+#define QNN_MAX_DMA_MEM_REF_MAP_ENTRIES 1024u
+#endif
+
+#ifndef QNN_MAX_DMA_MEM_INFO_ENTRIES
+#define QNN_MAX_DMA_MEM_INFO_ENTRIES 128u
+#endif
+
+#ifndef QNN_MAX_TENSOR_NUM
+#define QNN_MAX_TENSOR_NUM 128u
+#endif
 
 #ifndef QNNIMPL_FRIEND_CLASS
 #define QNNIMPL_FRIEND_CLASS()
@@ -206,6 +220,22 @@ public:
     QnnImplConfig_t &GetConfig() { return m_config; }
     QnnImplMonitorConfig_t &GetMonitorConfig() { return m_monitorConfig; }
 
+    /**
+     * @brief Get the runtime-discovered QNN system interface API version.
+     * @return The systemApiVersion struct from the matched systemInterfaceProviders entry.
+     *         Populated during Initialize(); zero-initialised before that.
+     */
+    const Qnn_Version_t &GetSystemApiVersion() const { return m_systemApiVersion; }
+
+    /**
+     * @brief Get the loaded QNN backend's runtime-reported API version.
+     * @return The Qnn_ApiVersion_t returned by the backend's
+     *         backendGetApiVersion() call during Initialize(). Has both
+     *         coreApiVersion and backendApiVersion sub-fields. Zero-
+     *         initialised before Initialize() succeeds.
+     */
+    const Qnn_ApiVersion_t &GetBackendVersion() const { return m_backendVersion; }
+
     QCStatus_e Initialize( QCNodeEventCallBack_t callback,
                            std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers );
     QCStatus_e Start();
@@ -311,13 +341,11 @@ private:
         uint16_t popIdx;
         uint16_t pushIdx;
 
-    public:
         void Init();
         void Push( NotifyParam_t *pNotifyParam );
         NotifyParam_t *Pop();
     } NotifyParamQueue_t;
 
-private:
     static void QnnNotifyFn( void *pNotifyParam, Qnn_NotifyStatus_t notifyStatus );
     void QnnNotifyFn( NotifyParam_t &notifyParam, Qnn_NotifyStatus_t notifyStatus );
 
@@ -343,7 +371,7 @@ private:
 
     void RemoteDeRegisterBuf( void *pData, size_t size );
     QCStatus_e DeRegisterAllBuffers();
-#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 )
+#if defined( QC_TARGET_SOC ) && ( QC_TARGET_SOC == 8797 || QC_TARGET_SOC == 8787 )
     /**
      * @brief Resolve the FastRPC domain id for the configured processor and the given core.
      *        Domains are enumerated dynamically via remote_system_request(FASTRPC_GET_DOMAINS)
@@ -395,7 +423,8 @@ private:
 
     std::mutex m_lock;
     static std::mutex s_lock[QNN_PROCESSOR_MAX];
-    static std::map<void *, int> s_dmaMemRefMap[QNN_PROCESSOR_MAX];
+    static QCMap<void *, int, QNN_MAX_DMA_MEM_REF_MAP_ENTRIES>
+            s_dmaMemRefMap[QNN_PROCESSOR_MAX];
     static std::map<Qnn_ProcessorType_e, std::string> s_Backends;
     // Extended FastRPC domain id resolved once during Initialize() (from the first configured
     // core) and reused for every remote_register_buf_v2() register/deregister call.
@@ -413,6 +442,14 @@ private:
     Qnn_LogHandle_t m_logHandle = nullptr;
 
     QnnImplFunctionPointers_t m_qnnFunctionPointers;
+
+    // Runtime-discovered QNN versions cached during Initialize() — captured
+    // from the matched systemInterfaceProviders entry and from the backend's
+    // own backendGetApiVersion() call, so the rest of the system
+    // (e.g. QnnConfig::GetOptions) can report them without re-walking the
+    // providers list or re-calling the backend.
+    Qnn_Version_t m_systemApiVersion{};
+    Qnn_ApiVersion_t m_backendVersion{};
 
     const QnnBackend_Config_t **m_backendConfig = nullptr;
     QnnSystemContext_Handle_t m_systemContext = nullptr;
@@ -433,7 +470,7 @@ private:
     const QnnDevice_PlatformInfo_t *m_platformInfo = nullptr;
 
     NotifyParamQueue_t m_notifyParamQ;
-    std::map<void *, DmaMemInfo_t> m_dmaMemInfoMap;
+    QCMap<void *, DmaMemInfo_t, QNN_MAX_DMA_MEM_INFO_ENTRIES> m_dmaMemInfoMap;
 
     uint32_t m_inputTensorNum;
     uint32_t m_outputTensorNum;
@@ -442,8 +479,8 @@ private:
     std::vector<uint32_t> m_powerConfigIds;
     QnnHtpDevice_PerfInfrastructure_t *m_perfInfra{ nullptr };
 
-    std::vector<Qnn_Tensor_t> m_inputs;
-    std::vector<Qnn_Tensor_t> m_outputs;
+    QCVector<Qnn_Tensor_t, QNN_MAX_TENSOR_NUM> m_inputs;
+    QCVector<Qnn_Tensor_t, QNN_MAX_TENSOR_NUM> m_outputs;
 
     QC_DECLARE_NODETRACE();
 

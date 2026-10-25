@@ -47,9 +47,9 @@ set( HEADERS_DIR ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/tests/utils
 install(TARGETS QCNodeVideoCodecMockup DESTINATION lib)
 
 add_executable( gtest_VidcDrvClient gtest_VidcDrvClient.cpp )
-target_link_libraries( gtest_VidcDrvClient gtest QCNodeVideoCodecMockup QCNodeCommon QCNode QCNodeTestUtils )
+target_link_libraries( gtest_VidcDrvClient gtest QCNodeVideoCodecMockup QCNodeLogger QCNode QCNodeTestUtils )
 install(TARGETS gtest_VidcDrvClient DESTINATION bin)
 
 add_executable( gtest_VidcNodeBase gtest_VidcNodeBase.cpp )
-target_link_libraries( gtest_VidcNodeBase gtest QCNodeVideoCodecMockup QCNodeCommon QCNode QCNodeTestUtils )
+target_link_libraries( gtest_VidcNodeBase gtest QCNodeVideoCodecMockup QCNodeLogger QCNode QCNodeTestUtils )
 install(TARGETS gtest_VidcNodeBase DESTINATION bin)

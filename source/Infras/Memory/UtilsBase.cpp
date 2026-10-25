@@ -5,6 +5,8 @@
 
 #include <algorithm>
 
+#include "QC/Infras/Log/Logger.hpp"
+
 namespace QC
 {
 namespace Memory
@@ -15,87 +17,11 @@ namespace Memory
       (uint32_t) WFD_USAGE_CAPTURE | (uint32_t) WFD_USAGE_VIDEO | (uint32_t) WFD_USAGE_DISPLAY |   \
       (uint32_t) WFD_USAGE_NATIVE )
 
-const char *UtilsBase::s_qcFormatToString[QC_IMAGE_FORMAT_MAX] = {
-        "RGB888",    /* QC_IMAGE_FORMAT_RGB888 */
-        "BGR888",    /* QC_IMAGE_FORMAT_BGR888 */
-        "UYVY",      /* QC_IMAGE_FORMAT_UYVY */
-        "NV12",      /* QC_IMAGE_FORMAT_NV12 */
-        "P010",      /* QC_IMAGE_FORMAT_P010 */
-        "NV12_UBWC", /* QC_IMAGE_FORMAT_NV12_UBWC */
-        "TP_UBWC"    /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
+UtilsBase::UtilsBase() : UtilsBase( "UtilsBase" ) {}
 
-const PDColorFormat_e UtilsBase::s_qcFormatToApdfFormat[QC_IMAGE_FORMAT_MAX] = {
-        PD_FORMAT_RGB888, /* QC_IMAGE_FORMAT_RGB888 */
-        PD_FORMAT_RGB888, /* QC_IMAGE_FORMAT_BGR888 */
-        PD_FORMAT_UYVY,   /* QC_IMAGE_FORMAT_UYVY */
-        PD_FORMAT_NV12,   /* QC_IMAGE_FORMAT_NV12 */
-        PD_FORMAT_P010,   /* QC_IMAGE_FORMAT_P010 */
-        PD_FORMAT_NV12,   /* QC_IMAGE_FORMAT_NV12_UBWC */
-        PD_FORMAT_TP10    /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
-
-const uint32_t UtilsBase::s_qcTensorTypeToDataSize[QC_TENSOR_TYPE_MAX] = {
-        1, /* QC_TENSOR_TYPE_INT_8 */
-        2, /* QC_TENSOR_TYPE_INT_16 */
-        4, /* QC_TENSOR_TYPE_INT_32 */
-        8, /* QC_TENSOR_TYPE_INT_64 */
-
-        1, /* QC_TENSOR_TYPE_UINT_8 */
-        2, /* QC_TENSOR_TYPE_UINT_16 */
-        4, /* QC_TENSOR_TYPE_UINT_32 */
-        8, /* QC_TENSOR_TYPE_UINT_64 */
-
-        2, /* QC_TENSOR_TYPE_FLOAT_16 */
-        4, /* QC_TENSOR_TYPE_FLOAT_32 */
-        8, /* QC_TENSOR_TYPE_FLOAT_64 */
-
-        1, /* QC_TENSOR_TYPE_SFIXED_POINT_8 */
-        2, /* QC_TENSOR_TYPE_SFIXED_POINT_16 */
-        4, /* QC_TENSOR_TYPE_SFIXED_POINT_32 */
-
-        1, /* QC_TENSOR_TYPE_UFIXED_POINT_8 */
-        2, /* QC_TENSOR_TYPE_UFIXED_POINT_16 */
-        4, /* QC_TENSOR_TYPE_UFIXED_POINT_32 */
-
-        1 /* QC_TENSOR_TYPE_BOOL_8 */
-};
-
-const uint32_t UtilsBase::s_qcFormatToBytesPerPixel[QC_IMAGE_FORMAT_MAX] = {
-        3, /* QC_IMAGE_FORMAT_RGB888 */
-        3, /* QC_IMAGE_FORMAT_BGR888 */
-        2, /* QC_IMAGE_FORMAT_UYVY */
-        1, /* QC_IMAGE_FORMAT_NV12 */
-        2, /* QC_IMAGE_FORMAT_P010 */
-        1, /* QC_IMAGE_FORMAT_NV12_UBWC */
-        2  /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
-
-const uint32_t UtilsBase::s_qcFormatToNumPlanes[QC_IMAGE_FORMAT_MAX] = {
-        1, /* QC_IMAGE_FORMAT_RGB888 */
-        1, /* QC_IMAGE_FORMAT_BGR888 */
-        1, /* QC_IMAGE_FORMAT_UYVY */
-        2, /* QC_IMAGE_FORMAT_NV12 */
-        2, /* QC_IMAGE_FORMAT_P010 */
-        4, /* QC_IMAGE_FORMAT_NV12_UBWC */
-        4  /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
-
-const uint32_t
-        UtilsBase::s_qcFormatToHeightDividerPerPlanes[QC_IMAGE_FORMAT_MAX][QC_NUM_IMAGE_PLANES] = {
-                { 1, 1, 1, 1 }, /* QC_IMAGE_FORMAT_RGB888 */
-                { 1, 1, 1, 1 }, /* QC_IMAGE_FORMAT_BGR888 */
-                { 1, 1, 1, 1 }, /* QC_IMAGE_FORMAT_UYVY */
-                { 1, 2, 1, 1 }, /* QC_IMAGE_FORMAT_NV12 */
-                { 1, 2, 1, 1 }, /* QC_IMAGE_FORMAT_P010 */
-                { 1, 1, 2, 2 }, /* QC_IMAGE_FORMAT_NV12_UBWC */
-                { 1, 1, 2, 2 }  /* QC_IMAGE_FORMAT_TP10_UBWC */
-};
-
-
-UtilsBase::UtilsBase()
+UtilsBase::UtilsBase( const char *loggerName )
 {
-    (void) QC_LOGGER_INIT( "UtilsBase", LOGGER_LEVEL_ERROR );
+    (void) QC_LOGGER_INIT( loggerName, LOGGER_LEVEL_ERROR );
 }
 
 UtilsBase::~UtilsBase()
@@ -150,7 +76,7 @@ QCStatus_e UtilsBase::SetTensorDescFromTensorProp( TensorProps_t &prop, TensorDe
         {
             size *= prop.dims[i];
         }
-        size *= s_qcTensorTypeToDataSize[prop.tensorType];
+        size *= GetTensorTypeDataSize( prop.tensorType );
     }
 
     if ( QC_STATUS_OK == status )
@@ -191,7 +117,7 @@ QCStatus_e UtilsBase::SetImageDescFromImageBasicProp( ImageBasicProps_t &prop,
     }
     else
     {
-        eColorFormat = s_qcFormatToApdfFormat[format];
+        eColorFormat = GetApdfFormat( format );
     }
 
     if ( QC_STATUS_OK == status )
@@ -220,7 +146,7 @@ QCStatus_e UtilsBase::SetImageDescFromImageBasicProp( ImageBasicProps_t &prop,
             desc.numPlanes = numPlanes;
 
             QC_VERBOSE( "PlaneDef for image %ux%u format %s\n", width, height,
-                        s_qcFormatToString[format] );
+                        GetImageFormatString( format ) );
         }
     }
 
@@ -302,10 +228,10 @@ QCStatus_e UtilsBase::SetImageDescFromImageProp( ImageProps_t &prop, ImageDescri
     {
         if ( prop.format < QC_IMAGE_FORMAT_MAX )
         { /* check properties for uncompressed image */
-            if ( s_qcFormatToNumPlanes[prop.format] != prop.numPlanes )
+            if ( GetNumberOfPlanes( prop.format ) != prop.numPlanes )
             {
                 QC_ERROR( "plane number %u != expected %u for format %d", prop.numPlanes,
-                          s_qcFormatToNumPlanes[prop.format], prop.format );
+                          GetNumberOfPlanes( prop.format ), prop.format );
                 status = QC_STATUS_BAD_ARGUMENTS;
             }
         }
@@ -332,11 +258,11 @@ QCStatus_e UtilsBase::SetImageDescFromImageProp( ImageProps_t &prop, ImageDescri
     {
         if ( prop.format < QC_IMAGE_FORMAT_MAX )
         {
-            bpp = s_qcFormatToBytesPerPixel[prop.format];
+            bpp = GetBytesPerPixel( prop.format );
             /* check each plane def is reasonable */
             for ( i = 0; i < prop.numPlanes; i++ )
             {
-                divider = s_qcFormatToHeightDividerPerPlanes[prop.format][i];
+                divider = GetPlaneHeightDivider( prop.format, i );
                 if ( ( prop.width * bpp ) > prop.stride[i] )
                 {
                     QC_ERROR( "given stride %u(<%u) too small for plane %u for format %d",
@@ -425,7 +351,7 @@ QCStatus_e UtilsBase::SetImageDescFromImageProp( ImageProps_t &prop, ImageDescri
 // to ImageDescriptor::ImageToTensor(), which is a pure descriptor operation
 // that does not depend on any platform-specific DMA API.
 // ---------------------------------------------------------------------------
-const std::vector<QCMemoryTransition_e> &UtilsBase::GetSupportedTransitionTypes()
+QCStatus_e UtilsBase::GetSupportedTransitionTypes( std::vector<QCMemoryTransition_e> &outTypes )
 {
     static const std::vector<QCMemoryTransition_e> kTypes = {
             QC_MEMORY_TRANSITION_RGB_TO_TENSOR,  QC_MEMORY_TRANSITION_BGR_TO_TENSOR,
@@ -433,17 +359,18 @@ const std::vector<QCMemoryTransition_e> &UtilsBase::GetSupportedTransitionTypes(
             QC_MEMORY_TRANSITION_P010_TO_GRAY,   QC_MEMORY_TRANSITION_NV12_TO_CHROMA,
             QC_MEMORY_TRANSITION_P010_TO_CHROMA,
     };
-    return kTypes;
+    outTypes = kTypes;
+    return QC_STATUS_OK;
 }
 
 // ---------------------------------------------------------------------------
-// GetSupportedBufferTransitionTypesJson
+// GetSupportedTransitionTypesJson
 //
 // Returns a JSON object of supported transition types as key-value pairs
 // (enumerator name string : integer value), following the same convention as
 // GetSupportedBufferDescriptorTypesJson() in QCMemoryFactory.
 // ---------------------------------------------------------------------------
-std::string UtilsBase::GetSupportedBufferTransitionTypesJson()
+QCStatus_e UtilsBase::GetSupportedBufferTransitionTypesJson( std::string &outJson )
 {
     static const std::pair<QCMemoryTransition_e, const char *> kNames[] = {
             { QC_MEMORY_TRANSITION_RGB_TO_TENSOR, "QC_MEMORY_TRANSITION_RGB_TO_TENSOR" },
@@ -455,29 +382,53 @@ std::string UtilsBase::GetSupportedBufferTransitionTypesJson()
             { QC_MEMORY_TRANSITION_P010_TO_CHROMA, "QC_MEMORY_TRANSITION_P010_TO_CHROMA" },
     };
 
+    std::vector<QCMemoryTransition_e> supported;
+    QCStatus_e status = GetSupportedTransitionTypes( supported );
+
     std::string json = "{";
     bool first = true;
-    for ( const QCMemoryTransition_e type : GetSupportedTransitionTypes() )
+    if ( status == QC_STATUS_OK )
     {
-        for ( const auto &[enumVal, name] : kNames )
+        for ( const QCMemoryTransition_e type : supported )
         {
-            if ( enumVal == type )
+            bool found = false;
+            for ( const auto &[enumVal, name] : kNames )
             {
-                if ( !first )
+                if ( enumVal == type )
                 {
-                    json += ',';
+                    if ( !first )
+                    {
+                        json += ',';
+                    }
+                    json += '"';
+                    json += name;
+                    json += "\":";
+                    json += std::to_string( static_cast<int>( type ) );
+                    first = false;
+                    found = true;
+                    break;
                 }
-                json += '"';
-                json += name;
-                json += "\":";
-                json += std::to_string( static_cast<int>( type ) );
-                first = false;
+            }
+            if ( !found )
+            {
+                QC_LOG_ERROR( "GetSupportedBufferTransitionTypesJson: transition type %d has no name entry in kNames",
+                              static_cast<int>( type ) );
+                status = QC_STATUS_FAIL;
                 break;
             }
         }
     }
-    json += '}';
-    return json;
+
+    if ( status == QC_STATUS_OK )
+    {
+        json += '}';
+        outJson = json;
+    }
+    else
+    {
+        outJson = "{}";
+    }
+    return status;
 }
 
 // ---------------------------------------------------------------------------
@@ -485,7 +436,7 @@ std::string UtilsBase::GetSupportedBufferTransitionTypesJson()
 //
 // Returns a callable (QCMemoryTransitionFn_t) that performs a zero-copy
 // descriptor transition from an ImageDescriptor_t to a TensorDescriptor_t.
-// The underlying DMA buffer is shared; no pixel data is copied.
+// The underlying buffer pointer (pBuf) is shared; no pixel data is copied.
 //
 // Design notes
 // ------------
@@ -504,18 +455,26 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
     QCStatus_e status = QC_STATUS_OK;
 
     // Reject types that are not in the supported list.
-    const std::vector<QCMemoryTransition_e> &supported = GetSupportedTransitionTypes();
-    const bool isSupported =
-            std::find( supported.begin(), supported.end(), type ) != supported.end();
-
-    if ( !isSupported )
+    std::vector<QCMemoryTransition_e> supported;
+    const QCStatus_e getSupportedStatus = GetSupportedTransitionTypes( supported );
+    if ( getSupportedStatus != QC_STATUS_OK )
     {
-        QC_ERROR( "CreateTransition: transition type %d is not supported", (int) type );
         outFn = nullptr;
-        status = QC_STATUS_UNSUPPORTED;
+        status = getSupportedStatus;
     }
     else
     {
+        const bool isSupported =
+                std::find( supported.begin(), supported.end(), type ) != supported.end();
+
+        if ( !isSupported )
+        {
+            QC_ERROR( "CreateTransition: transition type %d is not supported", (int) type );
+            outFn = nullptr;
+            status = QC_STATUS_UNSUPPORTED;
+        }
+        else
+        {
         switch ( type )
         {
             // ------------------------------------------------------------------
@@ -524,10 +483,9 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
             case QC_MEMORY_TRANSITION_RGB_TO_TENSOR:
                 outFn = []( const QCBufferDescriptorBase_t &src,
                             QCBufferDescriptorBase_t &dst ) -> QCStatus_e {
-                    const ImageDescriptor_t *pImg =
-                            dynamic_cast<const ImageDescriptor_t *>( &src );
-                    TensorDescriptor_t *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
-                    if ( ( nullptr == pImg ) || ( nullptr == pTensor ) )
+                    const auto *pImg = dynamic_cast<const ImageDescriptor_t *>( &src );
+                    auto *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
+                    if ( nullptr == pImg || nullptr == pTensor )
                     {
                         QC_LOG_ERROR( "RGB_TO_TENSOR: invalid descriptor types: "
                                       "src is %s ImageDescriptor_t, dst is %s TensorDescriptor_t",
@@ -535,7 +493,7 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
                                       ( nullptr == pTensor ) ? "not a" : "a" );
                         return QC_STATUS_BAD_ARGUMENTS;
                     }
-                    if ( QC_IMAGE_FORMAT_RGB888 != pImg->format )
+                    if ( pImg->format != QC_IMAGE_FORMAT_RGB888 )
                     {
                         QC_LOG_ERROR( "RGB_TO_TENSOR: image format mismatch: "
                                       "expected QC_IMAGE_FORMAT_RGB888 (%d), got %d",
@@ -549,10 +507,9 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
             case QC_MEMORY_TRANSITION_BGR_TO_TENSOR:
                 outFn = []( const QCBufferDescriptorBase_t &src,
                             QCBufferDescriptorBase_t &dst ) -> QCStatus_e {
-                    const ImageDescriptor_t *pImg =
-                            dynamic_cast<const ImageDescriptor_t *>( &src );
-                    TensorDescriptor_t *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
-                    if ( ( nullptr == pImg ) || ( nullptr == pTensor ) )
+                    const auto *pImg = dynamic_cast<const ImageDescriptor_t *>( &src );
+                    auto *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
+                    if ( nullptr == pImg || nullptr == pTensor )
                     {
                         QC_LOG_ERROR( "BGR_TO_TENSOR: invalid descriptor types: "
                                       "src is %s ImageDescriptor_t, dst is %s TensorDescriptor_t",
@@ -560,7 +517,7 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
                                       ( nullptr == pTensor ) ? "not a" : "a" );
                         return QC_STATUS_BAD_ARGUMENTS;
                     }
-                    if ( QC_IMAGE_FORMAT_BGR888 != pImg->format )
+                    if ( pImg->format != QC_IMAGE_FORMAT_BGR888 )
                     {
                         QC_LOG_ERROR( "BGR_TO_TENSOR: image format mismatch: "
                                       "expected QC_IMAGE_FORMAT_BGR888 (%d), got %d",
@@ -574,10 +531,9 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
             case QC_MEMORY_TRANSITION_UYVY_TO_TENSOR:
                 outFn = []( const QCBufferDescriptorBase_t &src,
                             QCBufferDescriptorBase_t &dst ) -> QCStatus_e {
-                    const ImageDescriptor_t *pImg =
-                            dynamic_cast<const ImageDescriptor_t *>( &src );
-                    TensorDescriptor_t *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
-                    if ( ( nullptr == pImg ) || ( nullptr == pTensor ) )
+                    const auto *pImg = dynamic_cast<const ImageDescriptor_t *>( &src );
+                    auto *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
+                    if ( nullptr == pImg || nullptr == pTensor )
                     {
                         QC_LOG_ERROR( "UYVY_TO_TENSOR: invalid descriptor types: "
                                       "src is %s ImageDescriptor_t, dst is %s TensorDescriptor_t",
@@ -585,7 +541,7 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
                                       ( nullptr == pTensor ) ? "not a" : "a" );
                         return QC_STATUS_BAD_ARGUMENTS;
                     }
-                    if ( QC_IMAGE_FORMAT_UYVY != pImg->format )
+                    if ( pImg->format != QC_IMAGE_FORMAT_UYVY )
                     {
                         QC_LOG_ERROR( "UYVY_TO_TENSOR: image format mismatch: "
                                       "expected QC_IMAGE_FORMAT_UYVY (%d), got %d",
@@ -602,10 +558,9 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
             case QC_MEMORY_TRANSITION_NV12_TO_GRAY:
                 outFn = []( const QCBufferDescriptorBase_t &src,
                             QCBufferDescriptorBase_t &dst ) -> QCStatus_e {
-                    const ImageDescriptor_t *pImg =
-                            dynamic_cast<const ImageDescriptor_t *>( &src );
-                    TensorDescriptor_t *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
-                    if ( ( nullptr == pImg ) || ( nullptr == pTensor ) )
+                    const auto *pImg = dynamic_cast<const ImageDescriptor_t *>( &src );
+                    auto *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
+                    if ( nullptr == pImg || nullptr == pTensor )
                     {
                         QC_LOG_ERROR( "NV12_TO_GRAY: invalid descriptor types: "
                                       "src is %s ImageDescriptor_t, dst is %s TensorDescriptor_t",
@@ -613,7 +568,7 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
                                       ( nullptr == pTensor ) ? "not a" : "a" );
                         return QC_STATUS_BAD_ARGUMENTS;
                     }
-                    if ( QC_IMAGE_FORMAT_NV12 != pImg->format )
+                    if ( pImg->format != QC_IMAGE_FORMAT_NV12 )
                     {
                         QC_LOG_ERROR( "NV12_TO_GRAY: image format mismatch: "
                                       "expected QC_IMAGE_FORMAT_NV12 (%d), got %d",
@@ -634,10 +589,9 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
             case QC_MEMORY_TRANSITION_P010_TO_GRAY:
                 outFn = []( const QCBufferDescriptorBase_t &src,
                             QCBufferDescriptorBase_t &dst ) -> QCStatus_e {
-                    const ImageDescriptor_t *pImg =
-                            dynamic_cast<const ImageDescriptor_t *>( &src );
-                    TensorDescriptor_t *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
-                    if ( ( nullptr == pImg ) || ( nullptr == pTensor ) )
+                    const auto *pImg = dynamic_cast<const ImageDescriptor_t *>( &src );
+                    auto *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
+                    if ( nullptr == pImg || nullptr == pTensor )
                     {
                         QC_LOG_ERROR( "P010_TO_GRAY: invalid descriptor types: "
                                       "src is %s ImageDescriptor_t, dst is %s TensorDescriptor_t",
@@ -645,7 +599,7 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
                                       ( nullptr == pTensor ) ? "not a" : "a" );
                         return QC_STATUS_BAD_ARGUMENTS;
                     }
-                    if ( QC_IMAGE_FORMAT_P010 != pImg->format )
+                    if ( pImg->format != QC_IMAGE_FORMAT_P010 )
                     {
                         QC_LOG_ERROR( "P010_TO_GRAY: image format mismatch: "
                                       "expected QC_IMAGE_FORMAT_P010 (%d), got %d",
@@ -669,10 +623,9 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
             case QC_MEMORY_TRANSITION_NV12_TO_CHROMA:
                 outFn = []( const QCBufferDescriptorBase_t &src,
                             QCBufferDescriptorBase_t &dst ) -> QCStatus_e {
-                    const ImageDescriptor_t *pImg =
-                            dynamic_cast<const ImageDescriptor_t *>( &src );
-                    TensorDescriptor_t *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
-                    if ( ( nullptr == pImg ) || ( nullptr == pTensor ) )
+                    const auto *pImg = dynamic_cast<const ImageDescriptor_t *>( &src );
+                    auto *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
+                    if ( nullptr == pImg || nullptr == pTensor )
                     {
                         QC_LOG_ERROR( "NV12_TO_CHROMA: invalid descriptor types: "
                                       "src is %s ImageDescriptor_t, dst is %s TensorDescriptor_t",
@@ -680,7 +633,7 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
                                       ( nullptr == pTensor ) ? "not a" : "a" );
                         return QC_STATUS_BAD_ARGUMENTS;
                     }
-                    if ( QC_IMAGE_FORMAT_NV12 != pImg->format )
+                    if ( pImg->format != QC_IMAGE_FORMAT_NV12 )
                     {
                         QC_LOG_ERROR( "NV12_TO_CHROMA: image format mismatch: "
                                       "expected QC_IMAGE_FORMAT_NV12 (%d), got %d",
@@ -701,10 +654,9 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
             case QC_MEMORY_TRANSITION_P010_TO_CHROMA:
                 outFn = []( const QCBufferDescriptorBase_t &src,
                             QCBufferDescriptorBase_t &dst ) -> QCStatus_e {
-                    const ImageDescriptor_t *pImg =
-                            dynamic_cast<const ImageDescriptor_t *>( &src );
-                    TensorDescriptor_t *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
-                    if ( ( nullptr == pImg ) || ( nullptr == pTensor ) )
+                    const auto *pImg = dynamic_cast<const ImageDescriptor_t *>( &src );
+                    auto *pTensor = dynamic_cast<TensorDescriptor_t *>( &dst );
+                    if ( nullptr == pImg || nullptr == pTensor )
                     {
                         QC_LOG_ERROR( "P010_TO_CHROMA: invalid descriptor types: "
                                       "src is %s ImageDescriptor_t, dst is %s TensorDescriptor_t",
@@ -712,7 +664,7 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
                                       ( nullptr == pTensor ) ? "not a" : "a" );
                         return QC_STATUS_BAD_ARGUMENTS;
                     }
-                    if ( QC_IMAGE_FORMAT_P010 != pImg->format )
+                    if ( pImg->format != QC_IMAGE_FORMAT_P010 )
                     {
                         QC_LOG_ERROR( "P010_TO_CHROMA: image format mismatch: "
                                       "expected QC_IMAGE_FORMAT_P010 (%d), got %d",
@@ -737,6 +689,7 @@ QCStatus_e UtilsBase::CreateTransition( QCMemoryTransition_e type, QCMemoryTrans
                 break;
         }
     }
+    }   // else (getSupportedStatus == QC_STATUS_OK)
 
     return status;
 }

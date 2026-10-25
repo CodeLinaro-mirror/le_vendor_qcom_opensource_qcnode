@@ -411,11 +411,11 @@ QCStatus_e SharedSubscriber::Deinit()
         {
             SharedBuffer_t sbuf = it.second;
             QCBufferDescriptorBase_t &bufDesc = sbuf.buffer;
-            QC_INFO( "UnImport buffer %s", bufDesc.name.c_str() );
+            QC_INFO( "UnImport buffer %s", bufDesc.name.CStr() );
             ret2 = memUtils.MemoryUnMap( bufDesc );
             if ( QC_STATUS_OK != ret2 )
             {
-                QC_ERROR( "Failed to UnImport buffer %s", bufDesc.name.c_str() );
+                QC_ERROR( "Failed to UnImport buffer %s", bufDesc.name.CStr() );
                 ret = ret2;
             }
         }

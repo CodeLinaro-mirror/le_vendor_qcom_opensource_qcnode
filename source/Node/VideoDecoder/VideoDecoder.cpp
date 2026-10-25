@@ -7,7 +7,9 @@
 #include <unistd.h>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/Node/VideoDecoder.hpp"
+#include <cstdio>
 
 #define VIDEO_DECODER_MAX_BUFFER_REQ 64
 #define VIDEO_DECODER_MIN_BUFFER_REQ 4
@@ -74,7 +76,7 @@ QCStatus_e VideoDecoder::Initialize( QCNodeInit_t &config )
 
     if ( QC_STATUS_OK == status )
     {
-        m_drvClient.Init( m_name, m_logger.GetLevel(), VIDEO_DEC, *m_pConfig );
+        m_drvClient.Init( VIDEO_DEC, *m_pConfig );
         status = m_drvClient.OpenDriver( InFrameCallback, OutFrameCallback, EventCallback, this );
     }
 
@@ -519,7 +521,7 @@ QCStatus_e VideoDecoder::SubmitOutputFrame( VideoFrameDescriptor_t &outFrameDesc
 
 void VideoDecoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 {
-    NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1 );
+    NodeFrameDescriptorFlat<QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1> frameDesc;
 
     (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID, inFrameDesc );
 
@@ -532,7 +534,7 @@ void VideoDecoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 
 void VideoDecoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
 {
-    NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1 );
+    NodeFrameDescriptorFlat<QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1> frameDesc;
 
     (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, outFrameDesc );
 
@@ -545,7 +547,7 @@ void VideoDecoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
 
 void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, void *pEvent )
 {
-    NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_EVENT_BUFF_ID + 1 );
+    NodeFrameDescriptorFlat<QC_NODE_VIDEO_DECODER_EVENT_BUFF_ID + 1> frameDesc;
 
     switch ( eventId )
     {
@@ -572,10 +574,11 @@ void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, void *pEvent
     if ( m_callback )
     {
         QCBufferDescriptorBase_t errDesc;
+        VideoDecoderErrorInfo_t errInfo = { eventId, pEvent, sizeof( vidc_drv_msg_info_type ) };
 
-        errDesc.name = std::to_string( eventId );
-        errDesc.pBuf = pEvent;
-        errDesc.size = sizeof( vidc_drv_msg_info_type );
+        (void) errDesc.name.Assign( "ERROR" );
+        errDesc.pBuf = &errInfo;
+        errDesc.size = sizeof( errInfo );
         (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, errDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );

@@ -159,6 +159,17 @@ public:
      */
     virtual const QCMemoryAllocatorConfig_t &GetConfiguration() { return m_configuration; };
 
+
+    /**
+     * @brief Returns the type-level configuration schema for this allocator type.
+     *
+     * Override in each concrete allocator to return a real JSON schema.
+     *
+     * @param[out] options JSON schema string.
+     * @return QCStatus_e indicating success or failure.
+     */
+    virtual QCStatus_e GetOptions( std::string &options ) { options = "{}"; return QC_STATUS_UNSUPPORTED; }
+
 protected:
     /**
      * @brief Declare the logger for this class.
@@ -174,6 +185,7 @@ private:
      * which is set during construction.
      */
     const QCMemoryAllocatorConfig_t m_configuration;
+
 };
 
 class DummyAllocator : public QCMemoryAllocatorIfs

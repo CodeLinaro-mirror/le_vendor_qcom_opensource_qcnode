@@ -28,13 +28,14 @@ class NodeTrace : public QCNodeTraceIfs
 {
 public:
     NodeTrace();
-    NodeTrace( const NodeTrace & ) = default;
-    NodeTrace& operator=( const NodeTrace& ) = default;
+    NodeTrace( const NodeTrace & ) = delete;
+    NodeTrace& operator=( const NodeTrace& ) = delete;
     ~NodeTrace();
 
-    void Init( std::string config );
+    void Init( std::string config ) override;
 
-    void Trace( std::string name, QCNodeTraceType_e type, std::vector<QCNodeTraceArg_t> args );
+    void Trace( std::string name, QCNodeTraceType_e type,
+                std::vector<QCNodeTraceArg_t> args ) override;
 
 private:
     uint64_t Timestamp();

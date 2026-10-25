@@ -35,7 +35,8 @@ typedef struct QCMemoryPoolConfig
      * This constructor initializes the QCMemoryPoolConfig structure with the provided allocator.
      * @param allocator The allocator to be used by the pool.
      */
-    QCMemoryPoolConfig( QCMemoryAllocatorIfs &allocator ) : maxElements( 0 ), allocator( allocator )
+    explicit QCMemoryPoolConfig( QCMemoryAllocatorIfs &poolAllocator )
+        : maxElements( 0 ), allocator( poolAllocator )
     {}
 
     /**
@@ -92,14 +93,14 @@ public:
      * This constructor initializes the QCMemoryPoolIfs object with the provided pool configuration.
      * @param poolCfg The configuration of the pool.
      */
-    QCMemoryPoolIfs( const QCMemoryPoolConfig_t &poolCfg ) : m_config( poolCfg ){};
+    explicit QCMemoryPoolIfs( const QCMemoryPoolConfig_t &poolCfg ) : m_config( poolCfg ){};
 
     /**
      * @brief Virtual destructor.
      * This destructor is declared as virtual to ensure that the correct destructor is called
      * when an object of a derived class is deleted through a pointer to the base class.
      */
-    virtual ~QCMemoryPoolIfs(){};
+    virtual ~QCMemoryPoolIfs() = default;
 
     /**
      * @brief Initializes the pool.

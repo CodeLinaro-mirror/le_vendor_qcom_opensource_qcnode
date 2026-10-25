@@ -86,6 +86,16 @@ QCStatus_e SampleQnn::ParseConfig( SampleConfig_t &config )
         ret = QC_STATUS_BAD_ARGUMENTS;
     }
 
+    bool bCache = Get( config, "cache", true );
+    if ( false == bCache )
+    {
+        m_bufferCache = QC_CACHEABLE_NON;
+    }
+    else
+    {
+        m_bufferCache = QC_CACHEABLE;
+    }
+
     m_bAsync = Get( config, "async", false );
 
     m_inputTopicName = Get( config, "input_topic", "" );
@@ -150,7 +160,9 @@ QCStatus_e SampleQnn::ParseConfig( SampleConfig_t &config )
     dt.Set<bool>( "extendedUdma", Get( config, "extended_udma", false ) );
     m_dataTree.Set( "static", dt );
     m_processor = Get( config, "processor", QC_PROCESSOR_HTP0 );
-    m_rsmPriority = Get( config, "rsm_priority", 0 );
+    m_rsmPriority = Get( config, "rsm_priority", SampleIF::kDefaultRsmPriority );
+    m_rsmTimeoutUs = Get( config, "rsm_timeout", SampleIF::kDefaultRsmTimeoutUs );
+    m_rsmDurationUs = Get( config, "rsm_duration", SampleIF::kDefaultRsmDurationUs );
 
     return ret;
 }
@@ -196,7 +208,7 @@ QCStatus_e SampleQnn::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_processor, m_rsmPriority, m_coreIds );
+        ret = SampleIF::Init( m_processor, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )
@@ -275,9 +287,10 @@ QCStatus_e SampleQnn::Init( std::string name, SampleConfig_t &config )
         size_t index = 0;
         for ( int i = 0; i < outputNum; ++i )
         {
+            TensorProps_t tensorProps = m_outputsInfo[i].properties;
+            tensorProps.cache = m_bufferCache;
             ret = m_tensorPools[index].Init( "Qnn." + name + "." + std::to_string( index ),
-                                             m_nodeId, LOGGER_LEVEL_INFO, m_poolSize,
-                                             m_outputsInfo[i].properties );
+                                             m_nodeId, LOGGER_LEVEL_INFO, m_poolSize, tensorProps );
             index += 1;
             if ( QC_STATUS_OK != ret )
             {

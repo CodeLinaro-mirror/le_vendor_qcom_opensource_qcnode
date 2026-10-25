@@ -40,10 +40,18 @@ if ! [[ -v QC_TARGET_SOC ]] ; then
 fi
 
 if ! [[ -v ENABLE_SDP8 ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_SDP8=ON
   else
     export ENABLE_SDP8=OFF
+  fi
+fi
+
+if ! [[ -v ENABLE_CAMERA_ISP_SETTINGS ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
+    export ENABLE_CAMERA_ISP_SETTINGS=ON
+  else
+    export ENABLE_CAMERA_ISP_SETTINGS=OFF
   fi
 fi
 
@@ -73,7 +81,7 @@ if ! [[ -v ENABLE_C2D ]] ; then
 fi
 
 if ! [[ -v ENABLE_EVA ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_EVA=ON
   else
     export ENABLE_EVA=OFF
@@ -81,7 +89,7 @@ if ! [[ -v ENABLE_EVA ]] ; then
 fi
 
 if ! [[ -v ENABLE_EVA_AUTO ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_EVA_AUTO=OFF
   else
     export ENABLE_EVA_AUTO=ON
@@ -97,7 +105,7 @@ if ! [[ -v ENABLE_FADAS ]] ; then
 fi
 
 if ! [[ -v ENABLE_RSM_V2 ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_RSM_V2=OFF
   else
     export ENABLE_RSM_V2=ON
@@ -105,7 +113,7 @@ if ! [[ -v ENABLE_RSM_V2 ]] ; then
 fi
 
 if ! [[ -v ENABLE_C2C ]] ; then
-  if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
+  if [[ "${QC_TARGET_SOC}" == "8797" || "${QC_TARGET_SOC}" == "8787" ]] ; then
     export ENABLE_C2C=OFF
   elif [[ "${target}" == "aarch64-qnx" ]]; then
     export ENABLE_C2C=ON
@@ -465,6 +473,7 @@ cmake \
     -DCMAKE_INSTALL_PREFIX=/opt/qcnode \
     -DCMAKE_PREFIX_PATH=$destdir/opt/qcnode \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+    -DENABLE_CAMERA_ISP_SETTINGS=${ENABLE_CAMERA_ISP_SETTINGS} \
     -DENABLE_GCOV=${ENABLE_GCOV} \
     -DENABLE_CTC=${ENABLE_CTC} \
     -DENABLE_SIMNODE=${ENABLE_SIMNODE} \
@@ -494,6 +503,8 @@ if [[ "${QC_TARGET_SOC}" == "8797" ]] ; then
   HEXAGON_VARIANT=hexagon-v81
 elif [[ "${QC_TARGET_SOC}" == "8620" ]] ; then
   HEXAGON_VARIANT=hexagon-v75
+elif [[ "${QC_TARGET_SOC}" == "8787" ]] ; then
+  HEXAGON_VARIANT=hexagon-v85
 else
   HEXAGON_VARIANT=hexagon-v73
 fi
@@ -604,4 +615,3 @@ tar -C $topdir --xform="s/run/pkg/" --exclude="*.a" \
     --exclude="*.la" --exclude="include" --exclude="share" \
     --exclude="cmake" \
     --use-compress-program=pigz -cf $pkgname run-$target
-

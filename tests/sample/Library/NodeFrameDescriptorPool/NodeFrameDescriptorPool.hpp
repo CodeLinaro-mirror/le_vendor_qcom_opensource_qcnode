@@ -17,7 +17,7 @@
 
 namespace QC
 {
-namespace Node
+namespace sample
 {
 
 using namespace QC::Memory;
@@ -57,7 +57,7 @@ public:
      * access.
      */
     NodeFrameDescriptorPool( uint32_t numOfFrameDesc, uint32_t numOfBuffers )
-        : m_frameDescs( numOfFrameDesc, NodeFrameDescriptor( numOfBuffers ) )
+        : m_frameDescs( numOfFrameDesc, QC::Node::NodeFrameDescriptor( numOfBuffers ) )
     {
         for ( auto &frameDesc : m_frameDescs )
         {
@@ -111,15 +111,15 @@ public:
     }
 
 private:
-    NodeFrameDescriptor &Dummy() { return s_dummy; }
-    std::vector<NodeFrameDescriptor> m_frameDescs;
+    QC::Node::NodeFrameDescriptor &Dummy() { return s_dummy; }
+    std::vector<QC::Node::NodeFrameDescriptor> m_frameDescs;
     std::queue<std::reference_wrapper<QCFrameDescriptorNodeIfs>> m_queue;
     std::mutex m_lock;
-    static NodeFrameDescriptor s_dummy;
+    static QC::Node::NodeFrameDescriptor s_dummy;
 };
 
 
-}   // namespace Node
+}   // namespace sample
 }   // namespace QC
 
 #endif   // QC_NODE_FRAME_DESCRIPTOR_POOL_HPP

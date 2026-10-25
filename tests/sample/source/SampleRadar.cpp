@@ -518,7 +518,7 @@ QCStatus_e SampleRadar::ProcessFrame( const DataFrames_t &inputFrames )
     // Set input buffer descriptor with proper base class initialization
     // const_cast is safe here as we're just getting the buffer descriptor
     bufferDescs[0] = const_cast<DataFrame_t &>( inputFrame ).GetBuffer();
-    bufferDescs[0].name = "InputBuffer";
+    (void) bufferDescs[0].name.Assign( "InputBuffer" );
     bufferDescs[0].type = QC_BUFFER_TYPE_TENSOR;
     ret = frameDesc.SetBuffer( 0, bufferDescs[0] );
     if ( QC_STATUS_OK != ret )
@@ -529,7 +529,7 @@ QCStatus_e SampleRadar::ProcessFrame( const DataFrames_t &inputFrames )
 
     // Set output buffer descriptor with proper base class initialization
     bufferDescs[1] = outputBuffer->GetBuffer();
-    bufferDescs[1].name = "OutputBuffer";
+    (void) bufferDescs[1].name.Assign( "OutputBuffer" );
     bufferDescs[1].type = QC_BUFFER_TYPE_TENSOR;
     ret = frameDesc.SetBuffer( 1, bufferDescs[1] );
     if ( QC_STATUS_OK != ret )
