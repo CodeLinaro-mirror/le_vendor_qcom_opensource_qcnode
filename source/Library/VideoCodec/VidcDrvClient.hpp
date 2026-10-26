@@ -229,6 +229,7 @@ private:
             : inFrameDesc( other.inFrameDesc ),
               bUsedFlag( other.bUsedFlag )
         {}
+        ~VideoCodec_InputInfo_t() {}
         VideoCodec_InputInfo_t &operator=( const VideoCodec_InputInfo_t &other ) noexcept
         {
             if ( this != &other )
@@ -251,6 +252,7 @@ private:
             : outFrameDesc( other.outFrameDesc ),
               bUsedFlag( other.bUsedFlag )
         {}
+        ~VideoCodec_OutputInfo_t() {}
         VideoCodec_OutputInfo_t &operator=( const VideoCodec_OutputInfo_t &other ) noexcept
         {
             if ( this != &other )

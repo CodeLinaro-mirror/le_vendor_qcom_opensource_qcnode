@@ -196,7 +196,7 @@ public:
     VideoEncoderMonitoringIfs( const VideoEncoderMonitoringIfs &other ) : m_logger( other.m_logger )
     {}
     VideoEncoderMonitoringIfs &operator=( const VideoEncoderMonitoringIfs & ) = default;
-    virtual ~VideoEncoderMonitoringIfs() = default;
+    virtual ~VideoEncoderMonitoringIfs() {}
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
     {

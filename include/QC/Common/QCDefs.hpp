@@ -10,7 +10,7 @@ namespace QC
 {
 
 /** @brief QC Status */
-typedef enum
+typedef enum QCStatus
 {
     QC_STATUS_OK = 0,        /**< No error. */
     QC_STATUS_BAD_ARGUMENTS, /**< Bad arguments. */
@@ -29,7 +29,7 @@ typedef enum
 } QCStatus_e;
 
 /** @brief QC Object state */
-typedef enum
+typedef enum QCObjectState
 {
     QC_OBJECT_STATE_INITIAL = 0,    /**< the initial state */
     QC_OBJECT_STATE_INITIALIZING,   /**< the state during initializing */
@@ -46,7 +46,7 @@ typedef enum
     QC_OBJECT_STATE_MAX = UINT8_MAX
 } QCObjectState_e;
 
-typedef enum
+typedef enum QCNodeType
 {
     QC_NODE_TYPE_RESERVED = 0,
     QC_NODE_TYPE_QNN,
@@ -71,7 +71,7 @@ typedef enum
 } QCNodeType_e;
 
 /** @brief QC Buffer Type */
-typedef enum
+typedef enum QCBufferType
 {
     QC_BUFFER_TYPE_TXT = 0,
     QC_BUFFER_TYPE_RAW,    /**< The buffer for raw data */

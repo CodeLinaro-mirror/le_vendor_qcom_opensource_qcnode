@@ -12,18 +12,9 @@ using namespace QC;
 using namespace QC::Node;
 
 // ---------------------------------------------------------------------------
-// QC_NODE_FRAME_DESC_TYPE_NODE_FRAME_DESCRIPTOR is registered for
-// NodeFrameDescriptor in the production translation unit
-// source/Node/Base/NodeFrameDescriptor.cpp (linked here via QCNode).  These
-// tests therefore exercise the registration performed by production code; they
-// must NOT register the type again, otherwise the duplicate-registration
-// assertion in RegisterFrameDescriptorCreator() would fire.
+// Test CreateFrameDescriptor — built-in switch path
 // ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// Test CreateFrameDescriptor — registry path
-// ---------------------------------------------------------------------------
-TEST( QCNodeFrameDescriptorFactory, CreateFrameDescriptor_RegisteredType )
+TEST( QCNodeFrameDescriptorFactory, CreateFrameDescriptor_BuiltInType )
 {
     std::unique_ptr<QCFrameDescriptorNodeIfs> descriptor;
 
@@ -188,7 +179,7 @@ TEST( QCNodeFrameDescriptorFactory, GetSupportedNodeFrameDescriptorTypes_NotEmpt
     ASSERT_FALSE( types.empty() );
 }
 
-TEST( QCNodeFrameDescriptorFactory, GetSupportedNodeFrameDescriptorTypes_ContainsRegisteredType )
+TEST( QCNodeFrameDescriptorFactory, GetSupportedNodeFrameDescriptorTypes_ContainsBuiltInType )
 {
     std::vector<QCNodeFrameDescType_e> types;
     ASSERT_EQ( QCNodeFrameDescriptorFactory::GetSupportedNodeFrameDescriptorTypes( types ),

@@ -240,8 +240,8 @@ public:
      * @param mapped The buffer descriptor mapped into memory.
      * @return The status of the memory mapping operation.
      */
-    virtual QCStatus_e MemoryMap( const QCBufferDescriptorBase_t &orig,
-                                  QCBufferDescriptorBase_t &mapped );
+    QCStatus_e MemoryMap( const QCBufferDescriptorBase_t &orig,
+                          QCBufferDescriptorBase_t &mapped ) override;
 
     /**
      * @brief Unmaps a buffer from memory.
@@ -250,7 +250,7 @@ public:
      * @param buff The buffer descriptor to unmap from memory.
      * @return The status of the memory unmapping operation.
      */
-    virtual QCStatus_e MemoryUnMap( const QCBufferDescriptorBase_t &buff );
+    QCStatus_e MemoryUnMap( const QCBufferDescriptorBase_t &buff ) override;
 
     /**
      * @brief Sets tensor descriptorvalues from tensor properties.
@@ -258,7 +258,8 @@ public:
      * @param desc The tensor descriptor.
      * @return The status of the buffer size calculation operation.
      */
-    virtual QCStatus_e SetTensorDescFromTensorProp( TensorProps_t &prop, TensorDescriptor_t &desc );
+    QCStatus_e SetTensorDescFromTensorProp( TensorProps_t &prop,
+                                            TensorDescriptor_t &desc ) override;
 
     /**
      * @brief Sets the buffer descriptor values for an image.
@@ -266,8 +267,8 @@ public:
      * @param desc The image descriptor.
      * @return The status of the buffer descriptor setting operation.
      */
-    virtual QCStatus_e SetImageDescFromImageBasicProp( ImageBasicProps_t &prop,
-                                                       ImageDescriptor_t &desc );
+    QCStatus_e SetImageDescFromImageBasicProp( ImageBasicProps_t &prop,
+                                               ImageDescriptor_t &desc ) override;
 
     /**
      * @brief Derives detailed image properties from basic image properties.
@@ -287,7 +288,8 @@ public:
      * @param desc The image descriptor.
      * @return The status of the buffer descriptor setting operation.
      */
-    virtual QCStatus_e SetImageDescFromImageProp( ImageProps_t &prop, ImageDescriptor_t &desc );
+    QCStatus_e SetImageDescFromImageProp( ImageProps_t &prop,
+                                          ImageDescriptor_t &desc ) override;
 
     // ------------------------------------------------------------------
     // Memory transition APIs
@@ -300,7 +302,7 @@ public:
      * @param[out] outTypes  Receives the vector of types; valid only on QC_STATUS_OK.
      * @return QC_STATUS_OK on success.
      */
-    virtual QCStatus_e GetSupportedTransitionTypes(
+    QCStatus_e GetSupportedTransitionTypes(
             std::vector<QCMemoryTransition_e> &outTypes ) override;
 
     /**
@@ -315,8 +317,8 @@ public:
      * @return QC_STATUS_OK on success.
      *         QC_STATUS_UNSUPPORTED if @p type is not in GetSupportedTransitionTypes().
      */
-    virtual QCStatus_e CreateTransition( QCMemoryTransition_e type,
-                                         QCMemoryTransitionFn_t &outFn ) override;
+    QCStatus_e CreateTransition( QCMemoryTransition_e type,
+                                 QCMemoryTransitionFn_t &outFn ) override;
 
     /**
      * @brief Populates outJson with a JSON object of supported transition types.
@@ -325,7 +327,7 @@ public:
      * @param[out] outJson  Receives the JSON string; valid only on QC_STATUS_OK.
      * @return QC_STATUS_OK on success.
      */
-    virtual QCStatus_e GetSupportedBufferTransitionTypesJson( std::string &outJson ) override;
+    QCStatus_e GetSupportedBufferTransitionTypesJson( std::string &outJson ) override;
 };
 
 }   // namespace Memory

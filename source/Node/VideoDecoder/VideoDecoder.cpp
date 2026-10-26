@@ -23,7 +23,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_VDEC, VideoDecoder )
+const NodeRegistrar<VideoDecoder> g_registerVideoDecoder{ QC_NODE_TYPE_VDEC };
 
 QCStatus_e VideoDecoder::Initialize( QCNodeInit_t &config )
 {

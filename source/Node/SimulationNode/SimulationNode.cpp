@@ -13,7 +13,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_SIMNODE, SimulationNode )
+const NodeRegistrar<SimulationNode> g_registerSimulationNode{ QC_NODE_TYPE_SIMNODE };
 
 SimulationNode::SimulationNode()
     : m_configIfs( m_logger ),

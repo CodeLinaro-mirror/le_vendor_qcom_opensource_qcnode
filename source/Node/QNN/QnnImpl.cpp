@@ -70,7 +70,7 @@ QCStatus_e ExtractQnnQuantInfo( const Qnn_Tensor_t &tensor, QnnQuantInfo_t &info
         }
 
         info.type = QC_TENSOR_QUANTIZATION_AXIS_SCALE_OFFSET;
-        info.axis = axisEncoding.axis;
+        info.axis = static_cast<uint32_t>( axisEncoding.axis );
         info.scales.reserve( axisEncoding.numScaleOffsets );
         info.offsets.reserve( axisEncoding.numScaleOffsets );
         for ( uint32_t i = 0U; i < axisEncoding.numScaleOffsets; ++i )
@@ -1907,7 +1907,8 @@ QCStatus_e QnnImpl::GetFastRpcDomainId( uint32_t coreId, int &domainId )
     if ( QC_STATUS_OK == ret )
     {
         req.sys.domains =
-                (fastrpc_domain *) calloc( req.sys.num_domains, sizeof( fastrpc_domain ) );
+                (fastrpc_domain *) calloc( static_cast<size_t>( req.sys.num_domains ),
+                                           sizeof( fastrpc_domain ) );
         req.sys.max_domains = req.sys.num_domains;
         if ( nullptr == req.sys.domains )
         {

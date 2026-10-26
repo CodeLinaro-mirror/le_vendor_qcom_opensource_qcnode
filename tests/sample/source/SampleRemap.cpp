@@ -220,19 +220,16 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
         if ( true == m_bEnableUndistortion )
         {
             bool bAllocateOK = true;
-            TensorProps_t mapXProp;
-            mapXProp = {
-                    QC_TENSOR_TYPE_FLOAT_32,
-                    { mapWidths[i], mapHeights[i] },
-            };
+            TensorProps_t mapXProp( QC_TENSOR_TYPE_FLOAT_32,
+                                    { mapWidths[i], mapHeights[i] } );
             ret = m_pBufMgr->Allocate( mapXProp, m_mapXBufferDesc[i] );
             if ( QC_STATUS_OK != ret )
             {
                 bAllocateOK = false;
                 QC_ERROR( "failed to allocate mapX%u!\n", i );
             }
-            TensorProps_t mapYProp;
-            mapYProp = { QC_TENSOR_TYPE_FLOAT_32, { mapWidths[i], mapHeights[i] } };
+            TensorProps_t mapYProp( QC_TENSOR_TYPE_FLOAT_32,
+                                    { mapWidths[i], mapHeights[i] } );
             ret = m_pBufMgr->Allocate( mapYProp, m_mapYBufferDesc[i] );
             if ( QC_STATUS_OK != ret )
             {

@@ -32,9 +32,9 @@ namespace QC
 // They are intentionally omitted rather than kept as dead API surface.
 //
 // Raw-pointer aliasing contract: Append/Assign/Insert forward their input
-// to std::memcpy/std::memmove internally; callers must not pass a pointer
+// to std::copy_n/std::memmove internally; callers must not pass a pointer
 // into *this's own storage (Data()/CStr()) as the source — same contract
-// std::memcpy itself carries. Substr() guards against *this-aliasing
+// std::copy_n itself carries. Substr() guards against *this-aliasing
 // explicitly (see below) because it is a common enough footgun to reject
 // outright rather than leave as caller responsibility.
 //
@@ -186,7 +186,7 @@ public:
         }
         else
         {
-            std::memcpy( &m_buffer[m_size], data, length );
+            (void) std::copy_n( data, static_cast<std::size_t>( length ), &m_buffer[m_size] );
             m_size += static_cast<std::size_t>( length );
             m_buffer[m_size] = '\0';
 
@@ -224,7 +224,7 @@ public:
             }
             else
             {
-                std::memcpy( &m_buffer[m_size], cstr, length );
+                (void) std::copy_n( cstr, length, &m_buffer[m_size] );
                 m_size += length;
                 m_buffer[m_size] = '\0';
             }
@@ -255,7 +255,7 @@ public:
         }
         else
         {
-            std::memcpy( m_buffer.data(), data, length );
+            (void) std::copy_n( data, static_cast<std::size_t>( length ), m_buffer.data() );
             m_size = static_cast<std::size_t>( length );
             m_buffer[m_size] = '\0';
 
@@ -292,7 +292,7 @@ public:
             }
             else
             {
-                std::memcpy( m_buffer.data(), cstr, length );
+                (void) std::copy_n( cstr, length, m_buffer.data() );
                 m_size = length;
                 m_buffer[m_size] = '\0';
             }

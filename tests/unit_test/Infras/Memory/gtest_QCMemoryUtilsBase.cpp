@@ -50,7 +50,8 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     TensorProps_t tensProp;
 
     /* testing for UYVY */
-    imageBaseProp = ImageBasicProps_t( 3840, 2160, QC_IMAGE_FORMAT_UYVY );
+    ImageBasicProps_t uyvyImageBaseProp( 3840, 2160, QC_IMAGE_FORMAT_UYVY );
+    imageBaseProp = uyvyImageBaseProp;
     status = Ifs.SetImageDescFromImageBasicProp( imageBaseProp, imgDesc );
     ASSERT_EQ( QC_STATUS_OK, status );
     ASSERT_EQ( nullptr, imgDesc.pBuf );
@@ -68,7 +69,8 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     ASSERT_LE( 2160, imgDesc.actualHeight[0] );
 
     /* testing allocate image for NV12 */
-    imageBaseProp = ImageBasicProps_t( 3840, 2160, QC_IMAGE_FORMAT_NV12 );
+    ImageBasicProps_t nv12ImageBaseProp( 3840, 2160, QC_IMAGE_FORMAT_NV12 );
+    imageBaseProp = nv12ImageBaseProp;
     status = Ifs.SetImageDescFromImageBasicProp( imageBaseProp, imgDesc );
     ASSERT_EQ( QC_STATUS_OK, status );
     ASSERT_EQ( nullptr, imgDesc.pBuf );
@@ -84,7 +86,8 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     ASSERT_LE( 2160 / 2, imgDesc.actualHeight[1] );
 
     /* testing for RGB */
-    imageBaseProp = ImageBasicProps_t( 1024, 768, QC_IMAGE_FORMAT_RGB888 );
+    ImageBasicProps_t rgbImageBaseProp( 1024, 768, QC_IMAGE_FORMAT_RGB888 );
+    imageBaseProp = rgbImageBaseProp;
     status = Ifs.SetImageDescFromImageBasicProp( imageBaseProp, imgDesc );
     ASSERT_EQ( QC_STATUS_OK, status );
     ASSERT_EQ( nullptr, imgDesc.pBuf );
@@ -97,7 +100,8 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     ASSERT_EQ( QC_STATUS_OK, status );
 
     /* testing batched for RGB */
-    imageBaseProp = ImageBasicProps_t( 7, 1024, 768, QC_IMAGE_FORMAT_RGB888 );
+    ImageBasicProps_t batchedRgbImageBaseProp( 7, 1024, 768, QC_IMAGE_FORMAT_RGB888 );
+    imageBaseProp = batchedRgbImageBaseProp;
     status = Ifs.SetImageDescFromImageBasicProp( imageBaseProp, imgDesc );
     ASSERT_EQ( QC_STATUS_OK, status );
     ASSERT_EQ( nullptr, imgDesc.pBuf );
@@ -279,7 +283,8 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
     // Tensor
-    tensProp = TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 128, 128, 10 } );
+    TensorProps_t validTensorProp( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 128, 128, 10 } );
+    tensProp = validTensorProp;
     status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
     ASSERT_EQ( QC_STATUS_OK, status );
     ASSERT_EQ( nullptr, tensorDesc.pBuf );
@@ -307,12 +312,15 @@ TEST_F( Test_QCMemoryUtilsBase, SANITY )
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
     /* testing for invalid tensorType < 0 */
-    tensProp = TensorProps_t( (QCTensorType_e)-1, { 1, 128, 128, 10 } );
+    TensorProps_t invalidTypeTensorProp( (QCTensorType_e)-1, { 1, 128, 128, 10 } );
+    tensProp = invalidTypeTensorProp;
     status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 
     /* testing for dimension 0 at different index */
-    tensProp = TensorProps_t( QC_TENSOR_TYPE_UFIXED_POINT_8, { 1, 128, 0, 10 } );
+    TensorProps_t invalidDimensionTensorProp( QC_TENSOR_TYPE_UFIXED_POINT_8,
+                                              { 1, 128, 0, 10 } );
+    tensProp = invalidDimensionTensorProp;
     status = Ifs.SetTensorDescFromTensorProp( tensProp, tensorDesc );
     ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
 

@@ -17,39 +17,39 @@ namespace QC
 
 /**
  * @brief Type-safe description of one node input or output buffer.
- * @param name The input or output name exposed by the node.
- * @param bufferType The type of buffer described by bufProps.
+ * @param descriptorName The input or output name exposed by the node.
+ * @param descriptorBufferType The type of buffer described by bufProps.
  * @param bufProps The concrete buffer properties owned by this descriptor.
  */
 typedef struct QCBufferDescriptorInfo
 {
     QCBufferDescriptorInfo() = default;
 
-    QCBufferDescriptorInfo( std::string name, QCBufferType_e bufferType,
+    QCBufferDescriptorInfo( std::string descriptorName, QCBufferType_e descriptorBufferType,
                             Memory::BufferProps_t props )
-        : name( std::move( name ) ),
-          bufferType( bufferType ),
+        : name( std::move( descriptorName ) ),
+          bufferType( descriptorBufferType ),
           bufProps( std::in_place_type<Memory::BufferProps_t>, std::move( props ) )
     {}
 
-    QCBufferDescriptorInfo( std::string name, QCBufferType_e bufferType,
+    QCBufferDescriptorInfo( std::string descriptorName, QCBufferType_e descriptorBufferType,
                             Memory::TensorProps_t props )
-        : name( std::move( name ) ),
-          bufferType( bufferType ),
+        : name( std::move( descriptorName ) ),
+          bufferType( descriptorBufferType ),
           bufProps( std::in_place_type<Memory::TensorProps_t>, std::move( props ) )
     {}
 
-    QCBufferDescriptorInfo( std::string name, QCBufferType_e bufferType,
+    QCBufferDescriptorInfo( std::string descriptorName, QCBufferType_e descriptorBufferType,
                             Memory::ImageBasicProps_t props )
-        : name( std::move( name ) ),
-          bufferType( bufferType ),
+        : name( std::move( descriptorName ) ),
+          bufferType( descriptorBufferType ),
           bufProps( std::in_place_type<Memory::ImageBasicProps_t>, std::move( props ) )
     {}
 
-    QCBufferDescriptorInfo( std::string name, QCBufferType_e bufferType,
+    QCBufferDescriptorInfo( std::string descriptorName, QCBufferType_e descriptorBufferType,
                             Memory::ImageProps_t props )
-        : name( std::move( name ) ),
-          bufferType( bufferType ),
+        : name( std::move( descriptorName ) ),
+          bufferType( descriptorBufferType ),
           bufProps( std::in_place_type<Memory::ImageProps_t>, std::move( props ) )
     {}
 

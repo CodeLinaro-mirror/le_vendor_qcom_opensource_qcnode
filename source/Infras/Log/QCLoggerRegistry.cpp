@@ -76,7 +76,8 @@ QCStatus_e QCLoggerRegistry::Unregister( Logger *pLogger )
         }
         else
         {
-            m_loggers.erase( iterator );
+            const auto next = m_loggers.erase( iterator );
+            (void) next;
         }
     }
     return status;

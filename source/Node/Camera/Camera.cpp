@@ -10,7 +10,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_QCX, Camera )
+const NodeRegistrar<Camera> g_registerCamera{ QC_NODE_TYPE_QCX };
 
 using namespace QC::Memory;
 

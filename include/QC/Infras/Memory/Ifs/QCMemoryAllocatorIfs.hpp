@@ -53,12 +53,12 @@ typedef struct QCMemoryAllocatorConfig
      * configuration and type.
      *
      * @param config The configuration of the allocator.
-     * @param type The type of the allocator.
+     * @param allocatorType The type of the allocator.
      */
     QCMemoryAllocatorConfig( const QCMemoryAllocatorConfigInit_t &config,
-                             const QCMemoryAllocator_e &type )
+                             const QCMemoryAllocator_e &allocatorType )
         : name( config.name ),
-          type( type ){};
+          type( allocatorType ){};
 
     /**
      * @var name
@@ -104,15 +104,10 @@ public:
                           QCMemoryAllocator_e allocator )
         : m_configuration( config, allocator ){};
 
-    /**
-     * @brief Assignment operator.
-     *
-     * This operator is not implemented and should not be used.
-     *
-     * @param t The object to assign from.
-     * @return A reference to the current object.
-     */
-    QCMemoryAllocatorIfs &operator=( const QCMemoryAllocatorIfs &t ) { return *this; }
+    QCMemoryAllocatorIfs( const QCMemoryAllocatorIfs & ) = delete;
+    QCMemoryAllocatorIfs &operator=( const QCMemoryAllocatorIfs & ) = delete;
+    QCMemoryAllocatorIfs( QCMemoryAllocatorIfs && ) = delete;
+    QCMemoryAllocatorIfs &operator=( QCMemoryAllocatorIfs && ) = delete;
 
     /**
      * @brief Virtual destructor.
@@ -120,7 +115,7 @@ public:
      * This destructor is declared as virtual to ensure that the correct destructor is called
      * when an object of a derived class is deleted through a pointer to the base class.
      */
-    virtual ~QCMemoryAllocatorIfs(){};
+    virtual ~QCMemoryAllocatorIfs() = default;
 
     /**
      * @brief Allocate a buffer with the specified properties.
@@ -198,8 +193,8 @@ public:
     /**
      * @brief Always fails with QC_STATUS_UNSUPPORTED.
      */
-    virtual QCStatus_e Allocate( const QCBufferPropBase_t &request,
-                                 QCBufferDescriptorBase_t &response ) override
+    QCStatus_e Allocate( const QCBufferPropBase_t &request,
+                         QCBufferDescriptorBase_t &response ) override
     {
         return QC_STATUS_UNSUPPORTED;
     }
@@ -207,7 +202,7 @@ public:
     /**
      * @brief Always fails with QC_STATUS_UNSUPPORTED.
      */
-    virtual QCStatus_e Free( const QCBufferDescriptorBase_t &buff ) override
+    QCStatus_e Free( const QCBufferDescriptorBase_t &buff ) override
     {
         return QC_STATUS_UNSUPPORTED;
     }

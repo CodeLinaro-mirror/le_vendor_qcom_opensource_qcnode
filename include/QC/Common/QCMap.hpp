@@ -129,19 +129,19 @@ class QCMap
     // value_type Allocator is instantiated WITH here must already agree with
     // the map's element type — otherwise the allocator plugged in silently
     // targets the wrong object layout.
-    static_assert( std::is_same<typename Allocator::value_type, std::pair<const Key, Value>>::value,
+    static_assert( std::is_same<typename Allocator::value_type, std::pair<const Key, Value>>::value == true,
                    "QCMap Allocator::value_type must be std::pair<const Key, Value>" );
 
     // The no-try/catch guarantee rests on these: if a copy cannot throw and
     // a node is always available, no operation below has a throwing path.
-    static_assert( std::is_nothrow_copy_constructible<Key>::value,
+    static_assert( std::is_nothrow_copy_constructible<Key>::value == true,
                    "QCMap Key must be nothrow-copy-constructible: QCMap has no exception "
                    "handling, so a throwing Key copy would escape the container" );
-    static_assert( std::is_nothrow_copy_constructible<Value>::value,
+    static_assert( std::is_nothrow_copy_constructible<Value>::value == true,
                    "QCMap Value must be nothrow-copy-constructible: QCMap has no exception "
                    "handling, so a throwing Value copy would escape the container. Use a "
                    "fixed-capacity type (e.g. QCString) instead of one that allocates" );
-    static_assert( std::is_nothrow_copy_assignable<Value>::value,
+    static_assert( std::is_nothrow_copy_assignable<Value>::value == true,
                    "QCMap Value must be nothrow-copy-assignable: Update()/InsertOrAssign() "
                    "overwrite in place and must not be able to throw" );
 

@@ -208,16 +208,16 @@ QCStatus_e SampleCL2DFlex::ParseConfig( SampleConfig_t &config )
         if ( true == m_bEnableUndistortion )
         {
             bool bAllocateOK = true;
-            TensorProps_t mapXProp;
-            mapXProp = { QC_TENSOR_TYPE_FLOAT_32, { m_outputHeight * m_outputWidth } };
+            TensorProps_t mapXProp( QC_TENSOR_TYPE_FLOAT_32,
+                                    { m_outputHeight * m_outputWidth } );
             ret = m_pBufMgr->Allocate( mapXProp, m_mapXBufferDesc[i] );
             if ( QC_STATUS_OK != ret )
             {
                 bAllocateOK = false;
                 QC_ERROR( "failed to allocate mapX%u!\n", i );
             }
-            TensorProps_t mapYProp;
-            mapYProp = { QC_TENSOR_TYPE_FLOAT_32, { m_outputHeight * m_outputWidth } };
+            TensorProps_t mapYProp( QC_TENSOR_TYPE_FLOAT_32,
+                                    { m_outputHeight * m_outputWidth } );
             ret = m_pBufMgr->Allocate( mapYProp, m_mapYBufferDesc[i] );
             if ( QC_STATUS_OK != ret )
             {
@@ -273,8 +273,7 @@ QCStatus_e SampleCL2DFlex::ParseConfig( SampleConfig_t &config )
             ret = QC_STATUS_BAD_ARGUMENTS;
         }
 
-        TensorProps_t ROIProp;
-        ROIProp = { QC_TENSOR_TYPE_UINT_32, { m_roiNumber, 4 } };
+        TensorProps_t ROIProp( QC_TENSOR_TYPE_UINT_32, { m_roiNumber, 4 } );
         ret = m_pBufMgr->Allocate( ROIProp, m_ROIsBufferDesc );
 
         for ( uint32_t i = 0; i < m_roiNumber; i++ )

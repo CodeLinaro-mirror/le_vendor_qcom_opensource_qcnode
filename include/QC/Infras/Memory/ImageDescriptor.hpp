@@ -46,6 +46,16 @@ public:
 
     ~ImageBasicProps() override = default;
 
+    ImageBasicProps( const ImageBasicProps & ) = default;
+    ImageBasicProps &operator=( const ImageBasicProps & ) = default;
+    ImageBasicProps( ImageBasicProps &&other ) noexcept
+        : ImageBasicProps( static_cast<const ImageBasicProps &>( other ) )
+    {}
+    ImageBasicProps &operator=( ImageBasicProps &&other ) noexcept
+    {
+        return operator=( static_cast<const ImageBasicProps &>( other ) );
+    }
+
 
     /**
      * @brief Constructor for ImageBasicProps.
@@ -136,6 +146,16 @@ public:
         std::fill( std::begin( stride ), std::end( stride ), 0U );
         std::fill( std::begin( actualHeight ), std::end( actualHeight ), 0U );
         std::fill( std::begin( planeBufSize ), std::end( planeBufSize ), 0U );
+    }
+
+    ImageProps( const ImageProps & ) = default;
+    ImageProps &operator=( const ImageProps & ) = default;
+    ImageProps( ImageProps &&other ) noexcept
+        : ImageProps( static_cast<const ImageProps &>( other ) )
+    {}
+    ImageProps &operator=( ImageProps &&other ) noexcept
+    {
+        return operator=( static_cast<const ImageProps &>( other ) );
     }
 
     /**
@@ -239,9 +259,10 @@ public:
         }
     }
 
-    ~ImageDescriptor() override = default;
+    ~ImageDescriptor() override {}
 
-    ImageDescriptor( const ImageDescriptor &other ) = default;
+    ImageDescriptor( const ImageDescriptor &other ) noexcept;
+    ImageDescriptor( ImageDescriptor &&other ) noexcept;
 
     using BufferDescriptor::operator=;
 
@@ -250,9 +271,10 @@ public:
      * @param[in] other The buffer descriptor object from which buffer members are copied.
      * @return The updated image descriptor object.
      */
-    ImageDescriptor &operator=( const BufferDescriptor &other );
-    ImageDescriptor &operator=( const ImageDescriptor &other );
-    ImageDescriptor &operator=( const QCBufferDescriptorBase_t &other );
+    ImageDescriptor &operator=( const BufferDescriptor &other ) noexcept override;
+    ImageDescriptor &operator=( const ImageDescriptor &other ) noexcept;
+    ImageDescriptor &operator=( ImageDescriptor &&other ) noexcept;
+    ImageDescriptor &operator=( const QCBufferDescriptorBase_t &other ) noexcept override;
 
     /**
      * @brief Converts the image buffer descriptor to a tensor buffer descriptor.

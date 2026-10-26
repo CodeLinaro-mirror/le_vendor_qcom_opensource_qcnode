@@ -140,14 +140,14 @@ class QCVector
 
     // The no-try/catch guarantee rests on these: if the slots can be created
     // and assigned without throwing, no operation below has a throwing path.
-    static_assert( std::is_nothrow_default_constructible<T>::value,
+    static_assert( std::is_nothrow_default_constructible<T>::value == true,
                    "QCVector T must be nothrow-default-constructible: the N slots are created "
                    "with the vector and vacated slots are reset to a default-constructed T" );
-    static_assert( std::is_nothrow_copy_constructible<T>::value,
+    static_assert( std::is_nothrow_copy_constructible<T>::value == true,
                    "QCVector T must be nothrow-copy-constructible: QCVector has no exception "
                    "handling, so a throwing T copy would escape the container. Use a "
                    "fixed-capacity type (e.g. QCString) instead of one that allocates" );
-    static_assert( std::is_nothrow_copy_assignable<T>::value,
+    static_assert( std::is_nothrow_copy_assignable<T>::value == true,
                    "QCVector T must be nothrow-copy-assignable: PushBack()/Insert()/RemoveAt() "
                    "write and shift elements by assignment and must not be able to throw" );
 

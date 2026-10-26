@@ -78,7 +78,7 @@ QCStatus_e DMABUFFAllocator::Allocate( const QCBufferPropBase_t &request,
                             static_cast<int>( static_cast<uint32_t>( PROT_READ ) |
                                               static_cast<uint32_t>( PROT_WRITE ) ),
                             MAP_SHARED, fd, 0 );
-        if ( ( nullptr != pAddr ) && ( MAP_FAILED != pAddr ) )
+        if ( ( nullptr != pAddr ) && ( pAddr != static_cast<void *>( MAP_FAILED ) ) )
         {
             response.pBuf = pAddr;
             response.dmaHandle = static_cast<uint64_t>( fd );

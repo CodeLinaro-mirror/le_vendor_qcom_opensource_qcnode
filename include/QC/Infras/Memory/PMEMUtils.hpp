@@ -43,8 +43,8 @@ public:
      * @param mapped The buffer descriptor mapped into memory.
      * @return The status of the memory mapping operation.
      */
-    virtual QCStatus_e MemoryMap( const QCBufferDescriptorBase_t &orig,
-                                  QCBufferDescriptorBase_t &mapped );
+    QCStatus_e MemoryMap( const QCBufferDescriptorBase_t &orig,
+                          QCBufferDescriptorBase_t &mapped ) override;
 
     /**
      * @brief Unmaps a buffer from memory.
@@ -53,7 +53,7 @@ public:
      * @param buff The buffer descriptor to unmap from memory.
      * @return The status of the memory unmapping operation.
      */
-    virtual QCStatus_e MemoryUnMap( const QCBufferDescriptorBase_t &buff );
+    QCStatus_e MemoryUnMap( const QCBufferDescriptorBase_t &buff ) override;
 
 private:
     /**

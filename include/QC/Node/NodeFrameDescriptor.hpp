@@ -36,6 +36,12 @@ public:
         type = QC_BUFFER_TYPE_MAX;
     }
     virtual ~QCDummyBufferDescriptor() = default;
+
+    QCDummyBufferDescriptor &operator=( const QCBufferDescriptorBase_t &other ) noexcept override
+    {
+        QCBufferDescriptorBase_t::operator=( other );
+        return *this;
+    }
 } QCDummyBufferDescriptor_t;
 
 /**

@@ -30,7 +30,7 @@ namespace Memory
  *
  * This enumeration defines the different types of memory allocators that can be used.
  */
-typedef enum
+typedef enum QCMemoryAllocator
 {
     /**
      * @brief Heap memory allocator.
@@ -76,7 +76,7 @@ typedef enum
  *
  * This enumeration defines the different cache attributes that can be used for memory allocations.
  */
-typedef enum
+typedef enum QCAllocationCache
 {
     /**
      * @brief Non-cacheable memory.
@@ -108,7 +108,7 @@ typedef enum
  * @enum QCMemoryManagerType_e
  * @brief Enumerates the types of memory manager implementations.
  */
-typedef enum
+typedef enum QCMemoryManagerType
 {
     /**
      * @brief Local (in-process) memory manager.
@@ -193,28 +193,30 @@ typedef struct QCBufferPropBase
      *
      * This constructor initializes the QCBufferPropBase structure with default values.
      */
-    QCBufferPropBase()
-        : size( 0 ),
-          alignment( QC_MEMORY_DEFAULT_ALLIGNMENT ),
-          cache( QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES ) {};
+    QCBufferPropBase() noexcept = default;
+
+    QCBufferPropBase( const QCBufferPropBase & ) = default;
+    QCBufferPropBase &operator=( const QCBufferPropBase & ) = default;
+    QCBufferPropBase( QCBufferPropBase && ) = default;
+    QCBufferPropBase &operator=( QCBufferPropBase && ) = default;
 
     /**
      * @var size
      * @brief The size of the buffer.
      */
-    size_t size;
+    size_t size{ 0 };
 
     /**
      * @var alignment
      * @brief The alignment of the buffer.
      */
-    QCAlignment_t alignment;
+    QCAlignment_t alignment{ QC_MEMORY_DEFAULT_ALLIGNMENT };
 
     /**
      * @var cache
      * @brief The cache attributes of the buffer.
      */
-    QCAllocationCache_e cache;
+    QCAllocationCache_e cache{ QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES };
 
 } QCBufferPropBase_t;
 

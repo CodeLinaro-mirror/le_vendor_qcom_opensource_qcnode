@@ -11,7 +11,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_FADAS_REMAP, Remap )
+const NodeRegistrar<Remap> g_registerRemap{ QC_NODE_TYPE_FADAS_REMAP };
 
 Remap::Remap()
     : m_pRemapImpl( new( std::nothrow ) RemapImpl( m_nodeId, m_logger ) ),

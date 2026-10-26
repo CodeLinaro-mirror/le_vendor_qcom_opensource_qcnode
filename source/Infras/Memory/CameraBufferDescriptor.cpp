@@ -9,7 +9,7 @@ namespace QC
 namespace Memory
 {
 
-CameraFrameDescriptor &CameraFrameDescriptor::operator=( const QCBufferDescriptorBase &other )
+CameraFrameDescriptor &CameraFrameDescriptor::operator=( const QCBufferDescriptorBase &other ) noexcept
 {
     if ( this != &other )
     {
@@ -38,6 +38,24 @@ CameraFrameDescriptor &CameraFrameDescriptor::operator=( const QCBufferDescripto
                 this->actualHeight[i] = pImgFrame->actualHeight[i];
                 this->planeBufSize[i] = pImgFrame->planeBufSize[i];
             }
+        }
+    }
+    return *this;
+}
+
+CameraMetaDataDescriptor &CameraMetaDataDescriptor::operator=( const QCBufferDescriptorBase &other ) noexcept
+{
+    if ( this != &other )
+    {
+        const CameraMetaDataDescriptor *pMetaData =
+                dynamic_cast<const CameraMetaDataDescriptor *>( &other );
+        if ( pMetaData != nullptr )
+        {
+            *this = *pMetaData;
+        }
+        else
+        {
+            ImageDescriptor::operator=( other );
         }
     }
     return *this;

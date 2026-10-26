@@ -20,7 +20,7 @@ add_executable( gtest_FadasIface
     ${PROJECT_SOURCE_DIR}/source/Library/FadasIface/FadasSrv.cpp
 )
 target_include_directories( gtest_FadasIface PUBLIC ${HEADERS_DIR} )
-target_link_libraries( gtest_FadasIface gtest QCNodeTestMockCLib QCNodeLogger)
+target_link_libraries( gtest_FadasIface gtest QCNodeTestMockCLib QCNodeLogger QCNodeMemory)
 target_link_options(gtest_FadasIface PRIVATE -Wl,--wrap=dlopen -Wl,--wrap=dlsym)
 include( CheckSymbolExists )
 check_symbol_exists( strlcpy "string.h" HAVE_STRLCPY )

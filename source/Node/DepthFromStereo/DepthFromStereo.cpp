@@ -11,7 +11,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_EVA_DFS, DepthFromStereo )
+const NodeRegistrar<DepthFromStereo> g_registerDepthFromStereo{ QC_NODE_TYPE_EVA_DFS };
 
 DepthFromStereo_Config::DepthFromStereo_Config()
 {

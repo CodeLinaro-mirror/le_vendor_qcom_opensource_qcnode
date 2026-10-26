@@ -1003,8 +1003,7 @@ void MultipleROI( CL2DFlex_Work_Mode_e modeTest, QCImageFormat_e inputFormatTest
     dt.Set<uint32_t>( "static.numOfROIs", roiNumber );
     dt.Set<uint32_t>( "static.ROIsBufferId", CL2DFlexConfig.numOfInputs + 1 );
     TensorDescriptor_t ROIsBufferDesc;
-    TensorProps_t ROIProp;
-    ROIProp = { QC_TENSOR_TYPE_UINT_32, { roiNumber, 4 } };
+    TensorProps_t ROIProp( QC_TENSOR_TYPE_UINT_32, { roiNumber, 4 } );
     ret = bufMgr.Allocate( ROIProp, ROIsBufferDesc );
     if ( nullptr != ROIsBufferDesc.pBuf )
     {

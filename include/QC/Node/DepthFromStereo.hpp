@@ -151,7 +151,7 @@ public:
     DepthFromStereo_Config();
     DepthFromStereo_Config( const DepthFromStereo_Config &rhs );
     DepthFromStereo_Config &operator=( const DepthFromStereo_Config &rhs );
-    ~DepthFromStereo_Config() override = default;
+    ~DepthFromStereo_Config() override {}
 
 } DepthFromStereo_Config_t;
 

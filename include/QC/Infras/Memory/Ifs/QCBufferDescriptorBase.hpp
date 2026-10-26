@@ -63,6 +63,11 @@ public:
      * when an object of a derived class is deleted through a pointer to the base class. */
     virtual ~QCBufferDescriptorBase() = default;
 
+    QCBufferDescriptorBase( const QCBufferDescriptorBase & ) = default;
+    virtual QCBufferDescriptorBase &operator=( const QCBufferDescriptorBase & ) noexcept = default;
+    QCBufferDescriptorBase( QCBufferDescriptorBase && ) = default;
+    QCBufferDescriptorBase &operator=( QCBufferDescriptorBase && ) = default;
+
     // Overload operator< for MyKey
     bool operator<( const QCBufferDescriptorBase &other ) const
     {

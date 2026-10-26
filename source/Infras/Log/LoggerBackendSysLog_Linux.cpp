@@ -52,6 +52,9 @@ void LoggerBackendSysLog::Log( Logger_Level_e level, const char *pFormat, va_lis
             (void) vfprintf( stderr, pFormat, args );
             (void) fprintf( stderr, "\n" );
         }
+        else
+        {
+        }
     }
 }
 

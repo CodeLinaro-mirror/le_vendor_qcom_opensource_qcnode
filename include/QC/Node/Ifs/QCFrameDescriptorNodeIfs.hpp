@@ -20,7 +20,10 @@ class QCFrameDescriptorNodeIfs
 {
 public:
     QCFrameDescriptorNodeIfs() = default;
-    QCFrameDescriptorNodeIfs( const QCFrameDescriptorNodeIfs & ) = default;
+    QCFrameDescriptorNodeIfs( const QCFrameDescriptorNodeIfs &other ) noexcept
+    {
+        static_cast<void>( other );
+    }
     virtual ~QCFrameDescriptorNodeIfs() = default;
 
     /**

@@ -13,7 +13,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_EVA_OPTICAL_FLOW, OpticalFlow )
+const NodeRegistrar<OpticalFlow> g_registerOpticalFlow{ QC_NODE_TYPE_EVA_OPTICAL_FLOW };
 
 OpticalFlow_Config::OpticalFlow_Config()
 {

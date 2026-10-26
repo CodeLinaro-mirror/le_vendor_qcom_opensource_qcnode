@@ -11,7 +11,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_QNN, Qnn )
+const NodeRegistrar<Qnn> g_registerQnn{ QC_NODE_TYPE_QNN };
 
 using namespace QC::Memory;
 

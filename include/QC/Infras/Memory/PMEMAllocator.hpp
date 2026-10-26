@@ -48,15 +48,15 @@ public:
      * QCBufferDescriptorBase_t.
      * @return QC_STATUS_OK on success, other status codes on failure.
      */
-    virtual QCStatus_e Allocate( const QCBufferPropBase_t &request,
-                                 QCBufferDescriptorBase_t &response );
+    QCStatus_e Allocate( const QCBufferPropBase_t &request,
+                         QCBufferDescriptorBase_t &response ) override;
 
     /**
      * @brief Free a buffer with the specified descriptor.
      * @param BufferDescriptor The descriptor of the buffer to free.
      * @return The status of the free operation.
      */
-    virtual QCStatus_e Free( const QCBufferDescriptorBase_t &BufferDescriptor );
+    QCStatus_e Free( const QCBufferDescriptorBase_t &BufferDescriptor ) override;
 
 private:
     inline QCStatus_e AllocaotrorToPMEM_ID( const QCMemoryAllocator_e &allocatorType,

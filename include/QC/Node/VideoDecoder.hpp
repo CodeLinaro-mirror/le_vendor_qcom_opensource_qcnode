@@ -144,7 +144,7 @@ public:
     VideoDecoderMonitoringIfs( const VideoDecoderMonitoringIfs &other ) : m_logger( other.m_logger )
     {}
     VideoDecoderMonitoringIfs &operator=( const VideoDecoderMonitoringIfs & ) = default;
-    virtual ~VideoDecoderMonitoringIfs() = default;
+    virtual ~VideoDecoderMonitoringIfs() {}
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
     {

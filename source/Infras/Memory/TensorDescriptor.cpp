@@ -4,19 +4,35 @@
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 
+#include <utility>
+
 namespace QC
 {
 namespace Memory
 {
 
-TensorDescriptor &TensorDescriptor::operator=( const BufferDescriptor &other )
+TensorDescriptor::TensorDescriptor( const TensorDescriptor &other ) noexcept
+    : BufferDescriptor( other ), tensorType( other.tensorType ), numDims( other.numDims )
+{
+    (void) std::copy_n( std::begin( other.dims ), QC_NUM_TENSOR_DIMS, std::begin( dims ) );
+}
+
+TensorDescriptor::TensorDescriptor( TensorDescriptor &&other ) noexcept
+    : BufferDescriptor( std::move( other ) ),
+      tensorType( other.tensorType ),
+      numDims( other.numDims )
+{
+    (void) std::copy_n( std::begin( other.dims ), QC_NUM_TENSOR_DIMS, std::begin( dims ) );
+}
+
+TensorDescriptor &TensorDescriptor::operator=( const BufferDescriptor &other ) noexcept
 {
     BufferDescriptor::operator=( other );
     this->type = QC_BUFFER_TYPE_TENSOR;
     return *this;
 }
 
-TensorDescriptor &TensorDescriptor::operator=( const TensorDescriptor &other )
+TensorDescriptor &TensorDescriptor::operator=( const TensorDescriptor &other ) noexcept
 {
     if ( this != &other )
     {
@@ -30,7 +46,20 @@ TensorDescriptor &TensorDescriptor::operator=( const TensorDescriptor &other )
     return *this;
 }
 
-TensorDescriptor &TensorDescriptor::operator=( const QCBufferDescriptorBase_t &other )
+TensorDescriptor &TensorDescriptor::operator=( TensorDescriptor &&other ) noexcept
+{
+    if ( this != &other )
+    {
+        BufferDescriptor::operator=( std::move( other ) );
+        tensorType = other.tensorType;
+        (void) std::copy_n( std::begin( other.dims ), QC_NUM_TENSOR_DIMS,
+                            std::begin( dims ) );
+        numDims = other.numDims;
+    }
+    return *this;
+}
+
+TensorDescriptor &TensorDescriptor::operator=( const QCBufferDescriptorBase_t &other ) noexcept
 {
     if ( this != &other )
     {

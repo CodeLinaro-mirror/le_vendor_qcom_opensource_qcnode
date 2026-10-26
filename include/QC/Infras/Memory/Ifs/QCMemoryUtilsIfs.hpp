@@ -73,6 +73,13 @@ using QCMemoryTransitionFn_t = std::function<QCStatus_e( const QCBufferDescripto
 class QCMemoryUtilsIfs
 {
 public:
+    QCMemoryUtilsIfs() = default;
+    QCMemoryUtilsIfs( const QCMemoryUtilsIfs & ) = delete;
+    QCMemoryUtilsIfs &operator=( const QCMemoryUtilsIfs & ) = delete;
+    QCMemoryUtilsIfs( QCMemoryUtilsIfs && ) = delete;
+    QCMemoryUtilsIfs &operator=( QCMemoryUtilsIfs && ) = delete;
+    virtual ~QCMemoryUtilsIfs() = default;
+
     /**
      * @brief Maps a buffer into memory.
      * This method maps a buffer into memory and returns a status code indicating success or

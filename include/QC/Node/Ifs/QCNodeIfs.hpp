@@ -43,6 +43,11 @@ class QCNodeIfs
 {
 
 public:
+    QCNodeIfs() = default;
+    QCNodeIfs( const QCNodeIfs & ) = delete;
+    QCNodeIfs &operator=( const QCNodeIfs & ) = delete;
+    QCNodeIfs( QCNodeIfs && ) = delete;
+    QCNodeIfs &operator=( QCNodeIfs && ) = delete;
     virtual ~QCNodeIfs() = default;
     virtual QCStatus_e Initialize( QCNodeInit_t &config ) = 0;
     virtual QCStatus_e DeInitialize() = 0;

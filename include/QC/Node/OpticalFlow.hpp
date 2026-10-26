@@ -170,7 +170,7 @@ public:
     OpticalFlow_Config();
     OpticalFlow_Config( const OpticalFlow_Config &rhs );
     OpticalFlow_Config &operator=( const OpticalFlow_Config &rhs );
-    ~OpticalFlow_Config() override = default;
+    ~OpticalFlow_Config() override {}
 
 } OpticalFlow_Config_t;
 

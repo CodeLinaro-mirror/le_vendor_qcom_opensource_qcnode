@@ -15,6 +15,8 @@ namespace QC
 namespace Memory
 {
 
+DummyAllocator QCMemoryManagerInit::s_dummyAllocator;
+
 ManagerLocal::ManagerLocal()
 {
     SetState( QC_OBJECT_STATE_INITIAL );

@@ -10,7 +10,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_RADAR, Radar )
+const NodeRegistrar<Radar> g_registerRadar{ QC_NODE_TYPE_RADAR };
 
 Radar::Radar() : m_pImpl( std::make_unique<RadarImpl>() ), m_configIfs( m_logger ) {}
 

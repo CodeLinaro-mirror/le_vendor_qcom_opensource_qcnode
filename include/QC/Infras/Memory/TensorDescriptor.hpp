@@ -54,6 +54,16 @@ public:
      */
     TensorProps() : BufferProps() {}
 
+    TensorProps( const TensorProps & ) = default;
+    TensorProps &operator=( const TensorProps & ) = default;
+    TensorProps( TensorProps &&other ) noexcept
+        : TensorProps( static_cast<const TensorProps &>( other ) )
+    {}
+    TensorProps &operator=( TensorProps &&other ) noexcept
+    {
+        return operator=( static_cast<const TensorProps &>( other ) );
+    }
+
     /**
      * @brief Constructor for TensorProps.
      * @param tensorType The tensor type.
@@ -114,9 +124,10 @@ typedef struct TensorDescriptor : public BufferDescriptor
 public:
     TensorDescriptor() : BufferDescriptor() {}
 
-    ~TensorDescriptor() override = default;
+    ~TensorDescriptor() override {}
 
-    TensorDescriptor( const TensorDescriptor &other ) = default;
+    TensorDescriptor( const TensorDescriptor &other ) noexcept;
+    TensorDescriptor( TensorDescriptor &&other ) noexcept;
 
     using BufferDescriptor::operator=;
 
@@ -125,9 +136,10 @@ public:
      * @param[in] other The buffer descriptor object from which buffer members are copied.
      * @return The updated tensor descriptor object.
      */
-    TensorDescriptor &operator=( const BufferDescriptor &other );
-    TensorDescriptor &operator=( const TensorDescriptor &other );
-    TensorDescriptor &operator=( const QCBufferDescriptorBase_t &other );
+    TensorDescriptor &operator=( const BufferDescriptor &other ) noexcept override;
+    TensorDescriptor &operator=( const TensorDescriptor &other ) noexcept;
+    TensorDescriptor &operator=( TensorDescriptor &&other ) noexcept;
+    TensorDescriptor &operator=( const QCBufferDescriptorBase_t &other ) noexcept override;
 
     QCTensorType_e tensorType;
     uint32_t dims[QC_NUM_TENSOR_DIMS];

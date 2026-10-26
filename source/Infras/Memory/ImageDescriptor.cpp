@@ -5,10 +5,44 @@
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/UtilsBase.hpp"
 
+#include <utility>
+
 namespace QC
 {
 namespace Memory
 {
+
+ImageDescriptor::ImageDescriptor( const ImageDescriptor &other ) noexcept
+    : BufferDescriptor( other ),
+      format( other.format ),
+      batchSize( other.batchSize ),
+      width( other.width ),
+      height( other.height ),
+      numPlanes( other.numPlanes )
+{
+    (void) std::copy_n( std::begin( other.stride ), QC_NUM_IMAGE_PLANES,
+                        std::begin( stride ) );
+    (void) std::copy_n( std::begin( other.actualHeight ), QC_NUM_IMAGE_PLANES,
+                        std::begin( actualHeight ) );
+    (void) std::copy_n( std::begin( other.planeBufSize ), QC_NUM_IMAGE_PLANES,
+                        std::begin( planeBufSize ) );
+}
+
+ImageDescriptor::ImageDescriptor( ImageDescriptor &&other ) noexcept
+    : BufferDescriptor( std::move( other ) ),
+      format( other.format ),
+      batchSize( other.batchSize ),
+      width( other.width ),
+      height( other.height ),
+      numPlanes( other.numPlanes )
+{
+    (void) std::copy_n( std::begin( other.stride ), QC_NUM_IMAGE_PLANES,
+                        std::begin( stride ) );
+    (void) std::copy_n( std::begin( other.actualHeight ), QC_NUM_IMAGE_PLANES,
+                        std::begin( actualHeight ) );
+    (void) std::copy_n( std::begin( other.planeBufSize ), QC_NUM_IMAGE_PLANES,
+                        std::begin( planeBufSize ) );
+}
 
 QCStatus_e ImageDescriptor::ImageToTensor( TensorDescriptor_t &tensorDesc ) const
 {
@@ -222,14 +256,14 @@ QCStatus_e ImageDescriptor::GetImageDesc( ImageDescriptor &imageDesc, uint32_t b
     return status;
 }
 
-ImageDescriptor &ImageDescriptor::operator=( const BufferDescriptor &other )
+ImageDescriptor &ImageDescriptor::operator=( const BufferDescriptor &other ) noexcept
 {
     BufferDescriptor::operator=( other );
     this->type = QC_BUFFER_TYPE_IMAGE;
     return *this;
 }
 
-ImageDescriptor &ImageDescriptor::operator=( const ImageDescriptor &other )
+ImageDescriptor &ImageDescriptor::operator=( const ImageDescriptor &other ) noexcept
 {
     if ( this != &other )
     {
@@ -250,7 +284,27 @@ ImageDescriptor &ImageDescriptor::operator=( const ImageDescriptor &other )
     return *this;
 }
 
-ImageDescriptor &ImageDescriptor::operator=( const QCBufferDescriptorBase_t &other )
+ImageDescriptor &ImageDescriptor::operator=( ImageDescriptor &&other ) noexcept
+{
+    if ( this != &other )
+    {
+        BufferDescriptor::operator=( std::move( other ) );
+        format = other.format;
+        batchSize = other.batchSize;
+        width = other.width;
+        height = other.height;
+        (void) std::copy_n( std::begin( other.stride ), QC_NUM_IMAGE_PLANES,
+                            std::begin( stride ) );
+        (void) std::copy_n( std::begin( other.actualHeight ), QC_NUM_IMAGE_PLANES,
+                            std::begin( actualHeight ) );
+        (void) std::copy_n( std::begin( other.planeBufSize ), QC_NUM_IMAGE_PLANES,
+                            std::begin( planeBufSize ) );
+        numPlanes = other.numPlanes;
+    }
+    return *this;
+}
+
+ImageDescriptor &ImageDescriptor::operator=( const QCBufferDescriptorBase_t &other ) noexcept
 {
     if ( this != &other )
     {

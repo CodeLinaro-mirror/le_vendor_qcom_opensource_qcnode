@@ -22,8 +22,8 @@ namespace Node
 // GetNodeTypes(): returns reference to ordered list of registered types.
 //
 // Both containers are populated at static-initialisation time by the
-// Register<ClassName> objects that are instantiated by REGISTER_NODE()
-// macros placed in each node's translation unit.
+// NodeRegistrar<ClassName> objects that are instantiated in each node's
+// translation unit.
 //
 // Using the "construct on first use" idiom to avoid static initialization order fiasco.
 // ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ QCStatus_e QCNodeFactory::CreateNode( QCNodeType_e type, std::unique_ptr<QCNodeI
 // GetSupportedNodeTypes
 //
 // Populates outTypes with the list of QCNodeType_e values that have been
-// registered via REGISTER_NODE() in the current build.  The list is built
+// registered via NodeRegistrar objects in the current build.  The list is built
 // incrementally by RegisterNode() and reflects exactly the set of types for
 // which CreateNode() will succeed.
 // ---------------------------------------------------------------------------

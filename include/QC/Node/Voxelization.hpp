@@ -177,7 +177,7 @@ public:
           m_logger( other.m_logger )
     {}
     VoxelizationMonitor &operator=( const VoxelizationMonitor & ) = default;
-    ~VoxelizationMonitor() = default;
+    ~VoxelizationMonitor() {}
 
     /**
      * @brief Verify the configuration string and set the configuration structure.

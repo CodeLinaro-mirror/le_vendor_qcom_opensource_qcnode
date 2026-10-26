@@ -15,7 +15,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_VENC, VideoEncoder )
+const NodeRegistrar<VideoEncoder> g_registerVideoEncoder{ QC_NODE_TYPE_VENC };
 
 #define ARRAY_SIZE( a ) ( sizeof( ( a ) ) / sizeof( ( a )[0] ) )
 

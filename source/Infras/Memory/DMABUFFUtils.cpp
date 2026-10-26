@@ -55,7 +55,8 @@ QCStatus_e DMABUFFUtils::MemoryMap( const QCBufferDescriptorBase_t &orig,
     {
         void *pAddr = mmap( nullptr, orig.size, static_cast<int>( static_cast<uint32_t>( PROT_READ ) | static_cast<uint32_t>( PROT_WRITE ) ), MAP_SHARED,
                             static_cast<int>( mapped.dmaHandle ), 0 );
-        if ( ( nullptr == pAddr ) || ( MAP_FAILED == pAddr ) )
+        if ( ( nullptr == pAddr ) ||
+             ( pAddr == static_cast<void *>( MAP_FAILED ) ) )
         {
             QC_LOG_ERROR( "mmap failed: %d", errno );
             status = QC_STATUS_FAIL;

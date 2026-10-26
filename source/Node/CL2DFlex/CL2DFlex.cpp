@@ -11,7 +11,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_CL_2D_FLEX, CL2DFlex )
+const NodeRegistrar<CL2DFlex> g_registerCL2DFlex{ QC_NODE_TYPE_CL_2D_FLEX };
 
 CL2DFlex::CL2DFlex()
     : m_pCL2DFlexImpl( new( std::nothrow ) CL2DFlexImpl( m_nodeId, m_logger ) ),
