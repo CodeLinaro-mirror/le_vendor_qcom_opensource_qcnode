@@ -3164,10 +3164,9 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario2_UnavailableCore_LibraryAccep
 }
 
 /**
- * @brief Scenario 3: No cpuThreadsAffinity provided → falls back to hardcoded platform defaults
- * @coverage FadasRemap.cpp - CreateRemapWorker: empty affinity → platform defaults used
- * @expected NOT QC_STATUS_BAD_ARGUMENTS — Initialize succeeds using platform default core IDs
- *           JSON does NOT contain "cpuThreadsAffinity" key
+ * @brief Scenario 3: No cpuThreadsAffinity provided → rejected, mandatory for CPU
+ * @coverage FadasRemap.cpp - CreateRemapWorker: empty affinity rejected
+ * @expected QC_STATUS_BAD_ARGUMENTS — JSON does NOT contain "cpuThreadsAffinity" key
  */
 TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario3_NotProvided_FallsBackToDefault )
 {
@@ -3185,34 +3184,26 @@ TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario3_NotProvided_FallsBackToDefau
 
     QCStatus_e ret = remap.Initialize( config );
     printf( "Scenario3 Initialize ret = %d\n", ret );
-    /* cpuThreadsAffinity is now mandatory for CPU processor.
-     * When absent, VerifyStaticConfig returns BAD_ARGUMENTS. */
+    /* cpuThreadsAffinity is mandatory for CPU processor - no fallback.
+     * When absent, CreateRemapWorker returns BAD_ARGUMENTS. */
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 }
 
 /**
- * @brief Scenario 4a: SOC-based fallback — no affinity provided → platform defaults always valid
- * @coverage FadasRemap.cpp - CreateRemapWorker: #if defined(__linux__) fallback
- *
- * When cpuThreadsAffinity is absent, FadasRemap::CreateRemapWorker uses:
- *   #if defined(__linux__)  → {12, 13, 14, 15}   (Linux/QNX target)
- *   #else                   → {0, 1, 2, 3}        (other platforms)
- *
- * The SOC-based defaults are always valid on the target platform.
- * @expected QC_STATUS_OK — Initialize succeeds using the correct SOC-specific default core IDs
+ * @brief Scenario 4a: No affinity provided → rejected, mandatory for CPU
+ * @coverage FadasRemap.cpp - CreateRemapWorker: empty affinity rejected
+ * @expected QC_STATUS_BAD_ARGUMENTS
  */
 TEST( NodeRemapConfig, CpuThreadsAffinity_Scenario4a_SocBasedFallback_NoAffinityProvided )
 {
     QC::Node::Remap remap;
     DataTree dt;
     BuildMinimalCpuConfig( dt );
-    /* cpuThreadsAffinity NOT set → no SOC-based fallback any more */
+    /* cpuThreadsAffinity NOT set → mandatory check rejects it */
 
     QCNodeInit_t config = { dt.Dump() };
     QCStatus_e ret = remap.Initialize( config );
     printf( "Scenario4a Initialize ret = %d\n", ret );
-    /* cpuThreadsAffinity is now mandatory for CPU processor.
-     * When absent, VerifyStaticConfig returns BAD_ARGUMENTS. */
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 }
 

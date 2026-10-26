@@ -2,11 +2,60 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "QC/sample/SampleRemap.hpp"
+#if defined( __linux__ )
+#include <sched.h> /* cpu_set_t, sched_getaffinity, CPU_ISSET */
+#elif defined( __QNXNTO__ )
+#include <sys/neutrino.h> /* ThreadCtl, _NTO_TCTL_RUNMASK_GET_AND_SET */
+#endif
 
 namespace QC
 {
 namespace sample
 {
+
+namespace
+{
+/* Discover up to maxCount CPU core IDs that are currently online/schedulable
+ * for the calling thread, used by ParseConfig() below as the sample app's own
+ * default for "cpu_threads_affinity" when the user does not provide one.
+ * Node Remap itself requires cpuThreadsAffinity to be explicitly set when
+ * processorType is "cpu" (FadasRemap::CreateRemapWorker rejects an empty
+ * list) - it intentionally has no platform-default fallback, since the
+ * FADAS SDK uses its own internal CPU enumeration and a hardcoded list
+ * (e.g. {12,13,14,15}) may not be valid/online on every target. */
+std::vector<uint32_t> DiscoverOnlineCpuThreadsAffinity( uint32_t maxCount )
+{
+    std::vector<uint32_t> cores;
+#if defined( __linux__ )
+    cpu_set_t onlineCpus;
+    CPU_ZERO( &onlineCpus );
+    if ( 0 == sched_getaffinity( 0, sizeof( cpu_set_t ), &onlineCpus ) )
+    {
+        for ( int cpu = 0; cpu < CPU_SETSIZE && cores.size() < maxCount; ++cpu )
+        {
+            if ( CPU_ISSET( cpu, &onlineCpus ) )
+            {
+                cores.push_back( static_cast<uint32_t>( cpu ) );
+            }
+        }
+    }
+#elif defined( __QNXNTO__ )
+    unsigned int onlineCpus = 0U;
+    if ( -1 != ThreadCtl( _NTO_TCTL_RUNMASK_GET_AND_SET, &onlineCpus ) )
+    {
+        for ( unsigned int cpu = 0; cpu < sizeof( onlineCpus ) * 8 && cores.size() < maxCount;
+              ++cpu )
+        {
+            if ( 0 != ( onlineCpus & ( 1U << cpu ) ) )
+            {
+                cores.push_back( cpu );
+            }
+        }
+    }
+#endif
+    return cores;
+}
+}   // namespace
 
 SampleRemap::SampleRemap() {}
 SampleRemap::~SampleRemap() {}
@@ -59,9 +108,23 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
     }
     m_dataTree.Set<uint32_t>( "static.coreId", coreId );
 
-    /* Optional: cpu_threads_affinity — comma-separated core IDs, e.g. "12,13,14,15"
-     * If absent → key not written → FadasRemap uses platform defaults */
+    /* Node Remap requires cpuThreadsAffinity to be explicitly provided when
+     * processorType is "cpu" - it has no fallback of its own. If the user
+     * did not pass cpu_threads_affinity, discover 4 online/schedulable cores
+     * here and pass those in on the user's behalf, instead of leaving the
+     * key unset (which would fail Remap::Initialize with
+     * QC_STATUS_BAD_ARGUMENTS). */
     std::vector<uint32_t> affinity = Get( config, "cpu_threads_affinity", std::vector<uint32_t>{} );
+
+    if ( affinity.empty() && ( QC_PROCESSOR_CPU == m_processor ) )
+    {
+        affinity = DiscoverOnlineCpuThreadsAffinity( 4U );
+        if ( affinity.empty() )
+        {
+            QC_ERROR( "failed to discover any online CPU core for cpu_threads_affinity\n" );
+            ret = QC_STATUS_BAD_ARGUMENTS;
+        }
+    }
 
     if ( !affinity.empty() )
     {

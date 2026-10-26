@@ -252,7 +252,10 @@ QCStatus_e RemapImpl::ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDes
                         uint64_t frameId = 0;
                         const BufferDescriptor_t *pBufDesc =
                                 dynamic_cast<BufferDescriptor_t *>( &frameDesc.GetBuffer( 0 ) );
-                        frameId = pBufDesc->id;
+                        if ( nullptr != pBufDesc )
+                        {
+                            frameId = pBufDesc->id;
+                        }
                         return frameId;
                     }() ) } );
     if ( QC_OBJECT_STATE_RUNNING != m_state )

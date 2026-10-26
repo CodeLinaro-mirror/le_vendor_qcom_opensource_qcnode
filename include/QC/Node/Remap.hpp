@@ -65,10 +65,9 @@ typedef struct
     FadasNormlzParams_t normlzB;                     /**<normalize parameter for B channel*/
     bool bEnableUndistortion;                        /**<enable undistortion or not*/
     bool bEnableNormalize;                           /**<enable normalization or not*/
-    std::vector<int32_t> cpuThreadsAffinity;         /**<CPU thread affinity list, used for CPU
-                                                         processor only. If empty, platform default
-                                                         values are used: {12,13,14,15} on Linux,
-                                                         {0,1,2,3} otherwise*/
+    std::vector<int32_t> cpuThreadsAffinity;         /**<CPU thread affinity list. Mandatory
+                                                         when processor is CPU - no platform
+                                                         default fallback. Not used otherwise*/
 } Remap_Config_t;
 
 /**

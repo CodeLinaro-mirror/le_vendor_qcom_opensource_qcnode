@@ -3084,8 +3084,7 @@ static FadasError_e LocalFadasRegBufGPU_BatchSuccess( FadasBufType_e, const void
 TEST_F( FadasIfaceTest, SrvInit_InvalidProcessor )
 {
     FadasSrv srv( Logger::GetDefault() );
-    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
-               srv.Init( (QCProcessorType_e) 99 ) );
+    EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, srv.Init( (QCProcessorType_e) 99 ) );
 }
 
 TEST_F( FadasIfaceTest, SrvInit_CPU_Success )
@@ -3107,7 +3106,8 @@ TEST_F( FadasIfaceTest, SrvInit_CPU_FadasInitFail )
 
 TEST_F( FadasIfaceTest, SrvInit_AlreadyInitialized )
 {
-    FadasSrv srv1( Logger::GetDefault() ); FadasSrv srv2( Logger::GetDefault() );
+    FadasSrv srv1( Logger::GetDefault() );
+    FadasSrv srv2( Logger::GetDefault() );
     srv1.Init( QC_PROCESSOR_CPU );
     /* Second Init with same processor → already initialized → just increments ref */
     EXPECT_EQ( QC_STATUS_OK, srv2.Init( QC_PROCESSOR_CPU ) );
@@ -3117,7 +3117,8 @@ TEST_F( FadasIfaceTest, SrvInit_AlreadyInitialized )
 
 TEST_F( FadasIfaceTest, SrvDeinit_UseRefGT1 )
 {
-    FadasSrv srv1( Logger::GetDefault() ); FadasSrv srv2( Logger::GetDefault() );
+    FadasSrv srv1( Logger::GetDefault() );
+    FadasSrv srv2( Logger::GetDefault() );
     srv1.Init( QC_PROCESSOR_CPU );
     srv2.Init( QC_PROCESSOR_CPU );
     /* First deinit → ref goes from 2 to 1 → no cleanup */
@@ -3722,7 +3723,7 @@ TEST_F( FadasIfaceTest, RegisterTensor_FadasRegisterBufFail )
     FadasSrvTestable srv( Logger::GetDefault() );
     srv.Init( QC_PROCESSOR_CPU );
     TensorDescriptor_t t = MakeTensor( 4, 4 );
-    srv.DeregBuf(t.pBuf);
+    srv.DeregBuf( t.pBuf );
     FadasError_e fail = FADAS_ERROR_FAIL;
     MockApi_Control( MOCK_API_FADAS_REG_BUF, MOCK_CONTROL_RETURN, &fail );
     int32_t fd = srv.RegBuf( t, FADAS_BUF_TYPE_IN );
