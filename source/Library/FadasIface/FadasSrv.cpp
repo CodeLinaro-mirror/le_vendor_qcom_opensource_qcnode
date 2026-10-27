@@ -631,11 +631,25 @@ QCStatus_e FadasSrv::FadasRegisterBufGPU( FadasBufType_e bufType, uint8_t *bufPt
 {
     QCStatus_e ret = QC_STATUS_OK;
     FadasError_e nErr = FADAS_ERROR_NONE;
-    uint8_t *ptr = bufPtr;
+    uint8_t *ptr = bufPtr + bufOffset;
     uint32_t offset = bufOffset;
 
-    ptr += bufOffset;
-    for ( uint32_t i = 0; i < batch; i++ )
+    /* offset == 0 registers a new dma-buf with FastADAS, so the full size backing
+     * that fd (this element plus every later batch element) must be declared here.
+     * offset != 0 means this is already a sub-region of a dma-buf registered
+     * elsewhere, so only this element's own size is declared. */
+    uint32_t firstSize = ( 0U == bufOffset ) ? ( bufSize * batch ) : bufSize;
+
+    nErr = s_FadasRegBufGPU( bufType, ptr, firstSize, bufFd, static_cast<int32_t>( offset ) );
+    if ( FADAS_ERROR_NONE != nErr )
+    {
+        QC_ERROR( "FadasRegBufGPU fail: %d!", nErr );
+        ret = QC_STATUS_FAIL;
+    }
+
+    ptr += bufSize;
+    offset += bufSize;
+    for ( uint32_t i = 1; ( QC_STATUS_OK == ret ) && ( i < batch ); i++ )
     {
         nErr = s_FadasRegBufGPU( bufType, ptr, bufSize, bufFd, static_cast<int32_t>( offset ) );
         if ( FADAS_ERROR_NONE != nErr )
@@ -969,7 +983,8 @@ void FadasSrv::DeregBuf( void *pBuffer )
             }
             else if ( QC_PROCESSOR_GPU == m_processor )
             {
-                for ( int i = 0; i < batch; i++ )
+                /* sub-buffers must be deregistered before the base buffer */
+                for ( int i = static_cast<int>( batch ) - 1; i >= 0; i-- )
                 {
                     FadasError_e retVal = s_FadasDeregBufGPU( (uint8_t *) pBuffer + sizeOne * i );
                     if ( FADAS_ERROR_NONE != retVal )
