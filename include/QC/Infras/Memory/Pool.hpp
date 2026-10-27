@@ -21,10 +21,7 @@ public:
      * @return None.
      */
     Pool() = delete;
-    explicit Pool( const QCMemoryPoolConfig_t &poolCfg ) : QCMemoryPoolIfs( poolCfg )
-    {
-        (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_ERROR );
-    };
+    explicit Pool( const QCMemoryPoolConfig_t &poolCfg ) : QCMemoryPoolIfs( poolCfg ) {}
     ~Pool() override
     {
         std::lock_guard<std::mutex> lk( m_lock );
@@ -39,7 +36,6 @@ public:
         {
             QC_ERROR( "Failed to free allocated pool objects status=%d", status );
         }
-        (void) QC_LOGGER_DEINIT();
     }
     QCStatus_e Init() override
     {
@@ -240,8 +236,7 @@ private:
 
     QCList<PoolObject_t> m_freeObjects;
     QCList<PoolObject_t> m_allocatedObjects;
-    QC_DECLARE_LOGGER();
-
+    QC_USE_DEFAULT_LOGGER();
 private:
     QCStatus_e FreeObjects( QCList<PoolObject_t> &objects, QCBufferDescriptorBase_t &descriptor )
     {

@@ -17,17 +17,9 @@ namespace Memory
       (uint32_t) WFD_USAGE_CAPTURE | (uint32_t) WFD_USAGE_VIDEO | (uint32_t) WFD_USAGE_DISPLAY |   \
       (uint32_t) WFD_USAGE_NATIVE )
 
-UtilsBase::UtilsBase() : UtilsBase( "UtilsBase" ) {}
+UtilsBase::UtilsBase() = default;
 
-UtilsBase::UtilsBase( const char *loggerName )
-{
-    (void) QC_LOGGER_INIT( loggerName, LOGGER_LEVEL_ERROR );
-}
-
-UtilsBase::~UtilsBase()
-{
-    (void) QC_LOGGER_DEINIT();
-}
+UtilsBase::~UtilsBase() = default;
 
 QCStatus_e UtilsBase::MemoryMap( const QCBufferDescriptorBase_t &orig,
                                  QCBufferDescriptorBase_t &mapped )

@@ -20,7 +20,6 @@ DummyAllocator QCMemoryManagerInit::s_dummyAllocator;
 ManagerLocal::ManagerLocal()
 {
     SetState( QC_OBJECT_STATE_INITIAL );
-    (void) QC_LOGGER_INIT( "ManagerLocal", LOGGER_LEVEL_ERROR );
 }
 
 QCStatus_e ManagerLocal::Initialize( const QCMemoryManagerInit_t &init )
@@ -73,7 +72,6 @@ ManagerLocal::~ManagerLocal()
         (void) DeInitialize();
     }
 
-    (void) QC_LOGGER_DEINIT();
 }
 
 QCStatus_e ManagerLocal::DeInitialize()

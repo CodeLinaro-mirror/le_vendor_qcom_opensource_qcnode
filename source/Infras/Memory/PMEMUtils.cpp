@@ -10,14 +10,9 @@ namespace Memory
 {
 
 PMEMUtils::PMEMUtils()
-{
-    (void) QC_LOGGER_INIT( "PMEMUtils", LOGGER_LEVEL_VERBOSE );
-}
+{}
 
-PMEMUtils::~PMEMUtils()
-{
-    (void) (void) QC_LOGGER_DEINIT();
-}
+PMEMUtils::~PMEMUtils() = default;
 
 QCStatus_e PMEMUtils::MemoryMap( const QCBufferDescriptorBase_t &orig,
                                  QCBufferDescriptorBase_t &mapped )
