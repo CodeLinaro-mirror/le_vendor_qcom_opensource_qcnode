@@ -8,7 +8,6 @@ ARG DEBIAN_FRONTEND=noninteractive
 USER root
 
 COPY sources_aliyun.list  /etc/apt
-COPY requirements.txt /tmp
 
 # Force bash for everything
 ENV SHELL /bin/bash
@@ -26,7 +25,7 @@ RUN apt install -y rsync wget curl vim \
     bison flex gdb gdb-multiarch strace ltrace tzdata locales \
     chrpath texinfo binutils ftp lftp telnet \
     apt-transport-https ca-certificates gnupg software-properties-common \
-    openssh-client git git-lfs diffstat openssl libssl-dev
+    openssh-client git git-lfs diffstat openssl libssl-dev apt-utils
 
 # Install SDL2 dependency (Wayland + X11 backends and required extension headers)
 RUN apt install -y libwayland-dev libwayland-bin libegl-dev libxkbcommon-dev \
@@ -62,9 +61,8 @@ RUN wget https://github.com/linux-test-project/lcov/releases/download/v1.16/lcov
     && cd /tmp && rm -rf /tmp/lcov-1.16*
 
 # Install python packages
-RUN apt-get update && add-apt-repository ppa:deadsnakes/ppa \
-    &&apt-get install -y python3 python3-dev python3-pip \
-    python3-setuptools python3-venv
+RUN apt-get update && apt-get install -y python3 python3-dev  \
+    python3-pip python3-apt python3-setuptools python3-venv
 
 # clean up
 RUN rm -rf /var/cache/apk/* && rm -rf /var/lib/apt/lists/* \
@@ -83,3 +81,4 @@ ENV LANGUAGE en_US.UTF-8
 ENV TZ America/Los_Angeles
 
 CMD /bin/bash
+

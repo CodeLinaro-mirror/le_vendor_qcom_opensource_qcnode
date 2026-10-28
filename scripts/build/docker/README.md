@@ -5,39 +5,22 @@ The qcnode-toolchain base docker provides a basic host toolchain environment tha
 
 ## How to build qcnode-toolchain-base docker
 
-- Step 1: Prepare basic docker image
-  The basic docker image is ubuntu 20.04, user can get the docker image in two methods.
-  - method 1: pull the image with command
-    ```
-    sudo docker pull ubuntu:20.04
-    ```
-  - method 2: get the image is from existed docker image package:
-    ```
-    sudo docker load -i ubuntu-20.04.tar
-    ```
-    Then use the command to show docker image id:
-    ```
-    sudo docker images -a
-    ```
-    The docker image info shows as this way:
-    ```
-    REPOSITORY                   TAG               IMAGE ID           CREATED         SIZE
-    <none>                       <none>            52882761a72a       2 days ago      77.9MB
-    ```
-    Then tag the docker image with image id:
-    ```
-    sudo docker tag 52882761a72a ubuntu:20.04
-    ```
+- Option 1: build qcnode-toolchain-base docker image from Dockerfile.
+The qcnode-toolchain-base image is built based on ubuntu 24.04, user can build the image with this script:
+```
+  ./build-docker-image.sh
+```
 
-- Step 2: build qcnode-toolchain-base docker image
-  Run the script to build:
-  ```
-    ./build-docker-image.sh
-  ```
+After building, the docker image could be shown as below:
+```
+  docker images -a
 
-  After building, the docker image could be shown as below:
-  ```
-    sudo docker images -a
-    REPOSITORY                           TAG               IMAGE ID           CREATED         SIZE
-    qcnode-toolchain-base               v1.0              84bcf57cad70       2 days ago      3.6GB
-  ```
+  IMAGE                        ID             DISK USAGE   CONTENT SIZE   EXTRA
+  qcnode-toolchain-base:v2.0   9e47d9e50393       1.69GB             0B
+```
+
+- Option 2: Load pre-built qcnode-toolchain-base docker image
+User can load pre-built image directly with this command:
+```
+  docker load -i qcnode-toolchain-base-24.04-v2.0.tar
+```
