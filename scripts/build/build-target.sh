@@ -569,16 +569,6 @@ else
 fi
 fi
 
-if [[ "${ENABLE_SDP8}" == "ON" ]] && [[ "${target}" == "aarch64-qnx" ]] ; then
-    SSL_LIB=/opt/qnx/target/qnx/aarch64le/usr/lib/libssl.so.3
-    if [ ! -f $SSL_LIB ]; then
-        SSL_LIB=$BSP_ROOT/qnx_bins/prebuilt_SDP800/target/qnx/aarch64le/usr/lib/libssl.so.3
-    fi
-    if [ -f $SSL_LIB ]; then
-        cp -v $SSL_LIB $destdir/opt/qcnode/lib/runtime
-    fi
-fi
-
 if [ -d $QNN_SDK_ROOT/model ]; then
     if [ ! -d $destdir/opt/qcnode/data ]; then
         mkdir -p $destdir/opt/qcnode/data
