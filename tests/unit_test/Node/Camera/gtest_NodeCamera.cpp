@@ -14,6 +14,7 @@
 #include "CameraMock.hpp"
 #include "MockCLib.hpp"
 #include "QC/Node/Camera.hpp"
+#include "QC/Node/Ifs/QCNodeFactory.hpp"
 #include "QC/sample/SharedBufferPool.hpp"
 #include "gtest/gtest.h"
 #if defined( __linux__ ) && !defined( __QNXNTO__ )
@@ -339,8 +340,7 @@ void SetFullMockParam()
     memset( &g_mockInputModes, 0, sizeof( g_mockInputModes ) );
     g_mockInputModes.currentMode = 0;
     g_mockInputModes.numModes = 1;
-    g_mockInputModes.pModes = new QCarCamMode_t;
-    *g_mockInputModes.pModes = g_mockCamMode;
+    g_mockInputModes.pModes = &g_mockCamMode;
 
     g_controlFnc = MockCamera_GetControlFnc( "libCameraMock.so" );
     g_setFullMockFnc = MockCamera_GetSetFullMockFnc( "libCameraMock.so" );
@@ -2540,7 +2540,439 @@ TEST( Camera, SANITY_Test_CameraConfig_GetOptions_NoInit_Mock )
 
     std::string opts;
     ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) );
-    ASSERT_EQ( "", opts );
+
+    // Before the node is configured the schema layer is already reported, while the
+    // buffer-derived keys are present but empty (SWREQ-4593216).
+    DataTree optsDt;
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Load( opts, errors ) );
+    ASSERT_EQ( QCNODE_CAMERA_VERSION, optsDt.Get<uint32_t>( "version", 0U ) );
+    ASSERT_TRUE( optsDt.Exists( "config" ) );
+    ASSERT_EQ( "https://json-schema.org/draft/2020-12/schema",
+               optsDt.Get<std::string>( "config.$schema", "" ) );
+
+    // The compiled-against QCarCam version is reported before the node is configured, as a single
+    // major.minor.patch string. Built from the macros, not a literal, so the expectation holds on
+    // both x86/qmock and the target, where the QNX build overrides the QCarCam headers.
+    const std::string expectedQcarcamVersion = std::to_string( QCARCAM_VERSION_MAJOR ) + "." +
+                                               std::to_string( QCARCAM_VERSION_MINOR ) + "." +
+                                               std::to_string( QCARCAM_VERSION_PATCH );
+    ASSERT_EQ( expectedQcarcamVersion, optsDt.Get<std::string>( "qcarcamVersion", "" ) );
+
+    std::vector<DataTree> inputDts;
+    std::vector<DataTree> outputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.inputs", inputDts ) );
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.outputs", outputDts ) );
+    ASSERT_EQ( 0u, inputDts.size() );
+    ASSERT_EQ( 0u, outputDts.size() );
+}
+
+TEST( Camera, SANITY_Test_BufferInfo_StreamIsOutputMetaDataIsInput_Mock )
+{
+    // A camera stream produces frames, so it is reported as an output; the metadata group's own
+    // buffer feeds the ISP, so it is reported as an input under the group's .inputBuffer name.
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_tuning_mode.json" );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) );
+
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) );
+
+    DataTree optsDt;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Load( opts, errors ) );
+
+    // The inventory is reported as inputs and outputs only, with no legacy group keys.
+    ASSERT_FALSE( optsDt.Exists( "buffers.stream" ) );
+    ASSERT_FALSE( optsDt.Exists( "buffers.metadata" ) );
+
+    std::vector<DataTree> inputDts;
+    std::vector<DataTree> outputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.inputs", inputDts ) );
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.outputs", outputDts ) );
+    ASSERT_EQ( 1u, inputDts.size() );
+    ASSERT_EQ( 1u, outputDts.size() );
+
+    ASSERT_EQ( "IMX728.stream1", outputDts[0].Get<std::string>( "name", "" ) );
+    ASSERT_EQ( "image", outputDts[0].Get<std::string>( "bufferType", "" ) );
+    ASSERT_EQ( "IMX728.metadata0.inputBuffer", inputDts[0].Get<std::string>( "name", "" ) );
+    ASSERT_EQ( "raw", inputDts[0].Get<std::string>( "bufferType", "" ) );
+}
+
+TEST( Camera, SANITY_Test_BufferInfo_InjectionBufferListsReported_Mock )
+{
+    // The injection and output metadata buffer lists are registered from QCNodeInit::buffers at
+    // Initialize and addressed by (bufferListId, bufferIdx) inside the metadata descriptor, so
+    // they never occupy a frame descriptor slot but are still reported, for allocation. The three
+    // injection lists feed the offline ISP, so they are inputs; the output metadata list receives
+    // the ISP results, so it joins the stream in the outputs.
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_isp_injection.json" );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) );
+
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) );
+
+    DataTree optsDt;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Load( opts, errors ) );
+
+    std::vector<DataTree> inputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.inputs", inputDts ) );
+    ASSERT_EQ( 4u, inputDts.size() );
+    ASSERT_EQ( "IMX728.metadata0.inputBuffer", inputDts[0].Get<std::string>( "name", "" ) );
+    ASSERT_EQ( "IMX728.metadata0.injection.inputBuffer",
+               inputDts[1].Get<std::string>( "name", "" ) );
+    ASSERT_EQ( "IMX728.metadata0.injection.headerBuffer",
+               inputDts[2].Get<std::string>( "name", "" ) );
+    ASSERT_EQ( "IMX728.metadata0.injection.eepromBuffer",
+               inputDts[3].Get<std::string>( "name", "" ) );
+
+    std::vector<DataTree> outputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.outputs", outputDts ) );
+    ASSERT_EQ( 2u, outputDts.size() );
+    ASSERT_EQ( "IMX728.stream1", outputDts[0].Get<std::string>( "name", "" ) );
+    ASSERT_EQ( "IMX728.metadata0.outputBuffer", outputDts[1].Get<std::string>( "name", "" ) );
+}
+
+TEST( Camera, SANITY_Test_Factory_CreateNodeCamera_Mock )
+{
+    // The Camera node registers itself with the factory through REGISTER_NODE( QC_NODE_TYPE_QCX,
+    // Camera ) at static-initialisation time, which defines the generated CreateNodeCamera()
+    // factory function. Constructing the node through the public factory is the only path that
+    // exercises that function, so this covers it while also proving the registration took effect.
+    SetFullMockParam();
+
+    std::unique_ptr<QCNodeIfs> node;
+    ASSERT_EQ( QC_STATUS_OK, QCNodeFactory::CreateNode( QC_NODE_TYPE_QCX, node ) );
+    ASSERT_NE( nullptr, node.get() );
+
+    // QCNodeIfs has no virtual destructor, so letting the unique_ptr delete the node through the
+    // base type would skip ~Camera and leak the qcarcam init reference CameraImpl's constructor
+    // took, leaving g_nCamInitRefCount non-zero for later tests. Destroy it through the concrete
+    // type so ~Camera runs and balances that reference.
+    delete static_cast<QC::Node::Camera *>( node.release() );
+}
+
+TEST( Camera, SANITY_Test_GetOptions_Idempotent_Mock )
+{
+    // GetOptions() loads the schema and builds the buffer info lazily, guarded by m_bSchemaLoaded
+    // and m_bOptionsBuilt so repeated calls are cheap. The first call takes both build paths; a
+    // second call on the same object must find both flags already set and return the identical
+    // options without rebuilding. This covers the "already loaded / already built" decision arms.
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_tuning_mode.json" );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) );
+
+    std::string opts1;
+    std::string opts2;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts1 ) );
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts2 ) );
+    ASSERT_FALSE( opts1.empty() );
+    ASSERT_EQ( opts1, opts2 );
+}
+
+TEST( Camera, SANITY_Test_GetOptions_TuningFeature2Mode_Mock )
+{
+    // GetMetaDataType() maps the metadata tag to its type; the tuning-feature arm accepts both
+    // TUNING_FEATURE_1_MODE and TUNING_FEATURE_2_MODE. The tuning fixture carries the first, so
+    // switching the tag to the second exercises the other operand of that decision and confirms
+    // the config is still accepted and reported.
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_tuning_mode.json" );
+    SetConfig( config, "metaDataConfigs[0].tag", std::string( "TUNING_FEATURE_2_MODE" ) );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) );
+
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) );
+
+    DataTree optsDt;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Load( opts, errors ) );
+    std::vector<DataTree> inputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.inputs", inputDts ) );
+    ASSERT_EQ( 1u, inputDts.size() );
+}
+
+TEST( Camera, SANITY_Test_BufferInfo_InjectionInputOnly_Mock )
+{
+    // BuildBufferInfo advertises each ISP-injection buffer list only when it carries buffers, and
+    // the output list only when both its id is set and it carries buffers. The injection fixture
+    // populates all of them, so the complementary case drops the optional header and eeprom lists
+    // and clears the output buffer-list id: only the required input buffer remains, so the inputs
+    // hold just the group's own metadata buffer plus the injection input buffer, and the outputs
+    // hold the stream alone. This covers the "list absent" arm of each of those conditions.
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_isp_injection.json" );
+    EraseConfig( config, "metaDataConfigs[0].InjectionConfig.headerBufferIds" );
+    EraseConfig( config, "metaDataConfigs[0].InjectionConfig.eepromBufferIds" );
+    SetConfig( config, "metaDataConfigs[0].outputBufferListId", 0U );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) );
+
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) );
+
+    DataTree optsDt;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Load( opts, errors ) );
+    std::vector<DataTree> inputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.inputs", inputDts ) );
+    ASSERT_EQ( 2u, inputDts.size() );
+    ASSERT_EQ( "IMX728.metadata0.inputBuffer", inputDts[0].Get<std::string>( "name", "" ) );
+    ASSERT_EQ( "IMX728.metadata0.injection.inputBuffer",
+               inputDts[1].Get<std::string>( "name", "" ) );
+
+    std::vector<DataTree> outputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.outputs", outputDts ) );
+    ASSERT_EQ( 1u, outputDts.size() );
+    ASSERT_EQ( "IMX728.stream1", outputDts[0].Get<std::string>( "name", "" ) );
+}
+
+TEST( Camera, SANITY_Test_BufferInfo_OutputListSetButEmpty_Mock )
+{
+    // The output metadata buffer list is advertised only when its id is set AND it carries
+    // buffers. Keeping the fixture's non-zero outputBufferListId while clearing outputBufferIds
+    // makes the first operand true and the second false, so the list is not advertised: the inputs
+    // still hold the group's metadata buffer plus the three injection buffers, while the outputs
+    // hold the stream alone. This covers the "id set, no buffers" operand pairing of that
+    // condition.
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_isp_injection.json" );
+    EraseConfig( config, "metaDataConfigs[0].outputBufferIds" );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) );
+
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) );
+
+    DataTree optsDt;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Load( opts, errors ) );
+    std::vector<DataTree> inputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.inputs", inputDts ) );
+    ASSERT_EQ( 4u, inputDts.size() );
+    ASSERT_EQ( "IMX728.metadata0.injection.eepromBuffer",
+               inputDts[3].Get<std::string>( "name", "" ) );
+
+    std::vector<DataTree> outputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.outputs", outputDts ) );
+    ASSERT_EQ( 1u, outputDts.size() );
+    ASSERT_EQ( "IMX728.stream1", outputDts[0].Get<std::string>( "name", "" ) );
+}
+
+TEST( Camera, SANITY_Test_GlobalBufferIdMapConfig_Accepted_Mock )
+{
+    // The configuration structure carries a caller-supplied globalBufferIdMap per the framework
+    // buffer-map convention. A well-formed map is accepted; it is not consumed by the data path,
+    // because the node resolves its single per-call buffer descriptor at global buffer index 0.
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_tuning_mode.json" );
+
+    nlohmann::json mapArr = nlohmann::json::array();
+    mapArr.push_back( { { "name", "IMX728.stream1" }, { "id", 10 } } );
+    mapArr.push_back( { { "name", "IMX728.metadata0" }, { "id", 11 } } );
+    SetConfig( config, "globalBufferIdMap", mapArr );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) );
+
+    std::string opts;
+    ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) );
+
+    DataTree optsDt;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Load( opts, errors ) );
+
+    std::vector<DataTree> outputDts;
+    ASSERT_EQ( QC_STATUS_OK, optsDt.Get( "buffers.outputs", outputDts ) );
+    ASSERT_EQ( 1u, outputDts.size() );
+    ASSERT_EQ( "IMX728.stream1", outputDts[0].Get<std::string>( "name", "" ) );
+}
+
+TEST( Camera, EXCEPTION_Test_GlobalBufferIdMapConfig_EmptyName_Mock )
+{
+    // Every entry must carry a non-empty name and a valid id, so a nameless entry is rejected at
+    // configuration verification.
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_tuning_mode.json" );
+
+    nlohmann::json mapArr = nlohmann::json::array();
+    mapArr.push_back( { { "name", "" }, { "id", 0 } } );
+    SetConfig( config, "globalBufferIdMap", mapArr );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, configIfs.VerifyAndSet( config.config, errors ) );
+    ASSERT_NE( std::string::npos, errors.find( "name is empty" ) );
+}
+
+TEST( Camera, EXCEPTION_Test_GlobalBufferIdMapConfig_MissingId_Mock )
+{
+    // An entry without an id is rejected: the sentinel UINT32_MAX stands for "not configured".
+    SetFullMockParam();
+
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_metadata_tuning_mode.json" );
+
+    nlohmann::json mapArr = nlohmann::json::array();
+    mapArr.push_back( { { "name", "IMX728.stream1" } } );
+    SetConfig( config, "globalBufferIdMap", mapArr );
+
+    QC::Node::Camera camera;
+    QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, configIfs.VerifyAndSet( config.config, errors ) );
+    ASSERT_NE( std::string::npos, errors.find( "id is empty" ) );
+}
+
+/**
+ * @brief One golden GetOptions document and the configuration it is reported for.
+ */
+typedef struct GetOptionsGoldenCase
+{
+    const char *pConfigPath;
+    const char *pGoldenPath;
+} GetOptionsGoldenCase_t;
+
+static const GetOptionsGoldenCase_t s_getOptionsGoldenCases[] = {
+        { "./data/test/camera/camera_config_imx728_request_nv12.json",
+          "./data/test/camera/camera_get_options_imx728_request_nv12.json" },
+        { "./data/test/camera/camera_config_imx728_2stream.json",
+          "./data/test/camera/camera_get_options_imx728_2stream.json" },
+        { "./data/test/camera/camera_config_metadata_tuning_mode.json",
+          "./data/test/camera/camera_get_options_metadata_tuning_mode.json" },
+        { "./data/test/camera/camera_config_metadata_isp_injection.json",
+          "./data/test/camera/camera_get_options_metadata_isp_injection.json" },
+};
+
+/**
+ * @brief Drop the reported values a golden document cannot pin down across platforms.
+ * The golden data is generated on x86/qmock but the tests also run on the QNX and Linux targets,
+ * where two reported values legitimately differ: qcarcamVersion is the compile-time QCarCam header
+ * version, and the QNX build overrides those headers, while the per-plane stride, actual height and
+ * plane buffer size are resolved through the platform plane-definition library, which qmock only
+ * approximates. Everything else - the whole configuration schema, the node version, every buffer
+ * name and buffer type, and the configured image format and geometry - is derived from the
+ * configuration alone and is compared strictly.
+ * @param[inout] options The parsed options document to strip in place.
+ */
+static void StripPlatformVariantOptions( nlohmann::json &options )
+{
+    options.erase( "qcarcamVersion" );
+
+    if ( options.contains( "buffers" ) && options["buffers"].contains( "outputs" ) )
+    {
+        for ( nlohmann::json &outputJson : options["buffers"]["outputs"] )
+        {
+            if ( outputJson.contains( "imageProps" ) )
+            {
+                outputJson["imageProps"].erase( "stride" );
+                outputJson["imageProps"].erase( "actualHeight" );
+                outputJson["imageProps"].erase( "planeBufSize" );
+            }
+        }
+    }
+}
+
+TEST( Camera, SANITY_Test_GetOptions_MatchesGoldenData_Mock )
+{
+    // The reported options document is the node's published configuration contract, so it is
+    // pinned against golden data: any unintended change to the schema or the buffer inventory
+    // shows up here as a diff instead of passing unnoticed.
+    SetFullMockParam();
+
+    for ( const GetOptionsGoldenCase_t &goldenCase : s_getOptionsGoldenCases )
+    {
+        QCNodeInit_t config;
+        LoadCameraConfig( config, goldenCase.pConfigPath );
+
+        QC::Node::Camera camera;
+        QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+        std::string errors;
+        ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) )
+                << goldenCase.pConfigPath;
+
+        std::string opts;
+        ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) ) << goldenCase.pConfigPath;
+
+        nlohmann::json goldenJson;
+        ReadJsonFile( goldenCase.pGoldenPath, goldenJson );
+        ASSERT_FALSE( goldenJson.is_null() ) << goldenCase.pGoldenPath;
+
+        nlohmann::json actualJson = nlohmann::json::parse( opts );
+        StripPlatformVariantOptions( goldenJson );
+        StripPlatformVariantOptions( actualJson );
+
+        // Compared as canonical dumps: nlohmann orders object keys, so the dump is stable and a
+        // mismatch is reported as readable JSON rather than as an opaque inequality.
+        ASSERT_EQ( goldenJson.dump( 2 ), actualJson.dump( 2 ) ) << goldenCase.pGoldenPath;
+    }
+}
+
+// Regenerates the golden documents above, for an intended change to the reported contract. Run:
+//   gtest_NodeCamera --gtest_also_run_disabled_tests \
+//       --gtest_filter=Camera.DISABLED_GenerateGetOptionsGoldenData
+// then copy run-x86-linux/opt/qcnode/data/test/camera/camera_get_options_*.json back into the CI
+// repo's data/test/camera. Review the resulting diff before committing it.
+TEST( Camera, DISABLED_GenerateGetOptionsGoldenData )
+{
+    SetFullMockParam();
+
+    for ( const GetOptionsGoldenCase_t &goldenCase : s_getOptionsGoldenCases )
+    {
+        QCNodeInit_t config;
+        LoadCameraConfig( config, goldenCase.pConfigPath );
+
+        QC::Node::Camera camera;
+        QCNodeConfigIfs &configIfs = camera.GetConfigurationIfs();
+        std::string errors;
+        ASSERT_EQ( QC_STATUS_OK, configIfs.VerifyAndSet( config.config, errors ) )
+                << goldenCase.pConfigPath;
+
+        std::string opts;
+        ASSERT_EQ( QC_STATUS_OK, configIfs.GetOptions( opts ) ) << goldenCase.pConfigPath;
+
+        std::ofstream goldenFile( goldenCase.pGoldenPath );
+        ASSERT_TRUE( goldenFile.is_open() ) << goldenCase.pGoldenPath;
+        goldenFile << nlohmann::json::parse( opts ).dump( 2 ) << std::endl;
+        goldenFile.close();
+    }
 }
 
 TEST( Camera, EXCEPTION_Test_DeInit_NoInit_Mock )
@@ -6862,6 +7294,24 @@ TEST( Camera, ConfigParseStaticConfig_ImplAllocFail_NoMem_Mock )
                camera.GetConfigurationIfs().VerifyAndSet( config.config, errors ) );
 }
 
+TEST( Camera, EXCEPTION_Test_GetOptions_ImplAllocFail_NoMem_Mock )
+{
+    /* Fail the CameraImpl allocation so m_pCamImpl is null, then ask for the options. GetOptions
+     * still loads the schema (that path needs no CameraImpl and succeeds once the fault is
+     * cleared), but BuildBufferInfo cannot report a buffer inventory without the impl and returns
+     * QC_STATUS_NOMEM. This covers BuildBufferInfo's null-impl guard and, through it, the error arm
+     * of GetOptions' final "status OK" check, so the reported options string is left untouched. */
+    MockC_MallocCtrlSizeAndCount( sizeof( CameraImpl ), 1 );
+    QC::Node::Camera camera;
+    MockC_ClearAll();
+
+    ASSERT_EQ( QC_OBJECT_STATE_ERROR, camera.GetState() );
+
+    std::string opts( "unchanged" );
+    ASSERT_EQ( QC_STATUS_NOMEM, camera.GetConfigurationIfs().GetOptions( opts ) );
+    ASSERT_EQ( "unchanged", opts );
+}
+
 TEST( Camera, ConfigGet_ImplAllocFail_Default_Mock )
 {
     MockC_MallocCtrlSizeAndCount( sizeof( CameraImpl ), 1 );
@@ -7077,6 +7527,82 @@ TEST( Camera, SetMetaDataBuffers_QCarCamBufAllocFail_NoMem_Mock )
             g_controlFnc( static_cast<MockAPI_ID_e>( i ), MOCK_CONTROL_API_NONE, nullptr );
         }
     }
+    (void) DeinitBuffers();
+}
+
+// --- Branch-coverage backfill for Step 10 (bucket 1) ---
+// After Initialize allocates m_frameBuffers via SetFrameBuffers, destroy the
+// Camera WITHOUT calling DeInitialize. Exercises the ~CameraImpl cleanup path
+// that unconditionally calls ClearFrameBuffers()/ClearMetaDataBuffers() so
+// instances skipping the DeInitialize cleanup don't leak.
+TEST( Camera, SANITY_Test_DestroyWithoutDeinit_Mock )
+{
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_imx728_request_nv12.json",
+                      ProcessDoneCb );
+    SetFullMockParam();
+    AllocateFrameBuffersForConfig( config );
+
+    {
+        QC::Node::Camera camera;
+        ASSERT_EQ( QC_STATUS_OK, camera.Initialize( config ) );
+        // Deliberately skip DeInitialize — dtor runs at end of scope and must
+        // free the buffers.
+    }
+    (void) DeinitBuffers();
+}
+
+// --- Branch-coverage backfill for Step 10 (bucket 2) ---
+// clientId != 0 + primary=true: covers the mixed-condition branch in
+// DeInitialize's `if ((0 != m_clientId) && (false == m_bIsPrimary))` guard,
+// which existing multi-client tests (clientId=1 + primary=false) skip.
+// Primary-multi-client uses the standard QCarCamSetBuffers path, so
+// UnImportBuffers is not called on teardown.
+TEST( Camera, SANITY_Test_Init_MultiClient_Primary_Mock )
+{
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_imx728_request_nv12.json",
+                      ProcessDoneCb );
+    SetConfig( config, "clientId", 1u );
+    SetConfig( config, "primary", true );
+    SetFullMockParam();
+    AllocateFrameBuffersForConfig( config );
+
+    QC::Node::Camera camera;
+    ASSERT_EQ( QC_STATUS_OK, camera.Initialize( config ) );
+    ASSERT_EQ( QC_STATUS_OK, camera.DeInitialize() );
+    (void) DeinitBuffers();
+}
+
+// --- Branch-coverage backfill for Step 10 (bucket 3) ---
+// Replaces the tentative ISP_INJECTION test above: an existing test
+// (SANITY_Test_RegisterInjectionBufferList_Mock) already exercises the
+// Initialize path with an ISP_INJECTION config, so that branch is already
+// covered. Instead, target the dynamic_cast fallback branch in
+// ProcessFrameDescriptor: pass a bufferDescriptor that is neither a
+// CameraFrameDescriptor nor a CameraMetaDataDescriptor, so both
+// dynamic_cast checks fail and the descriptor-mismatch error branch runs.
+TEST( Camera, EXCEPTION_Test_ProcessFrame_BadDescriptorType_Mock )
+{
+    QCNodeInit_t config;
+    LoadCameraConfig( config, "./data/test/camera/camera_config_imx728_request_nv12.json",
+                      ProcessDoneCb );
+    SetFullMockParam();
+    AllocateFrameBuffersForConfig( config );
+
+    QC::Node::Camera camera;
+    ASSERT_EQ( QC_STATUS_OK, camera.Initialize( config ) );
+
+    // A NodeFrameDescriptor whose slot 0 is a plain QCBufferDescriptorBase
+    // (not a Camera frame or metadata descriptor) exercises the branch where
+    // both dynamic_cast attempts in ProcessFrameDescriptor return nullptr.
+    NodeFrameDescriptor frameDesc( 1 );
+    QCBufferDescriptorBase plainDesc;
+    (void) frameDesc.SetBuffer( 0, plainDesc );
+    QCStatus_e ret = camera.ProcessFrameDescriptor( frameDesc );
+    EXPECT_NE( QC_STATUS_OK, ret );
+
+    (void) camera.DeInitialize();
     (void) DeinitBuffers();
 }
 

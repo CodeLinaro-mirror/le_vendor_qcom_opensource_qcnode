@@ -333,10 +333,28 @@ QCarCamRet_e QCarCamQueryInputModes( const uint32_t inputId, QCarCamInputModes_t
             case MOCK_CONTROL_API_OUT_PARAM1:   // pInputModes is index 1
                 if ( pInputModes )
                 {
-                    // CAUTION: Shallow copy struct, deep copy might be needed depending on test
-                    *pInputModes = *(QCarCamInputModes_t *)
-                                            s_MockParams[MOCK_API_QCARCAM_QUERY_INPUT_MODES]
-                                                    .param;
+                    // Emulate the real QCarCamQueryInputModes API contract: the caller
+                    // pre-allocates pInputModes->pModes[numModes]; the API fills the
+                    // mode entries but never overwrites the pointer or the size. Deep
+                    // copy up to min(caller_numModes, mock_numModes) entries so a shallow
+                    // struct copy (which would leak the caller's pModes array and induce
+                    // a mismatched delete[] at cleanup) is avoided.
+                    const QCarCamInputModes_t *pMockModes =
+                            (const QCarCamInputModes_t *)
+                                    s_MockParams[MOCK_API_QCARCAM_QUERY_INPUT_MODES]
+                                            .param;
+                    if ( ( nullptr != pInputModes->pModes ) && ( nullptr != pMockModes->pModes ) )
+                    {
+                        const uint32_t nCopy = ( pInputModes->numModes < pMockModes->numModes )
+                                                       ? pInputModes->numModes
+                                                       : pMockModes->numModes;
+                        for ( uint32_t j = 0; j < nCopy; j++ )
+                        {
+                            pInputModes->pModes[j] = pMockModes->pModes[j];
+                        }
+                    }
+                    pInputModes->numModes = pMockModes->numModes;
+                    pInputModes->currentMode = pMockModes->currentMode;
                 }
                 break;
             default:

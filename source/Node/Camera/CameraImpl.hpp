@@ -27,6 +27,12 @@ namespace Node
 using namespace QC::Memory;
 using namespace QC::Node;
 
+#if defined( __QNXNTO__ )
+using MemUtils = QC::Memory::PMEMUtils;
+#else
+using MemUtils = QC::Memory::DMABUFFUtils;
+#endif
+
 #define MAX_QUERY_TIMES 20
 
 /** @brief Maximum number of metadata tags per metadata buffer */
@@ -229,7 +235,6 @@ typedef struct
  * @param bMultiStreamFrameReady    Flag to set multiple streams frame ready event in one callback
  * @param streamConfigs             Configuration array for each stream.
  * @param metaDataConfigs           Configuration array for each metadata.
- *
  */
 typedef struct Camera_Config : public QCNodeConfigBase_t
 {

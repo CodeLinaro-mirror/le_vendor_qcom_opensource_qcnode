@@ -58,37 +58,37 @@ public:
     {}
 
     /**
-     * @brief Destructor for CameraConfig.
+     * @brief Destructor for CameraConfig.
      */
     ~CameraConfig() {}
 
     /**
-     * @brief Verify the configuration string and set the configuration structure.
-     * This method verifies the provided configuration string and sets the configuration structure.
-     * The configuration string is expected to be in JSON format.
-     * @param[in] config The configuration string in JSON format.
-     * @param[out] errors The error string returned if there is an error.
-     * @return QC_STATUS_OK on success, other values on failure.
-     * @note The config is a JSON string according to the templates below.
-     * Example of static configuration used for initialization:
-     * @code
-     * {
-     *     "static": {
-     *         "name": "The Node unique name, type: string",
-     *         "id": "The Node unique ID, type: uint32_t",
-     *         "inputId": "Camera input id, type: uint32_t",
-     *         "srcId": "Input source identifier, type: uint32_t",
-     *         "clientId": "Used for multi-client use case, type: uint32_t",
-     *         "inputMode": "The input mode id is the index into #QCarCamInputModes_t pModex,
+     * @brief Verify the configuration string and set the configuration structure.
+     * This method verifies the provided configuration string and sets the configuration structure.
+     * The configuration string is expected to be in JSON format.
+     * @param[in] config The configuration string in JSON format.
+     * @param[out] errors The error string returned if there is an error.
+     * @return QC_STATUS_OK on success, other values on failure.
+     * @note The config is a JSON string according to the templates below.
+     * Example of static configuration used for initialization:
+     * @code
+     * {
+     *     "static": {
+     *         "name": "The Node unique name, type: string",
+     *         "id": "The Node unique ID, type: uint32_t",
+     *         "inputId": "Camera input id, type: uint32_t",
+     *         "srcId": "Input source identifier, type: uint32_t",
+     *         "clientId": "Used for multi-client use case, type: uint32_t",
+     *         "inputMode": "The input mode id is the index into #QCarCamInputModes_t pModex,
      *                      type: uint32_t",
-     *         "ispUseCase": "ISP use case defined by qcarcam, type: uint32_t",
-     *         "camFrameDropPattern": "Frame drop pattern defined by qcarcam. Set to 0 when frame
+     *         "ispUseCase": "ISP use case defined by qcarcam, type: uint32_t",
+     *         "camFrameDropPattern": "Frame drop pattern defined by qcarcam. Set to 0 when frame
      *                                drop is not used, type: uint32_t",
-     *         "camFrameDropPeriod": "Frame drop period defined by qcarcam, type: uint8_t",
-     *         "opMode": "Operation mode defined by qcarcam, type: uint32_t",
-     *         "streamConfigs": "Configuration for each camera stream, type: data tree array",
+     *         "camFrameDropPeriod": "Frame drop period defined by qcarcam, type: uint8_t",
+     *         "opMode": "Operation mode defined by qcarcam, type: uint32_t",
+     *         "streamConfigs": "Configuration for each camera stream, type: data tree array",
      *         [
-     *             {
+     *             {
      *                  "streamId": "Camera stream id, type: uint32_t",
      *                  "contextId": "Optional. Context id this stream belongs to, type: uint32_t",
      *                  "bufferIds": [ "The indices of camera frame buffers in QCNodeInit::buffers,
@@ -99,7 +99,7 @@ public:
      *                            "uyvy", "rgb", "bgr", "p010", "tp10_ubwc"]",
      *                  "submitRequestPattern": "Buffer submit request pattern, type: uint32_t"
      *             }
-     *         ],
+     *         ],
      *         "metaDataConfigs": "Configuration for camera metadata, only used when enableMetaData
      *                             is true, type: data tree array",
      *         [
@@ -150,35 +150,127 @@ public:
      *                 }
      *             }
      *         ],
-     *         "requestMode": "Flag to set request buffer mode, type: bool",
+     *         "requestMode": "Flag to set request buffer mode, type: bool",
      *         "enableMetaData": "Flag to enable metadata, type: bool",
      *         "enableMultiStreamFrameReady": "Flag to set multiple streams frame ready event in one
      *                                         callback, type: bool",
-     *         "primary": "Flag to indicate if the session is primary or not when configured with
+     *         "primary": "Flag to indicate if the session is primary or not when configured with
      *                    the clientId, type: bool",
-     *         "recovery": "Flag to enable self-recovery for the session, type: bool"
-     *     }
+     *         "recovery": "Flag to enable self-recovery for the session, type: bool"
+     *     }
      * }
      * @endcode
      */
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors );
 
     /**
-     * @brief Get the configuration options as a string.
-     * @param[out] options JSON configuration options string.
-     * @return QCStatus_e indicating success or failure.
+     * @brief Get the Camera node configuration options as a JSON document.
+     * Reports the node's configurable surface in machine-readable form. The top-level structure
+     * is fixed by contract; only "config" is a JSON Schema, every other key is plain data:
+     * @code
+     * {
+     *     "version": "The node version, QCNODE_CAMERA_VERSION, type: uint32_t",
+     *     "qcarcamVersion": "The QCarCam header version the node was compiled against, formatted
+     *                        as major.minor.patch (for example 6.4.7). QCarCam exposes no runtime
+     *                        version query, so this is the compile-time header version,
+     *                        type: string",
+     *     "config": "Self-contained Draft 2020-12 JSON Schema of the configuration surface,
+     *                carrying its own $defs",
+     *     "buffers": "The buffers the client must allocate, grouped into the inputs the node
+     *                 consumes and the outputs it produces, type: data tree. Empty arrays until
+     *                 the node is configured. A camera stream produces frames, so every configured
+     *                 stream is an output; a metadata group contributes the metadata buffers it
+     *                 feeds the ISP with as inputs and the metadata results it receives as
+     * outputs",
+     *     {
+     *         "inputs": [
+     *             {
+     *                 "name": "Logical buffer name, <nodeName>.metadata<i>.inputBuffer for the
+     *                          group's own metadata buffer, plus
+     *                          <nodeName>.metadata<i>.injection.inputBuffer, .headerBuffer and
+     *                          .eepromBuffer for the ISP injection lists, type: string",
+     *                 "bufferType": "raw",
+     *                 "bufferProps": "The buffer properties every buffer of this group must be
+     *                                 allocated with (allocatorType, cache), type: data tree. No
+     *                                 size is reported: the client owns the camera_metadata layout
+     *                                 it allocates"
+     *             }
+     *         ],
+     *         "outputs": [
+     *             {
+     *                 "name": "Logical buffer name, <nodeName>.stream<streamId> for a camera
+     *                          stream, <nodeName>.metadata<i>.outputBuffer for the output
+     *                          metadata list of a metadata group, type: string",
+     *                 "bufferType": "image for a stream, raw for an output metadata buffer",
+     *                 "imageProps": "Streams only: the ImageProps_t image properties every buffer
+     *                                of this stream must be allocated with: format, batchSize,
+     *                                width, height, numPlanes, and the per-plane stride,
+     *                                actualHeight and planeBufSize arrays (numPlanes entries
+     *                                each), resolved from the platform plane-definition library,
+     *                                type: data tree",
+     *                 "bufferProps": "Output metadata buffers only: the properties the buffer must
+     *                                 be allocated with (allocatorType, cache), type: data tree"
+     *             }
+     *         ]
+     *     }
+     * }
+     * @endcode
+     * The schema is reported before the node is configured; the buffer-derived keys are
+     * populated once the configuration has been parsed. Callers must tolerate unknown
+     * top-level keys for forward compatibility.
+     * @param[out] options The JSON document described above.
+     * @return QC_STATUS_OK on success, QC_STATUS_NOMEM if the document cannot be assembled,
+     * QC_STATUS_FAIL if the image layout of a configured stream cannot be resolved.
+     * @note A Camera ProcessFrameDescriptor call passes a QCFrameDescriptorNodeIfs holding a
+     * single buffer descriptor, which the node reads at index 0: one per configured stream,
+     * delivering a frame of that stream, plus one per metadata group, submitting a metadata
+     * request with the group's <nodeName>.metadata<i>.inputBuffer. The injection and output
+     * metadata buffer lists (<nodeName>.metadata<i>.injection.inputBuffer, .headerBuffer,
+     * .eepromBuffer and <nodeName>.metadata<i>.outputBuffer) are reported so the client
+     * allocates them, but are registered from QCNodeInit::buffers at Initialize and addressed by
+     * (bufferListId, bufferIdx) inside the metadata descriptor, so they never occupy a frame
+     * descriptor slot. Only the lists that carry buffers are reported.
      */
     virtual QCStatus_e GetOptions( std::string &options );
 
     /**
-     * @brief Get the base configuration structure.
-     * @return A reference to the base configuration structure
+     * @brief Get the base configuration structure.
+     * @return A reference to the base configuration structure
      */
     virtual const QCNodeConfigBase_t &Get();
+
+    /**
+     * @brief Reset the configuration state.
+     * Clears the parsed config tree and drops the configuration-derived buffer info from the
+     * cached options (resetting the options-built flag), so a subsequent Initialize starts from a
+     * clean state. The static schema is retained. Called from Camera::DeInitialize().
+     */
+    void Reset();
 
 private:
     QCStatus_e VerifyStaticConfig( DataTree &dt, std::string &errors );
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors );
+
+    /**
+     * @brief Parse the compile-time schema literals into the cached options document.
+     * Runs once, on the first GetOptions call, guarded by m_bSchemaLoaded. Independent of the
+     * node state, so the schema is reportable before the node is configured.
+     * @return QC_STATUS_OK on success, QC_STATUS_NOMEM if the document cannot be assembled.
+     */
+    QCStatus_e LoadConfigSchema();
+
+    /**
+     * @brief Populate the "buffers" key of the cached options document.
+     * Derives the buffer information from the parsed configuration, so the same information is
+     * reported before and after the node is initialized. The per-stream image layout is resolved
+     * through the platform plane-definition library, so the reported stride, actual height and
+     * plane buffer size match what the client must allocate.
+     * Runs once per parsed configuration, guarded by m_bOptionsBuilt, which VerifyAndSet clears on
+     * a re-parse.
+     * @return QC_STATUS_OK on success, QC_STATUS_NOMEM if the information cannot be assembled,
+     * QC_STATUS_FAIL if the image layout of a configured stream cannot be resolved.
+     */
+    QCStatus_e BuildBufferInfo();
 
     CameraMetaDataType_e GetMetaDataType( const std::string &tag );
     QCarCamColorFmt_e GetInjectQcarCamFormat( const std::string &format );
@@ -186,6 +278,9 @@ private:
 private:
     CameraImpl *m_pCamImpl;
     std::string m_options;
+    DataTree m_optionsTree;
+    bool m_bSchemaLoaded = false;
+    bool m_bOptionsBuilt = false;
 };
 
 /**
@@ -198,9 +293,9 @@ class CameraMonitor : public QCNodeMonitoringIfs
 {
 public:
     /**
-     * @brief Constructor for CameraMonitor.
-     * Initializes the CameraMonitor with a logger and a camera component.
-     * @param[in] logger A reference to the logger to be shared and used by CameraMonitor.
+     * @brief Constructor for CameraMonitor.
+     * Initializes the CameraMonitor with a logger and a camera component.
+     * @param[in] logger A reference to the logger to be shared and used by CameraMonitor.
      * @param[in] pCamImpl A pointer to the CameraImpl object to be used by CameraConfig.
      */
     CameraMonitor( Logger &logger, CameraImpl *pCamImpl )
@@ -209,23 +304,23 @@ public:
     {}
 
     /**
-     * @brief TODO: Copy constructor for CameraMonitor.
-     */
+     * @brief TODO: Copy constructor for CameraMonitor.
+     */
     CameraMonitor( const CameraMonitor &camMonitor ) = delete;
 
     /**
-     * @brief Destructor for CameraMonitor.
-     */
+     * @brief Destructor for CameraMonitor.
+     */
     ~CameraMonitor() {}
 
     /**
-     * @brief Verify the configuration string and set the configuration structure.
-     * This method verifies the provided configuration string and sets the configuration structure.
+     * @brief Verify the configuration string and set the configuration structure.
+     * This method verifies the provided configuration string and sets the configuration structure.
      * Currently, this functionality is unsupported.
      * @param[in] config The configuration string in JSON format.
      * @param[out] errors The error string returned if there is an error.
      * @return QC_STATUS_UNSUPPORTED as this functionality is not supported.
-     */
+     */
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors );
 
     /**
@@ -236,29 +331,29 @@ public:
     virtual QCStatus_e GetOptions( std::string &options );
 
     /**
-     * @brief Get the base QCNode monitor structure.
-     * @return A reference to the base QCNode monitor structure
+     * @brief Get the base QCNode monitor structure.
+     * @return A reference to the base QCNode monitor structure
      */
     virtual const QCNodeMonitoringBase_t &Get();
 
     /**
-     * @brief Get the maximal size of the monitor data in bytes.
-     * @return The maximal size of the monitor data in bytes.
+     * @brief Get the maximal size of the monitor data in bytes.
+     * @return The maximal size of the monitor data in bytes.
      */
     virtual inline uint32_t GetMaximalSize() { return 0; }
 
     /**
-     * @brief Get the current size of the monitor data in bytes.
-     * @return The current size of the monitor data in bytes.
+     * @brief Get the current size of the monitor data in bytes.
+     * @return The current size of the monitor data in bytes.
      */
     virtual inline uint32_t GetCurrentSize() { return 0; }
 
     /**
-     * @brief Place monitor data.
-     * This method places the monitor data. Currently, this functionality is unsupported.  
-     * @param[in] pData Pointer to the data to be placed.  
+     * @brief Place monitor data.
+     * This method places the monitor data. Currently, this functionality is unsupported.
+     * @param[in] pData Pointer to the data to be placed.
      * @param[in, out] size The size of the data to be placed.
-     * @return QC_STATUS_UNSUPPORTED as this functionality is not supported.  */
+     * @return QC_STATUS_UNSUPPORTED as this functionality is not supported.  */
     virtual QCStatus_e Place( void *pData, uint32_t &size ) { return QC_STATUS_UNSUPPORTED; }
 
 private:
@@ -277,71 +372,71 @@ class Camera : public NodeBase
 {
 public:
     /**
-     * @brief Constructor for Camera.
-     * Initializes the Camera with configuration and monitoring interfaces.
-     */
+     * @brief Constructor for Camera.
+     * Initializes the Camera with configuration and monitoring interfaces.
+     */
     Camera();
 
     /**
-     * @brief Destructor for Camera.
-     */
+     * @brief Destructor for Camera.
+     */
     ~Camera();
 
     /**
      * @brief Initialize the camera node.
-     * This method initializes the camera node with the provided configuration.
-     * @param[in] config The configuration structure for node initialization.
-     * @return QC_STATUS_OK on success, other values on failure.
-     */
+     * This method initializes the camera node with the provided configuration.
+     * @param[in] config The configuration structure for node initialization.
+     * @return QC_STATUS_OK on success, other values on failure.
+     */
     virtual QCStatus_e Initialize( QCNodeInit_t &config );
 
     /**
-     * @brief Get the configuration interface.
-     * @return A reference to the configuration object.
-     */
+     * @brief Get the configuration interface.
+     * @return A reference to the configuration object.
+     */
     virtual QCNodeConfigIfs &GetConfigurationIfs() { return m_configIfs; }
 
     /**
-     * @brief Get the monitoring interface.
-     * @return A reference to the CameraMonitoring object.
-     */
+     * @brief Get the monitoring interface.
+     * @return A reference to the CameraMonitoring object.
+     */
     virtual QCNodeMonitoringIfs &GetMonitoringIfs() { return m_monitor; }
 
     /**
-     * @brief Start the camera node.
-     * @return QC_STATUS_OK on success, other values on failure.
-     */
+     * @brief Start the camera node.
+     * @return QC_STATUS_OK on success, other values on failure.
+     */
     virtual QCStatus_e Start();
 
     /**
-     * @brief Process the provided frame descriptor.
-     * @param[in] frameDesc The frame descriptor containing a vector of input/output buffers.
+     * @brief Process the provided frame descriptor.
+     * @param[in] frameDesc The frame descriptor containing a vector of input/output buffers.
      * @note This function has two modes: request mode and release mode, which is determined
      * by m_bRequestMode flag.
      * In request mode, it submits requset to QCarCamera for frames and processes frames
      * when it receives frame event.
      * In release mode, it processes frames and then release frame buffer when it
      * receives frame event.
-     * @return QC_STATUS_OK on success, other values on failure.
-     */
+     * @return QC_STATUS_OK on success, other values on failure.
+     */
     virtual QCStatus_e ProcessFrameDescriptor( QCFrameDescriptorNodeIfs &frameDesc );
 
     /**
-     * @brief Stop the camera node.
-     * @return QC_STATUS_OK on success, other values on failure.
-     */
+     * @brief Stop the camera node.
+     * @return QC_STATUS_OK on success, other values on failure.
+     */
     virtual QCStatus_e Stop();
 
     /**
-     * @brief Deinitialize the camera node.
-     * @return QC_STATUS_OK on success, other values on failure.
-     */
+     * @brief Deinitialize the camera node.
+     * @return QC_STATUS_OK on success, other values on failure.
+     */
     virtual QCStatus_e DeInitialize();
 
     /**
-     * @brief Get the current state of the camera node.
-     * @return The current state of the camera node.
-     */
+     * @brief Get the current state of the camera node.
+     * @return The current state of the camera node.
+     */
     virtual QCObjectState_e GetState();
 
 private:
