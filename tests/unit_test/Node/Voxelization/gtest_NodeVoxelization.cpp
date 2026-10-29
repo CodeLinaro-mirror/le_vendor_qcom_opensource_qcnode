@@ -551,6 +551,76 @@ TEST( VoxelizationConfig, GetOptions_ReturnsEmptyString )
     EXPECT_EQ( "", options );
 }
 
+TEST( VoxelizationConfig, ConfigurationDescribesTensorPortsAndExecution )
+{
+    DataTree dt;
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, dt.Load( g_Config_XYZR, errors ) );
+    dt.Set<uint32_t>( "static.coreId", 2U );
+    std::vector<uint32_t> inputBufferIds{ 10U, 11U };
+    dt.Set( "static.inputPcdBufferIds", inputBufferIds );
+
+    QC::Node::Voxelization voxel;
+    ASSERT_EQ( QC_STATUS_OK,
+               voxel.GetConfigurationIfs().VerifyAndSet( dt.Dump(), errors ) );
+
+    const QCNodeConfigBase_t &config = voxel.GetConfigurationIfs().Get();
+    EXPECT_EQ( QC_EXECUTE_MODE_SYNC, config.executeMode );
+    EXPECT_EQ( QC_PROCESSOR_CPU, config.processor );
+    ASSERT_EQ( 1U, config.coreIds.size() );
+    EXPECT_EQ( 2U, config.coreIds[0] );
+    ASSERT_EQ( 1U, config.inputs.size() );
+    ASSERT_EQ( 2U, config.outputs.size() );
+    EXPECT_EQ( "pointCloud", config.inputs[0].name );
+    EXPECT_EQ( QC_BUFFER_TYPE_TENSOR, config.inputs[0].bufferType );
+    ASSERT_TRUE( std::holds_alternative<Memory::TensorProps_t>( config.inputs[0].bufProps ) );
+    const auto &inputProps = std::get<Memory::TensorProps_t>( config.inputs[0].bufProps );
+    EXPECT_EQ( QC_TENSOR_TYPE_FLOAT_32, inputProps.tensorType );
+    EXPECT_EQ( 2U, inputProps.numDims );
+    EXPECT_EQ( 300000U, inputProps.dims[0] );
+    EXPECT_EQ( 4U, inputProps.dims[1] );
+    EXPECT_EQ( "coords", config.outputs[0].name );
+    ASSERT_TRUE( std::holds_alternative<Memory::TensorProps_t>( config.outputs[0].bufProps ) );
+    const auto &outputProps = std::get<Memory::TensorProps_t>( config.outputs[0].bufProps );
+    EXPECT_EQ( 2U, outputProps.numDims );
+    EXPECT_EQ( 12000U, outputProps.dims[0] );
+    EXPECT_EQ( VOXELIZATION_PILLAR_COORDS_DIM, outputProps.dims[1] );
+    EXPECT_EQ( "features", config.outputs[1].name );
+    const auto &featureProps = std::get<Memory::TensorProps_t>( config.outputs[1].bufProps );
+    EXPECT_EQ( 3U, featureProps.numDims );
+    EXPECT_EQ( 12000U, featureProps.dims[0] );
+    EXPECT_EQ( 32U, featureProps.dims[1] );
+    EXPECT_EQ( 10U, featureProps.dims[2] );
+}
+
+TEST( VoxelizationConfig, ConfigurationDescribesXYZRTCoordsOutput )
+{
+    DataTree dt;
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, dt.Load( g_Config_XYZRT, errors ) );
+
+    QC::Node::Voxelization voxel;
+    ASSERT_EQ( QC_STATUS_OK,
+               voxel.GetConfigurationIfs().VerifyAndSet( dt.Dump(), errors ) );
+
+    const QCNodeConfigBase_t &config = voxel.GetConfigurationIfs().Get();
+    ASSERT_EQ( 1U, config.inputs.size() );
+    ASSERT_EQ( 2U, config.outputs.size() );
+
+    const auto &inputProps = std::get<Memory::TensorProps_t>( config.inputs[0].bufProps );
+    EXPECT_EQ( QC_TENSOR_TYPE_FLOAT_32, inputProps.tensorType );
+    EXPECT_EQ( 2U, inputProps.numDims );
+    EXPECT_EQ( 300000U, inputProps.dims[0] );
+    EXPECT_EQ( 5U, inputProps.dims[1] );
+
+    EXPECT_EQ( "coords", config.outputs[0].name );
+    const auto &coordsProps = std::get<Memory::TensorProps_t>( config.outputs[0].bufProps );
+    EXPECT_EQ( QC_TENSOR_TYPE_INT_32, coordsProps.tensorType );
+    EXPECT_EQ( 2U, coordsProps.numDims );
+    EXPECT_EQ( 25000U, coordsProps.dims[0] );
+    EXPECT_EQ( 2U, coordsProps.dims[1] );
+}
+
 TEST( VoxelizationMonitor, Get_ReturnsMonitorConfig )
 {
     // This test covers the VoxelizationMonitor::Get() method (lines 23-26)

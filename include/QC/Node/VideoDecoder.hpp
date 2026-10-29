@@ -4,6 +4,7 @@
 #ifndef QC_NODE_VIDEO_DECODER_HPP
 #define QC_NODE_VIDEO_DECODER_HPP
 
+#include <cstddef>
 #include <mutex>
 #include <queue>
 #include <sys/uio.h>
@@ -30,8 +31,8 @@ namespace QC::Node
 
 /** @brief The QCNode VideoDecoder Version */
 #define QCNODE_VIDEODECODER_VERSION_MAJOR 2U
-#define QCNODE_VIDEODECODER_VERSION_MINOR 1U
-#define QCNODE_VIDEODECODER_VERSION_PATCH 1U
+#define QCNODE_VIDEODECODER_VERSION_MINOR 2U
+#define QCNODE_VIDEODECODER_VERSION_PATCH 0U
 
 #define QCNODE_VIDEODECODER_VERSION                                                                \
     ( ( QCNODE_VIDEODECODER_VERSION_MAJOR << 16U ) | ( QCNODE_VIDEODECODER_VERSION_MINOR << 8U ) | \
@@ -39,6 +40,13 @@ namespace QC::Node
 
 /** @brief This data type list the different VideoDecoder Callback Event Type */
 typedef VideoCodec_EventType_e VideoDecoder_EventType_e;
+
+typedef struct VideoDecoderErrorInfo
+{
+    VideoDecoder_EventType_e eventId;
+    void *pEvent;
+    size_t size;
+} VideoDecoderErrorInfo_t;
 
 /**
  * @brief The VideoDecoder Init Config
@@ -136,7 +144,7 @@ public:
     VideoDecoderMonitoringIfs( const VideoDecoderMonitoringIfs &other ) : m_logger( other.m_logger )
     {}
     VideoDecoderMonitoringIfs &operator=( const VideoDecoderMonitoringIfs & ) = default;
-    virtual ~VideoDecoderMonitoringIfs() = default;
+    virtual ~VideoDecoderMonitoringIfs() {}
 
     virtual QCStatus_e VerifyAndSet( const std::string config, std::string &errors )
     {

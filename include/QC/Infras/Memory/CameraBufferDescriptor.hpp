@@ -114,12 +114,19 @@ typedef struct CameraFrameDescriptor : public ImageDescriptor
 public:
     CameraFrameDescriptor() : ImageDescriptor() {}
 
+    CameraFrameDescriptor( const CameraFrameDescriptor & ) = default;
+    CameraFrameDescriptor( CameraFrameDescriptor && ) = default;
+    CameraFrameDescriptor &operator=( const CameraFrameDescriptor & ) noexcept = default;
+    CameraFrameDescriptor &operator=( CameraFrameDescriptor && ) = default;
+
+    using ImageDescriptor::operator=;
+
     /**
      * @brief Sets up the camera frame descriptor from another buffer descriptor base object.
      * @param[in] other The camera frame descriptor object from which buffer members are copied.
      * @return The updated camera frame descriptor object.
      */
-    CameraFrameDescriptor &operator=( const QCBufferDescriptorBase &other );
+    CameraFrameDescriptor &operator=( const QCBufferDescriptorBase &other ) noexcept override;
 
     uint64_t timestamp;
     uint64_t timestampQGPTP;
@@ -178,6 +185,14 @@ public:
           syncId( 0 ),
           flags( 0 )
     {}
+
+    using ImageDescriptor::operator=;
+
+    CameraMetaDataDescriptor( const CameraMetaDataDescriptor & ) = default;
+    CameraMetaDataDescriptor( CameraMetaDataDescriptor && ) = default;
+    CameraMetaDataDescriptor &operator=( const CameraMetaDataDescriptor & ) noexcept = default;
+    CameraMetaDataDescriptor &operator=( CameraMetaDataDescriptor && ) = default;
+    CameraMetaDataDescriptor &operator=( const QCBufferDescriptorBase &other ) noexcept override;
 
     uint32_t requestId;
     uint32_t streamRequestNum;

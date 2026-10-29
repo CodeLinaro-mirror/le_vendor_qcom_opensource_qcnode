@@ -17,7 +17,7 @@ namespace FadasIface
 class FadasPlrPreProc : public FadasSrv
 {
 public:
-    FadasPlrPreProc();
+    explicit FadasPlrPreProc( Logger &logger );
     ~FadasPlrPreProc();
 
     QCStatus_e SetParams( float pillarXSize, float pillarYSize, float pillarZSize, float minXRange,
@@ -83,4 +83,3 @@ private:
 }   // namespace QC
 
 #endif   // QC_FADAS_PLR_HPP
-

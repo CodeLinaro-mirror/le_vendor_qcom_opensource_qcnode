@@ -26,7 +26,6 @@
 #include "QC/Node/Ifs/QCNodeIfs.hpp"
 #include "QC/Node/NodeConfigBase.hpp"
 #include "QC/Node/NodeFrameDescriptor.hpp"
-#include "QC/Node/NodeFrameDescriptorPool.hpp"
 
 namespace QC
 {
@@ -38,8 +37,7 @@ using namespace QC::Memory;
 // ---------------------------------------------------------------------------
 // Node_CreateFunction_t
 //
-// Signature of the zero-argument factory function that each node
-// implementation provides and registers via REGISTER_NODE().
+// Signature of the zero-argument factory function used by NodeRegistrar.
 // ---------------------------------------------------------------------------
 typedef std::unique_ptr<QCNodeIfs> ( *Node_CreateFunction_t )();
 
@@ -136,42 +134,35 @@ protected:
 void RegisterNode( QCNodeType_e type, Node_CreateFunction_t createFnc );
 
 // ---------------------------------------------------------------------------
-// REGISTER_NODE( type, class_name )
+// NodeRegistrar<NodeClass>
 //
 // Registers a QCNodeIfs-derived class with QCNodeFactory so that
 // QCNodeFactory::CreateNode( type, ... ) can instantiate it.
 //
-// Usage (in a node implementation .cpp file):
-//
-//   REGISTER_NODE( QC_NODE_TYPE_QNN, QnnNode )
-//
-// Mechanism (mirrors REGISTER_SAMPLE in SampleIF.hpp):
-//   1. A zero-argument factory function CreateNode<class_name>() is defined
-//      as a file-scope static; it heap-allocates the node and wraps it in a
-//      unique_ptr<QCNodeIfs>.
-//   2. A registration helper class Register<class_name> is defined whose
-//      constructor calls RegisterNode(), associating the QCNodeType_e key
-//      with the factory function.
-//   3. A file-scope const instance g_register<class_name> is declared,
-//      causing the constructor — and therefore the registration — to run
-//      at static-initialisation time, before main().
+// A file-scope NodeRegistrar<NodeClass> object is created in each node
+// implementation. Its constructor associates the QCNodeType_e key with the
+// type-specific factory function during static initialization, before main().
 //
 // ISO 26262:6 Table 8 §1b : outNode is null when type is not registered.
 // ---------------------------------------------------------------------------
-#define REGISTER_NODE( type, class_name )                                                          \
-    static std::unique_ptr<QCNodeIfs> CreateNode##class_name()                                     \
-    {                                                                                              \
-        return std::make_unique<class_name>();                                                     \
-    }                                                                                              \
-    class Register##class_name                                                                     \
-    {                                                                                              \
-    public:                                                                                        \
-        Register##class_name() noexcept                                                            \
-        {                                                                                          \
-            RegisterNode( (type), CreateNode##class_name );                                        \
-        }                                                                                          \
-    };                                                                                             \
-    const Register##class_name g_register##class_name;
+template <typename NodeClass>
+std::unique_ptr<QCNodeIfs> CreateRegisteredNode()
+{
+    return std::make_unique<NodeClass>();
+}
+
+template <typename NodeClass>
+class NodeRegistrar final
+{
+public:
+    explicit NodeRegistrar( QCNodeType_e type ) noexcept
+    {
+        RegisterNode( type, &CreateRegisteredNode<NodeClass> );
+    }
+
+    NodeRegistrar( const NodeRegistrar& ) = delete;
+    NodeRegistrar& operator=( const NodeRegistrar& ) = delete;
+};
 
 
 }   // namespace Node

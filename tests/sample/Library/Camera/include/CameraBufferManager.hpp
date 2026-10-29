@@ -10,6 +10,8 @@
 #include "QC/Node/Camera.hpp"
 #include "QC/sample/SharedBufferPool.hpp"
 
+#include <deque>
+
 namespace QC
 {
 namespace sample
@@ -41,14 +43,14 @@ public:
      * @param[in]     configTree   DataTree containing "streamConfigs" array.
      * @param[in,out] buffers      Buffer vector to place allocated buffers.
      * @param[in]     streamNum    Number of streams to allocate.
-     * @param[in,out] bufferPools  Vector of SharedBufferPool; pools [0, streamNum) are filled.
+     * @param[in,out] bufferPools  SharedBufferPool container; pools [0, streamNum) are filled.
      * @param[in]     nodeId       Node ID used for buffer pool naming.
      * @return QC_STATUS_OK on success, error code on failure.
      */
     QCStatus_e
     AllocateFrameBuffers( DataTree &configTree,
                           std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
-                          uint32_t streamNum, std::vector<SharedBufferPool> &bufferPools,
+                          uint32_t streamNum, std::deque<SharedBufferPool> &bufferPools,
                           QCNodeID_t &nodeId );
 
     /**
@@ -65,7 +67,7 @@ public:
      * @param[in,out] buffers      Buffer vector to place allocated buffers.
      * @param[in]     streamNum    Number of streams (offset into bufferPools).
      * @param[in]     metaDataNum  Number of metadata configs to allocate.
-     * @param[in,out] bufferPools  Vector of SharedBufferPool; pools [streamNum,
+     * @param[in,out] bufferPools  SharedBufferPool container; pools [streamNum,
      * streamNum+metaDataNum) are filled for metadata buffers. Additional pools may be appended for
      * INJECTION_SENSOR_METADATA input buffers.
      * @param[in]     nodeId       Node ID used for buffer pool naming.
@@ -75,7 +77,7 @@ public:
     AllocateMetaDataBuffers( DataTree &configTree,
                              std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
                              uint32_t streamNum, uint32_t metaDataNum,
-                             std::vector<SharedBufferPool> &bufferPools, QCNodeID_t &nodeId );
+                             std::deque<SharedBufferPool> &bufferPools, QCNodeID_t &nodeId );
 
     /**
      * @brief Register vendor tag ops, preprocess allocated DMA metadata buffers, and
@@ -112,7 +114,7 @@ public:
      * @param[in,out] buffers             Buffer vector to place allocated buffers.
      * @param[in]     streamNum           Number of streams (kept for API consistency).
      * @param[in]     metaDataNum         Number of metadata configs to preprocess.
-     * @param[in,out] bufferPools         Vector of SharedBufferPool (not modified).
+     * @param[in,out] bufferPools         SharedBufferPool container (not modified).
      * @param[in]     nodeId              Node ID used for logging.
      * @param[out]    pInjSensorMetaTagId Optional output for the resolved
      *                                    INJECTION_SENSOR_METADATA camera_metadata tag ID.
@@ -122,7 +124,7 @@ public:
     QCStatus_e PreprocessMetaDataBuffers(
             DataTree &configTree,
             std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers,
-            uint32_t streamNum, uint32_t metaDataNum, std::vector<SharedBufferPool> &bufferPools,
+            uint32_t streamNum, uint32_t metaDataNum, std::deque<SharedBufferPool> &bufferPools,
             QCNodeID_t &nodeId, uint32_t *pInjSensorMetaTagId = nullptr );
 
     /**

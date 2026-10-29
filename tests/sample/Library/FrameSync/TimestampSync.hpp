@@ -4,6 +4,7 @@
 #ifndef QC_SAMPLE_TIMESTAMP_SYNC_HPP
 #define QC_SAMPLE_TIMESTAMP_SYNC_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 

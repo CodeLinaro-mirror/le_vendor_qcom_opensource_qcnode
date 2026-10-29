@@ -7,11 +7,12 @@
     - [3.1.1 For QNX, the default used log system is slog2.](#311-for-qnx-the-default-used-log-system-is-slog2)
     - [3.1.2 For Linux, the default used log system is syslog.](#312-for-linux-the-default-used-log-system-is-syslog)
   - [3.2 Direct the QC logger message to the standard output(stdout)](#32-direct-the-qc-logger-message-to-the-standard-outputstdout)
-    - [3.2.1 Define a customized Logger\_HandleContextUser\_t for the Logger\_Handle\_t](#321-define-a-customized-logger_handlecontextuser_t-for-the-logger_handle_t)
-    - [3.2.2 Implement a Logger\_Create\_t API that to create a logger handle](#322-implement-a-logger_create_t-api-that-to-create-a-logger-handle)
-    - [3.2.3 Implement a Logger\_Log\_t API that to do message log](#323-implement-a-logger_log_t-api-that-to-do-message-log)
-    - [3.2.4 Implement a Logger\_Destroy\_t API that to destroy the logger](#324-implement-a-logger_destroy_t-api-that-to-destroy-the-logger)
-    - [3.2.5 Call the Logger::Setup to switch to use the stdout](#325-call-the-loggersetup-to-switch-to-use-the-stdout)
+  - [3.3 Direct the QC logger message to a user-defined backend](#33-direct-the-qc-logger-message-to-a-user-defined-backend)
+    - [3.3.1 Define a customized UserLoggerContext\_t for the Logger\_Handle\_t](#331-define-a-customized-userloggercontext_t-for-the-logger_handle_t)
+    - [3.3.2 Implement a Logger\_Create\_t API that to create a logger handle](#332-implement-a-logger_create_t-api-that-to-create-a-logger-handle)
+    - [3.3.3 Implement a Logger\_Log\_t API that to do message log](#333-implement-a-logger_log_t-api-that-to-do-message-log)
+    - [3.3.4 Implement a Logger\_Destroy\_t API that to destroy the logger](#334-implement-a-logger_destroy_t-api-that-to-destroy-the-logger)
+    - [3.3.5 Configure callbacks and initialize Logger with LOGGER\_BACKEND\_USER](#335-configure-callbacks-and-initialize-logger-with-logger_backend_user)
 - [4. How to dynamic change the logger level through environment variable](#4-how-to-dynamic-change-the-logger-level-through-environment-variable)
   - [4.1 "QC\_LOG\_LEVEL" to control all the logger level.](#41-qc_log_level-to-control-all-the-logger-level)
   - [4.2 "${name}\_QC\_LOG\_LEVEL" to control the logger level of the logger with name.](#42-name_qc_log_level-to-control-the-logger-level-of-the-logger-with-name)
@@ -20,11 +21,12 @@ The QC logger is designed to be used by the QC components or utils only, and wit
 
 # 1. QC Logger Types
 
-- [Logger_Level_e](../include/QC/Infras/Log/Logger.hpp#L131)
-- [Logger_Handle_t](../include/QC/Infras/Log/Logger.hpp#L142)
-- [Logger_Log_t](../include/QC/Infras/Log/Logger.hpp#L152)
-- [Logger_Create_t](../include/QC/Infras/Log/Logger.hpp#L162)
-- [Logger_Destroy_t](../include/QC/Infras/Log/Logger.hpp#L170)
+- [Logger_Level_e](../include/QC/Infras/Log/Ifs/QCLoggerDefs.hpp)
+- [LoggerBackend_e](../include/QC/Infras/Log/Ifs/QCLoggerDefs.hpp)
+- [Logger_Handle_t](../include/QC/Infras/Log/Ifs/QCLoggerDefs.hpp)
+- [Logger_Log_t](../include/QC/Infras/Log/Ifs/QCLoggerDefs.hpp)
+- [Logger_Create_t](../include/QC/Infras/Log/Ifs/QCLoggerDefs.hpp)
+- [Logger_Destroy_t](../include/QC/Infras/Log/Ifs/QCLoggerDefs.hpp)
 
 
 # 2. QC Logger Macros
@@ -48,35 +50,9 @@ Generally, the logger Macros are not suggested to be used by user application as
 
 And please note that if the macro "DISABLE_QC_LOG" was defined, all the QC log will be disabled.
 
-And as the QC logger another main design goal is to be easily integrated with the user used log system, so those macro definitions are allowed to be modified in case the method introduced in section [3.2](#32-direct-the-qc-logger-message-to-the-standard-outputstdout) can't meet the requirement, but this is rare case. But for the purpose to improve performance, this can be a reason but not suggested to do so. For example, for the default log system slog2 used by QNX, the Logger_Log_t API implementation is as below, we can see snprintf was used to firstly format the message to a buffer and then call the slog2f API to do log which is somehow not performance friendly.
-
-```c++
-void Logger::DefaultLog( Logger_Handle_t hHandle, Logger_Level_e level, const char *pFormat,
-                         va_list args )
-{
-    char msg[QC_LOG_MSG_MAX_LEN];
-    slog2_buffer_t hBuffer = (slog2_buffer_t) hHandle;
-    int len = 0;
-    int rc;
-
-    len = vsnprintf( msg, sizeof( msg ), pFormat, args );
-    len += snprintf( &msg[len], sizeof( msg ) - len, "\n" );
-    if ( len <= sizeof( msg ) )
-    {
-        ...
-        rc = slog2f( hBuffer, 0, SLOG2_INFO, msg );
-        ...
-    }
-    ...
-}
-```
-
-So if change the logger member "[m_hHandle](../include/QC/Infras/Log/Logger.hpp#L254)" as public and the macro QC_LOGGER_LOG as below, the performance can be improved (but as log messages are not that frequently, the improvement is not that much).
-
-```c++
-#define QC_LOGGER_LOG( logger, level, format, ... )                                           \
-    slog2f( (slog2_buffer_t) logger.m_hHandle, 0, SLOG2_INFO, "%s:%d " format, __FILE__, __LINE__, ##__VA_ARGS__ )
-```
+The Logger supports `LOGGER_BACKEND_SYSLOG`, `LOGGER_BACKEND_STDOUT`, and `LOGGER_BACKEND_USER`. `LOGGER_BACKEND_DEFAULT` resolves to the configured process default.
+The runtime registry stores uniquely named Loggers without a fixed compile-time capacity. When a Logger is initialized with an already registered name, it is registered as `name_n`, where `n` is a per-name index that increases for the lifetime of the registry and is not reused after unregistration. A warning is printed to standard error. The final name is used by the backend and for the `<name>_QC_LOG_LEVEL` environment variable. Per-Logger runtime control takes a registered Logger name; unknown or empty names return `QC_STATUS_OUT_OF_BOUND`.
+The default Logger is initialized on its first use. Concurrent calls to `Log()` are allowed; the thread-safety and message ordering of output are determined by the selected backend. Do not call `Deinit()` or `SwitchBackend()` while another thread is logging through the same Logger.
 
 # 3. Typical Use Case
 
@@ -84,9 +60,7 @@ So if change the logger member "[m_hHandle](../include/QC/Infras/Log/Logger.hpp#
 
 ### 3.1.1 For QNX, the default used log system is slog2.
 
-- [Logger::DefaultLog](../source/common/Logger_QNX.cpp#L32)
-- [Logger::DefaultCreate](../source/common/Logger_QNX.cpp#L61)
-- [Logger::DefaultDestory](../source/common/Logger_QNX.cpp#L107)
+- [LoggerBackendSysLog](../source/Infras/Log/LoggerBackendSysLog_QNX.cpp)
 
 Below is a demo command to check the QC logs:
 
@@ -99,9 +73,7 @@ slog2info -c
 
 ### 3.1.2 For Linux, the default used log system is syslog.
 
-- [Logger::DefaultLog](../source/common/Logger_Linux.cpp#L25)
-- [Logger::DefaultCreate](../source/common/Logger_Linux.cpp#L35)
-- [Logger::DefaultDestory](../source/common/Logger_Linux.cpp#L62)
+- [LoggerBackendSysLog](../source/Infras/Log/LoggerBackendSysLog_Linux.cpp)
 
 Below is a demo command to check the QC logs:
 
@@ -115,83 +87,112 @@ journalctl --flush --rotate --vacuum-time=1s
 
 ## 3.2 Direct the QC logger message to the standard output(stdout)
 
-The QC Sample App with command option "-d" demonstrates that how the QC logger message can be directed to the standard output(stdout).
-
-And it was the same approach to direct the QC log message to any other user used log system.
-
-### 3.2.1 Define a customized Logger_HandleContextUser_t for the Logger_Handle_t
-
-Refer [Logger_HandleContextUser_t](../tests/sample/main.cpp#L22), as below code shows, it's a customized logger handle data structure that holds the name of the logger.
+Use the built-in `LOGGER_BACKEND_STDOUT` backend when initializing an individual Logger. It writes each message to standard output with the Logger name as a prefix.
 
 ```c++
-typedef struct
+#include "QC/Infras/Log/Logger.hpp"
+
+QC::Logger logger;
+if ( QC::QC_STATUS_OK ==
+     logger.Init( "APP", QC::LOGGER_LEVEL_INFO, QC::LOGGER_BACKEND_STDOUT ) )
+{
+    logger.Log( QC::LOGGER_LEVEL_INFO, "Application started" );
+    (void) logger.Deinit();
+}
+```
+
+To direct the default Logger used by `QC_LOG_*` macros to standard output, set its backend before the first call that uses the default Logger:
+
+```c++
+(void) QC::Logger::SetDefaultBackend( QC::LOGGER_BACKEND_STDOUT );
+QC_LOG_INFO( "Application started" );
+```
+
+## 3.3 Direct the QC logger message to a user-defined backend
+
+Use `LoggerUser` when messages must be sent to an application-specific logging system.
+
+### 3.3.1 Define a customized UserLoggerContext_t for the Logger_Handle_t
+
+```c++
+#include "QC/Infras/Log/Logger.hpp"
+#include "QC/Infras/Log/LoggerUser.hpp"
+
+#include <new>
+#include <stdio.h>
+#include <string>
+
+using namespace QC;
+
+struct UserLoggerContext_t
 {
     std::string name;
-} Logger_HandleContextUser_t;
+};
 ```
 
-### 3.2.2 Implement a Logger_Create_t API that to create a logger handle
+### 3.3.2 Implement a Logger_Create_t API that to create a logger handle
 
-Refer [UserLoggerHandleCreate](../tests/sample/main.cpp#L38), as below major code shows, it's that just new a user context handle and saving the logger’s name.
-
-```c++
-static QCStatus_e UserLoggerHandleCreate( const char *pName, Logger_Level_e level,
-                                              Logger_Handle_t *pHandle )
-{
-    QCStatus_e ret = QC_STATUS_OK;
-    ...
-        Logger_HandleContextUser_t *pContext = new Logger_HandleContextUser_t;
-        if ( nullptr != pContext )
-        {
-            pContext->name = pName;
-            (void) level;
-            *pHandle = (Logger_Handle_t) pContext;
-        }
-    ...
-
-    return ret;
-}
-```
-
-### 3.2.3 Implement a Logger_Log_t API that to do message log
-
-Refer [UserLog](../tests/sample/main.cpp#L29), as below code shows, it does forward the message to stdout by using printf.
+The create callback allocates and returns one context for each Logger instance.
 
 ```c++
-static void UserLog( Logger_Handle_t hHandle, Logger_Level_e level, const char *pFormat,
-                     va_list args )
+static QCStatus_e UserCreate( const char *pName, Logger_Level_e, Logger_Handle_t *pHandle )
 {
-    char msg[256];
-    Logger_HandleContextUser_t *pContext = (Logger_HandleContextUser_t *) hHandle;
-    (void) vsnprintf( msg, sizeof( msg ), pFormat, args );
-    printf( "%s: %s\n", pContext->name.c_str(), msg );
-}
-```
-
-### 3.2.4 Implement a Logger_Destroy_t API that to destroy the logger
-
-Refer [UserLoggerHandleDestroy](../tests/sample/main.cpp#L65), as below code shows, it does the destroy the user handle context.
-
-```c++
-static void UserLoggerHandleDestroy( Logger_Handle_t hHandle )
-{
-    Logger_HandleContextUser_t *pContext = (Logger_HandleContextUser_t *) hHandle;
-    if ( nullptr != pContext )
+    if ( ( nullptr == pName ) || ( nullptr == pHandle ) )
     {
-        delete pContext;
+        return QC_STATUS_BAD_ARGUMENTS;
+    }
+
+    UserLoggerContext_t *pContext = new ( std::nothrow ) UserLoggerContext_t{ pName };
+    if ( nullptr == pContext )
+    {
+        return QC_STATUS_NOMEM;
+    }
+    *pHandle = static_cast<Logger_Handle_t>( pContext );
+    return QC_STATUS_OK;
+}
+```
+
+### 3.3.3 Implement a Logger_Log_t API that to do message log
+
+The log callback receives the Logger context and forwards the formatted message to the user logging system. This example writes it to standard output.
+
+```c++
+static void UserLog( Logger_Handle_t hHandle, Logger_Level_e, const char *pFormat, va_list args )
+{
+    const auto *pContext = static_cast<const UserLoggerContext_t *>( hHandle );
+    if ( ( nullptr != pContext ) && ( nullptr != pFormat ) )
+    {
+        (void) printf( "%s: ", pContext->name.c_str() );
+        (void) vprintf( pFormat, args );
+        (void) printf( "\n" );
     }
 }
 ```
 
-### 3.2.5 Call the Logger::Setup to switch to use the stdout
-
-Refer [Logger::Setup](../tests/sample/main.cpp#L141), as below code shows, it does the switch to use the stdout.
+### 3.3.4 Implement a Logger_Destroy_t API that to destroy the logger
 
 ```c++
-    (void) Logger::Setup( UserLog, UserLoggerHandleCreate, UserLoggerHandleDestroy );
+static void UserDestroy( Logger_Handle_t hHandle )
+{
+    delete static_cast<UserLoggerContext_t *>( hHandle );
+}
 ```
 
-Please note that the Logger::Setup must be called only once before any logger was created.
+### 3.3.5 Configure callbacks and initialize Logger with LOGGER_BACKEND_USER
+
+Configure the process-wide callbacks before any Logger uses `LOGGER_BACKEND_USER`. Repeating setup with the same callbacks is allowed; different callbacks are rejected.
+
+```c++
+QC::Logger logger;
+if ( QC_STATUS_OK == QC::LoggerUser::Setup( UserLog, UserCreate, UserDestroy ) )
+{
+    if ( QC_STATUS_OK == logger.Init( "APP", LOGGER_LEVEL_INFO, LOGGER_BACKEND_USER ) )
+    {
+        logger.Log( LOGGER_LEVEL_INFO, "Application started" );
+        (void) logger.Deinit();
+    }
+}
+```
 
 # 4. How to dynamic change the logger level through environment variable
 

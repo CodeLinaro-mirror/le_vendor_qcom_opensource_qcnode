@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "CameraImpl.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 #include "QC/Node/Camera.hpp"
 
 namespace QC
@@ -481,7 +482,7 @@ QCStatus_e CameraConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
                         streamConfigDt.Get<uint32_t>( "submitRequestPattern", UINT32_MAX );
                 streamConfig.bufferIds =
                         streamConfigDt.Get<uint32_t>( "bufferIds", std::vector<uint32_t>{} );
-                config.streamConfigs.push_back( streamConfig );
+                config.streamConfigs.push_back( std::move( streamConfig ) );
             }
         }
 
@@ -565,8 +566,36 @@ QCStatus_e CameraConfig::ParseStaticConfig( DataTree &dt, std::string &errors )
                     metaDataConfig.outputBufferIds = metaDataConfigDt.Get<uint32_t>(
                             "outputBufferIds", std::vector<uint32_t>{} );
 
-                    config.metaDataConfigs.push_back( metaDataConfig );
+                    config.metaDataConfigs.push_back( std::move( metaDataConfig ) );
                 }
+            }
+        }
+
+        if ( QC_STATUS_OK == status )
+        {
+            config.executeMode = QC_EXECUTE_MODE_ASYNC;
+            config.processor = QC_PROCESSOR_MAX;
+            config.coreIds.clear();
+            config.inputs.clear();
+            config.outputs.clear();
+            config.outputs.reserve( config.streamConfigs.size() );
+            Memory::UtilsBase memoryUtils;
+            for ( const CameraStreamConfig_t &streamConfig : config.streamConfigs )
+            {
+                Memory::ImageBasicProps_t basicProps( streamConfig.width, streamConfig.height,
+                                                      streamConfig.format );
+                Memory::ImageProps_t outputProps;
+                status = memoryUtils.SetImagePropsFromImageBasicProp( basicProps, outputProps );
+                if ( QC_STATUS_OK != status )
+                {
+                    errors += "failed to derive camera output buffer properties, ";
+                    config.outputs.clear();
+                    break;
+                }
+
+                config.outputs.push_back(
+                        { "stream" + std::to_string( streamConfig.streamId ), QC_BUFFER_TYPE_IMAGE,
+                          std::move( outputProps ) } );
             }
         }
     }
@@ -651,7 +680,7 @@ QCStatus_e CameraConfig::VerifyAndSet( const std::string config, std::string &er
     QCStatus_e status = QC_STATUS_OK;
     DataTree dt;
 
-    status = NodeConfigIfs::VerifyAndSet( config, errors );
+    status = NodeConfigBase::VerifyAndSet( config, errors );
     if ( QC_STATUS_OK == status )
     {
 

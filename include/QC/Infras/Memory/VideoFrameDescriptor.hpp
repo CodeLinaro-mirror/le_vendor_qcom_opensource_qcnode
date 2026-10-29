@@ -55,15 +55,22 @@ typedef struct VideoFrameDescriptor : public ImageDescriptor
     uint32_t frameFlag = 0; /**< indicate whether some error occurred during decoding this frame. */
 
 public:
+    using ImageDescriptor::operator=;
+
     VideoFrameDescriptor() : ImageDescriptor(),
         timestampNs(0), appMarkData(0), frameType(VIDC_FRAME_NOTCODED), frameFlag(0) {}
+
+    VideoFrameDescriptor( const VideoFrameDescriptor & ) = default;
+    VideoFrameDescriptor( VideoFrameDescriptor && ) = default;
+    VideoFrameDescriptor &operator=( const VideoFrameDescriptor & ) noexcept = default;
+    VideoFrameDescriptor &operator=( VideoFrameDescriptor && ) = default;
 
     /**
      * @brief Sets up the video frame descriptor from another buffer descriptor base object.
      * @param[in] other The video frame descriptor object from which buffer members are copied.
      * @return The updated video frame descriptor object.
      */
-    VideoFrameDescriptor &operator=( const QCBufferDescriptorBase &other );
+    VideoFrameDescriptor &operator=( const QCBufferDescriptorBase &other ) noexcept override;
 } VideoFrameDescriptor_t;
 
 }   // namespace Memory

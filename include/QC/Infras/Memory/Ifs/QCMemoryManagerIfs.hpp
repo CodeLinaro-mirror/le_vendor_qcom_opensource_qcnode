@@ -421,11 +421,11 @@ typedef struct QCMemoryManagerInit
      *          instances that reference them.
      */
     QCMemoryManagerInit(
-            uint8_t numOfNodes,
+            uint8_t nodeCount,
             std::array<std::reference_wrapper<QCMemoryAllocatorIfs>, QC_MEMORY_ALLOCATOR_LAST>
-                    allocators )
-        : numOfNodes( numOfNodes ),
-          allocators( allocators )
+                    allocatorRefs )
+        : numOfNodes( nodeCount ),
+          allocators( allocatorRefs )
     {}
 
     /**
@@ -461,7 +461,7 @@ typedef struct QCMemoryManagerInit
     std::array<std::reference_wrapper<QCMemoryAllocatorIfs>, QC_MEMORY_ALLOCATOR_LAST> allocators;
 
 private:
-    DummyAllocator s_dummyAllocator;
+    static DummyAllocator s_dummyAllocator;
 
 } QCMemoryManagerInit_t;
 
@@ -545,6 +545,11 @@ class QCMemoryManagerIfs
 {
 
 public:
+    QCMemoryManagerIfs( const QCMemoryManagerIfs & ) = delete;
+    QCMemoryManagerIfs &operator=( const QCMemoryManagerIfs & ) = delete;
+    QCMemoryManagerIfs( QCMemoryManagerIfs && ) = delete;
+    QCMemoryManagerIfs &operator=( QCMemoryManagerIfs && ) = delete;
+
     /**
      * @brief Virtual destructor.
      *
@@ -767,6 +772,16 @@ public:
      * @note This is a const method for safe use with const managers
      */
     QCObjectState_e GetState() const noexcept { return m_state; }
+
+    /**
+     * @brief Returns the type-level configuration schema for this memory manager type.
+     *
+     * Override in each concrete manager to return a real JSON schema.
+     *
+     * @param[out] options JSON schema string.
+     * @return QCStatus_e indicating success or failure.
+     */
+    virtual QCStatus_e GetOptions( std::string &options ) { options = "{}"; return QC_STATUS_UNSUPPORTED; }
 
 protected:
     /**

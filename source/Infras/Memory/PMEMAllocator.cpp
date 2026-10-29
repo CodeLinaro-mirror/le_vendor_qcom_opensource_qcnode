@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "QC/Infras/Memory/PMEMAllocator.hpp"
+
 #include <pmem.h>
 #include <unistd.h>
 
@@ -15,14 +16,12 @@ PMEMAllocator::PMEMAllocator( const QCMemoryAllocatorConfigInit_t &config,
                               const QCMemoryAllocator_e allocator )
     : QCMemoryAllocatorIfs( config, allocator )
 {
-    (void) QC_LOGGER_INIT( GetConfiguration().name.c_str(), LOGGER_LEVEL_ERROR );
     pmem_init();
 }
 
 
 PMEMAllocator::~PMEMAllocator()
 {
-    (void) QC_LOGGER_DEINIT();
     pmem_deinit();
 }
 
@@ -71,7 +70,7 @@ QCStatus_e PMEMAllocator::Allocate( const QCBufferPropBase_t &request,
             response.alignment = request.alignment;
             response.cache = request.cache;
             response.pid = getpid();
-            response.name = GetConfiguration().name + "-" + std::to_string( response.dmaHandle );
+            // The buffer name is set by the caller, not synthesized here.
         }
     }
 

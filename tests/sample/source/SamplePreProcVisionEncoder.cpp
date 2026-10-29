@@ -66,7 +66,7 @@ __kernel void rgb_to_pixel_values(
 }
 )";
 
-SamplePreProcVisionEncoder::SamplePreProcVisionEncoder() {}
+SamplePreProcVisionEncoder::SamplePreProcVisionEncoder() : m_openclSrv( m_logger ) {}
 SamplePreProcVisionEncoder::~SamplePreProcVisionEncoder() {}
 
 void SamplePreProcVisionEncoder::SmartResize( uint32_t height, uint32_t width,
@@ -219,7 +219,7 @@ QCStatus_e SamplePreProcVisionEncoder::Init( std::string name, SampleConfig_t &c
     if ( QC_STATUS_OK == ret && QC_PROCESSOR_GPU == m_processor )
     {
         QC_TRACE_BEGIN( "Init", {} );
-        ret = m_openclSrv.Init( name.c_str(), LOGGER_LEVEL_ERROR );
+        ret = m_openclSrv.Init();
         if ( QC_STATUS_OK != ret )
         {
             QC_ERROR( "Failed to init OpenCL\n" );

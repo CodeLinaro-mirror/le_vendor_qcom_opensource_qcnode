@@ -14,7 +14,7 @@ namespace Node
 
 /** @brief The QCNode REMAP Version */
 #define QCNODE_REMAP_VERSION_MAJOR 2U
-#define QCNODE_REMAP_VERSION_MINOR 3U
+#define QCNODE_REMAP_VERSION_MINOR 4U
 #define QCNODE_REMAP_VERSION_PATCH 0U
 
 #define QCNODE_REMAP_VERSION                                                                       \
@@ -83,7 +83,7 @@ typedef struct
  */
 class RemapImpl;
 
-class RemapConfig : public NodeConfigIfs
+class RemapConfig : public NodeConfigBase
 {
 public:
     /**
@@ -93,7 +93,7 @@ public:
      * @return None
      */
     RemapConfig( Logger &logger, RemapImpl *pRemapImpl )
-        : NodeConfigIfs( logger ),
+        : NodeConfigBase( logger ),
           m_pRemapImpl( pRemapImpl )
     {}
 

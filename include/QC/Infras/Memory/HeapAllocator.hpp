@@ -26,13 +26,15 @@ public:
      * This constructor initializes the HeapAllocator object with a default configuration.
      */
     HeapAllocator();
+    HeapAllocator( const HeapAllocator & ) = delete;
+    HeapAllocator &operator=( const HeapAllocator & ) = delete;
 
     /**
      * @brief Destructor for the HeapAllocator class.
      *
      * This destructor releases any resources allocated by the HeapAllocator object.
      */
-    ~HeapAllocator();
+    ~HeapAllocator() override;
 
     /**
      * @brief Allocate a buffer with the specified properties.
@@ -41,8 +43,8 @@ public:
      * @param response The descriptor of the allocated buffer.
      * @return The status of the allocation operation.
      */
-    virtual QCStatus_e Allocate( const QCBufferPropBase_t &request,
-                                 QCBufferDescriptorBase_t &response );
+    QCStatus_e Allocate( const QCBufferPropBase_t &request,
+                         QCBufferDescriptorBase_t &response ) override;
 
     /**
      * @brief Free a buffer with the specified descriptor.
@@ -52,7 +54,7 @@ public:
      * @param buff The descriptor of the buffer to free.
      * @return The status of the free operation.
      */
-    virtual QCStatus_e Free( const QCBufferDescriptorBase_t &buff );
+    QCStatus_e Free( const QCBufferDescriptorBase_t &buff ) override;
 };
 
 }   // namespace Memory

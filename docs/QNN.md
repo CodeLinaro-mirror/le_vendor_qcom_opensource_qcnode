@@ -156,6 +156,7 @@
 
 - [QnnConfig::GetOptions](../include/QC/Node/QNN.hpp#L152) Get Configuration Options
   - Use this API to query detailed input and output information from the loaded QNN model.
+    - Per-channel tensors use `quantizationAxis`, `quantScales`, and `quantOffsets`.
     - Below was a example output for QNN model `centernet`
       ```json
       {

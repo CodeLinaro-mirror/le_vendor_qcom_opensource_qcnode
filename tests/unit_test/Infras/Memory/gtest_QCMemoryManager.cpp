@@ -1046,6 +1046,403 @@ TEST_F( Test_QCMemorymanager, SANITY_fake_allocator_create_pool )
 }
 
 
+// ---------------------------------------------------------------------------
+// Additional coverage for ManagerLocal decisions / error paths
+// ---------------------------------------------------------------------------
+
+/**
+ * @test SANITY_register_capacity_limit
+ * @brief Fill the registry up to m_config.numOfNodes then verify one more
+ *        registration is rejected (covers the capacity-limit decision of Register()).
+ */
+TEST_F( Test_QCMemorymanager, SANITY_register_capacity_limit )
+{
+    std::array<std::reference_wrapper<QCMemoryAllocatorIfs>, QC_MEMORY_ALLOCATOR_LAST> allocators =
+            { allocatorIfs1, allocatorIfs2, allocatorIfs1, allocatorIfs2,
+              allocatorIfs1, allocatorIfs2, allocatorIfs1 };
+
+    ManagerLocal instance;
+    QCMemoryManagerInit_t mmInit( 2, allocators );
+    ASSERT_EQ( QC_STATUS_OK, instance.Initialize( mmInit ) );
+
+    QCNodeID_t node0 = { "Cap node0", QC_NODE_TYPE_CUSTOM_0, 0 };
+    QCNodeID_t node1 = { "Cap node1", QC_NODE_TYPE_CUSTOM_1, 1 };
+    QCMemoryHandle_t h0;
+    QCMemoryHandle_t h1;
+
+    ASSERT_EQ( QC_STATUS_OK, instance.Register( node0, h0 ) );
+    ASSERT_EQ( QC_STATUS_OK, instance.Register( node1, h1 ) );
+
+    /* node.id >= numOfNodes is rejected before the capacity check */
+    QCNodeID_t nodeOutOfRange = { "Cap node2", QC_NODE_TYPE_CUSTOM_2, 2 };
+    QCMemoryHandle_t hOutOfRange;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, instance.Register( nodeOutOfRange, hOutOfRange ) );
+
+    /* duplicate node id is rejected by IsNodeIdUnique() */
+    QCNodeID_t nodeDup = { "Cap node0 dup", QC_NODE_TYPE_CUSTOM_3, 0 };
+    QCMemoryHandle_t hDup;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, instance.Register( nodeDup, hDup ) );
+
+    ASSERT_EQ( QC_STATUS_OK, instance.UnRegister( h1 ) );
+    ASSERT_EQ( QC_STATUS_OK, instance.UnRegister( h0 ) );
+    ASSERT_EQ( QC_STATUS_OK, instance.DeInitialize() );
+}
+
+/**
+ * @test SANITY_register_all_node_id_unique_iterations
+ * @brief Register several nodes so IsNodeIdUnique() iterates over a populated map,
+ *        then attempt duplicates for every already-used id.
+ */
+TEST_F( Test_QCMemorymanager, SANITY_register_all_node_id_unique_iterations )
+{
+    std::vector<QCMemoryHandle_t> handles;
+
+    for ( uint8_t id = 0; id < 8; ++id )
+    {
+        QCNodeID_t node = { "Unique node",
+                            static_cast<QCNodeType_e>( QC_NODE_TYPE_CUSTOM_0 + ( id % 4 ) ), id };
+        QCMemoryHandle_t h;
+        ASSERT_EQ( QC_STATUS_OK, Ifs->Register( node, h ) ) << "id=" << (int) id;
+        ASSERT_EQ( id + 1, h.GetNodeCount() );
+        handles.push_back( h );
+    }
+
+    /* every id in [0,8) is taken now -> all duplicates must be rejected */
+    for ( uint8_t id = 0; id < 8; ++id )
+    {
+        QCNodeID_t dup = { "Dup node", QC_NODE_TYPE_CUSTOM_0, id };
+        QCMemoryHandle_t hDup;
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->Register( dup, hDup ) ) << "id=" << (int) id;
+    }
+
+    for ( QCMemoryHandle_t &h : handles )
+    {
+        ASSERT_EQ( QC_STATUS_OK, Ifs->UnRegister( h ) );
+    }
+}
+
+/**
+ * @test SANITY_pool_apis_with_unregistered_memory_handle
+ * @brief All pool APIs must reject a pool handle whose memory handle is not registered.
+ */
+TEST_F( Test_QCMemorymanager, SANITY_pool_apis_with_unregistered_memory_handle )
+{
+    QCMemoryHandle_t bogusHandle;
+    QCMemoryPoolHandle_t bogusPool;
+    bogusPool.SetMemoryHandle( bogusHandle );
+
+    QCMemoryPoolInitConfig_t poolCfg;
+    poolCfg.buff.size = 128;
+    poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    poolCfg.buff.cache = QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES;
+    poolCfg.maxElements = 2;
+    poolCfg.name = "bogus pool";
+    poolCfg.allocator = QC_MEMORY_ALLOCATOR_HEAP;
+
+    QCMemoryPoolHandle_t outHandle;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->CreatePool( bogusHandle, poolCfg, outHandle ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->DestroyPool( bogusPool ) );
+
+    QCBufferDescriptorBase_t buff;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->AllocateBufferFromPool( bogusPool, buff ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->PutBufferToPool( bogusPool, buff ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->ReclaimResources( bogusHandle ) );
+}
+
+/**
+ * @test SANITY_create_pool_all_allocator_types
+ * @brief Create one pool per supported allocator enum value and destroy it,
+ *        covering the allocator-index selection path of CreatePool().
+ */
+TEST_F( Test_QCMemorymanager, SANITY_create_pool_all_allocator_types )
+{
+    QCNodeID_t node = { "Pool alloc node", QC_NODE_TYPE_CUSTOM_0, 0 };
+    QCMemoryHandle_t handle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->Register( node, handle ) );
+
+    for ( int i = 0; i < static_cast<int>( QC_MEMORY_ALLOCATOR_LAST ); ++i )
+    {
+        QCMemoryPoolInitConfig_t poolCfg;
+        poolCfg.buff.size = 256;
+        poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+        poolCfg.buff.cache = QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES;
+        poolCfg.maxElements = 2;
+        poolCfg.name = "alloc type pool";
+        poolCfg.allocator = static_cast<QCMemoryAllocator_e>( i );
+
+        QCMemoryPoolHandle_t poolHandle;
+        ASSERT_EQ( QC_STATUS_OK, Ifs->CreatePool( handle, poolCfg, poolHandle ) )
+                << "allocator=" << i;
+
+        QCBufferDescriptorBase_t buff;
+        ASSERT_EQ( QC_STATUS_OK, Ifs->AllocateBufferFromPool( poolHandle, buff ) );
+        ASSERT_NE( nullptr, buff.pBuf );
+        ASSERT_EQ( QC_STATUS_OK, Ifs->PutBufferToPool( poolHandle, buff ) );
+        ASSERT_EQ( QC_STATUS_OK, Ifs->DestroyPool( poolHandle ) );
+    }
+
+    ASSERT_EQ( QC_STATUS_OK, Ifs->UnRegister( handle ) );
+}
+
+/**
+ * @test SANITY_destroy_pool_twice
+ * @brief Destroying the same pool twice: the second call must be rejected because
+ *        the pool handle is no longer in the node's pool map.
+ */
+TEST_F( Test_QCMemorymanager, SANITY_destroy_pool_twice )
+{
+    QCNodeID_t node = { "Destroy twice node", QC_NODE_TYPE_CUSTOM_1, 1 };
+    QCMemoryHandle_t handle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->Register( node, handle ) );
+
+    QCMemoryPoolInitConfig_t poolCfg;
+    poolCfg.buff.size = 128;
+    poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    poolCfg.buff.cache = QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES;
+    poolCfg.maxElements = 2;
+    poolCfg.name = "destroy twice pool";
+    poolCfg.allocator = QC_MEMORY_ALLOCATOR_HEAP;
+
+    QCMemoryPoolHandle_t poolHandle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->CreatePool( handle, poolCfg, poolHandle ) );
+    ASSERT_EQ( QC_STATUS_OK, Ifs->DestroyPool( poolHandle ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->DestroyPool( poolHandle ) );
+
+    /* pool APIs on a destroyed pool must be rejected too */
+    QCBufferDescriptorBase_t buff;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->AllocateBufferFromPool( poolHandle, buff ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->PutBufferToPool( poolHandle, buff ) );
+
+    ASSERT_EQ( QC_STATUS_OK, Ifs->UnRegister( handle ) );
+}
+
+/**
+ * @test SANITY_pool_exhaustion_then_refill
+ * @brief Drain a pool to trigger the exhausted branch of GetElement, then return
+ *        all elements and allocate again.
+ */
+TEST_F( Test_QCMemorymanager, SANITY_pool_exhaustion_then_refill )
+{
+    QCNodeID_t node = { "Exhaust node", QC_NODE_TYPE_CUSTOM_2, 2 };
+    QCMemoryHandle_t handle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->Register( node, handle ) );
+
+    const uint32_t maxElements = 4;
+    QCMemoryPoolInitConfig_t poolCfg;
+    poolCfg.buff.size = 128;
+    poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    poolCfg.buff.cache = QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES;
+    poolCfg.maxElements = maxElements;
+    poolCfg.name = "exhaust pool";
+    poolCfg.allocator = QC_MEMORY_ALLOCATOR_HEAP;
+
+    QCMemoryPoolHandle_t poolHandle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->CreatePool( handle, poolCfg, poolHandle ) );
+
+    std::vector<QCBufferDescriptorBase_t> buffers;
+    for ( uint32_t i = 0; i < maxElements; ++i )
+    {
+        QCBufferDescriptorBase_t buff;
+        ASSERT_EQ( QC_STATUS_OK, Ifs->AllocateBufferFromPool( poolHandle, buff ) ) << "i=" << i;
+        ASSERT_NE( nullptr, buff.pBuf );
+        buffers.push_back( buff );
+    }
+
+    /* pool is empty now */
+    QCBufferDescriptorBase_t overflow;
+    ASSERT_NE( QC_STATUS_OK, Ifs->AllocateBufferFromPool( poolHandle, overflow ) );
+
+    for ( QCBufferDescriptorBase_t &buff : buffers )
+    {
+        ASSERT_EQ( QC_STATUS_OK, Ifs->PutBufferToPool( poolHandle, buff ) );
+    }
+
+    /* refilled: allocation succeeds again */
+    QCBufferDescriptorBase_t again;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->AllocateBufferFromPool( poolHandle, again ) );
+    ASSERT_EQ( QC_STATUS_OK, Ifs->PutBufferToPool( poolHandle, again ) );
+
+    ASSERT_EQ( QC_STATUS_OK, Ifs->DestroyPool( poolHandle ) );
+    ASSERT_EQ( QC_STATUS_OK, Ifs->UnRegister( handle ) );
+}
+
+/**
+ * @test SANITY_reclaim_resources_pools_and_buffers
+ * @brief ReclaimResources() must release both stand-alone allocations and pools
+ *        belonging to a handle (covers both non-empty iteration loops).
+ */
+TEST_F( Test_QCMemorymanager, SANITY_reclaim_resources_pools_and_buffers )
+{
+    QCNodeID_t node = { "Reclaim both node", QC_NODE_TYPE_CUSTOM_3, 3 };
+    QCMemoryHandle_t handle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->Register( node, handle ) );
+
+    /* two stand-alone allocations */
+    QCBufferPropBase_t request;
+    request.size = 512;
+    request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    request.cache = QC_CACHEABLE;
+
+    QCBufferDescriptorBase_t direct1;
+    QCBufferDescriptorBase_t direct2;
+    ASSERT_EQ( QC_STATUS_OK,
+               Ifs->AllocateBuffer( handle, QC_MEMORY_ALLOCATOR_HEAP, request, direct1 ) );
+    ASSERT_EQ( QC_STATUS_OK,
+               Ifs->AllocateBuffer( handle, QC_MEMORY_ALLOCATOR_HEAP, request, direct2 ) );
+
+    /* two pools */
+    QCMemoryPoolInitConfig_t poolCfg;
+    poolCfg.buff.size = 128;
+    poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    poolCfg.buff.cache = QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES;
+    poolCfg.maxElements = 2;
+    poolCfg.name = "reclaim pool";
+    poolCfg.allocator = QC_MEMORY_ALLOCATOR_HEAP;
+
+    QCMemoryPoolHandle_t poolHandle1;
+    QCMemoryPoolHandle_t poolHandle2;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->CreatePool( handle, poolCfg, poolHandle1 ) );
+    ASSERT_EQ( QC_STATUS_OK, Ifs->CreatePool( handle, poolCfg, poolHandle2 ) );
+
+    ASSERT_EQ( QC_STATUS_OK, Ifs->ReclaimResources( handle ) );
+
+    /* everything is gone: buffers and pools are no longer known */
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->FreeBuffer( handle, direct1 ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->FreeBuffer( handle, direct2 ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->DestroyPool( poolHandle1 ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, Ifs->DestroyPool( poolHandle2 ) );
+
+    /* reclaiming again with nothing left is still OK (covers empty branches) */
+    ASSERT_EQ( QC_STATUS_OK, Ifs->ReclaimResources( handle ) );
+
+    ASSERT_EQ( QC_STATUS_OK, Ifs->UnRegister( handle ) );
+}
+
+/**
+ * @test SANITY_allocate_buffer_all_allocator_types
+ * @brief AllocateBuffer()/FreeBuffer() for every allocator enum value.
+ */
+TEST_F( Test_QCMemorymanager, SANITY_allocate_buffer_all_allocator_types )
+{
+    QCNodeID_t node = { "Alloc types node", QC_NODE_TYPE_CUSTOM_0, 0 };
+    QCMemoryHandle_t handle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->Register( node, handle ) );
+
+    for ( int i = 0; i < static_cast<int>( QC_MEMORY_ALLOCATOR_LAST ); ++i )
+    {
+        QCBufferPropBase_t request;
+        request.size = 1024;
+        request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+        request.cache = QC_CACHEABLE;
+
+        QCBufferDescriptorBase_t response;
+        ASSERT_EQ( QC_STATUS_OK,
+                   Ifs->AllocateBuffer( handle, static_cast<QCMemoryAllocator_e>( i ), request,
+                                        response ) )
+                << "allocator=" << i;
+        ASSERT_NE( nullptr, response.pBuf );
+        ASSERT_EQ( QC_STATUS_OK, Ifs->FreeBuffer( handle, response ) );
+    }
+
+    /* out of range allocator enum values */
+    QCBufferPropBase_t request;
+    request.size = 1024;
+    QCBufferDescriptorBase_t response;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS,
+               Ifs->AllocateBuffer( handle, QC_MEMORY_ALLOCATOR_LAST, request, response ) );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS,
+               Ifs->AllocateBuffer( handle, QC_MEMORY_ALLOCATOR_MAX, request, response ) );
+
+    ASSERT_EQ( QC_STATUS_OK, Ifs->UnRegister( handle ) );
+}
+
+/**
+ * @test SANITY_all_apis_rejected_before_initialize
+ * @brief Every public API must report QC_STATUS_BAD_STATE on a non-initialized manager.
+ */
+TEST_F( Test_QCMemorymanager, SANITY_all_apis_rejected_before_initialize )
+{
+    ManagerLocal instance;
+
+    QCNodeID_t node = { "Bad state node", QC_NODE_TYPE_CUSTOM_0, 0 };
+    QCMemoryHandle_t handle;
+    QCMemoryPoolHandle_t poolHandle;
+    QCBufferPropBase_t request;
+    request.size = 128;
+    QCBufferDescriptorBase_t buff;
+
+    QCMemoryPoolInitConfig_t poolCfg;
+    poolCfg.buff.size = 128;
+    poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    poolCfg.buff.cache = QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES;
+    poolCfg.maxElements = 2;
+    poolCfg.name = "bad state pool";
+    poolCfg.allocator = QC_MEMORY_ALLOCATOR_HEAP;
+
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.Register( node, handle ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.UnRegister( handle ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.CreatePool( handle, poolCfg, poolHandle ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.DestroyPool( poolHandle ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.AllocateBufferFromPool( poolHandle, buff ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.PutBufferToPool( poolHandle, buff ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE,
+               instance.AllocateBuffer( handle, QC_MEMORY_ALLOCATOR_HEAP, request, buff ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.FreeBuffer( handle, buff ) );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.DeInitialize() );
+}
+
+/**
+ * @test SANITY_double_deinitialize
+ * @brief The second DeInitialize() must report QC_STATUS_BAD_STATE.
+ */
+TEST_F( Test_QCMemorymanager, SANITY_double_deinitialize )
+{
+    std::array<std::reference_wrapper<QCMemoryAllocatorIfs>, QC_MEMORY_ALLOCATOR_LAST> allocators =
+            { allocatorIfs1, allocatorIfs2, allocatorIfs1, allocatorIfs2,
+              allocatorIfs1, allocatorIfs2, allocatorIfs1 };
+
+    ManagerLocal instance;
+    QCMemoryManagerInit_t mmInit( 4, allocators );
+    ASSERT_EQ( QC_STATUS_OK, instance.Initialize( mmInit ) );
+    ASSERT_EQ( QC_STATUS_OK, instance.DeInitialize() );
+    ASSERT_EQ( QC_STATUS_BAD_STATE, instance.DeInitialize() );
+
+    /* re-initialize after deinit is allowed again */
+    ASSERT_EQ( QC_STATUS_OK, instance.Initialize( mmInit ) );
+    ASSERT_EQ( QC_STATUS_OK, instance.DeInitialize() );
+}
+
+/**
+ * @test SANITY_put_buffer_to_pool_foreign_buffer
+ * @brief Returning a buffer that does not belong to the pool must be rejected.
+ */
+TEST_F( Test_QCMemorymanager, SANITY_put_buffer_to_pool_foreign_buffer )
+{
+    QCNodeID_t node = { "Foreign buff node", QC_NODE_TYPE_CUSTOM_1, 1 };
+    QCMemoryHandle_t handle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->Register( node, handle ) );
+
+    QCMemoryPoolInitConfig_t poolCfg;
+    poolCfg.buff.size = 128;
+    poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    poolCfg.buff.cache = QC_MEMORY_DEFAULT_CACHE_ATTRIBUTES;
+    poolCfg.maxElements = 2;
+    poolCfg.name = "foreign buff pool";
+    poolCfg.allocator = QC_MEMORY_ALLOCATOR_HEAP;
+
+    QCMemoryPoolHandle_t poolHandle;
+    ASSERT_EQ( QC_STATUS_OK, Ifs->CreatePool( handle, poolCfg, poolHandle ) );
+
+    QCBufferDescriptorBase_t foreign;
+    foreign.pBuf = reinterpret_cast<void *>( 0xDEADBEEF );
+    foreign.size = 128;
+    foreign.allocatorType = QC_MEMORY_ALLOCATOR_HEAP;
+    ASSERT_NE( QC_STATUS_OK, Ifs->PutBufferToPool( poolHandle, foreign ) );
+
+    ASSERT_EQ( QC_STATUS_OK, Ifs->DestroyPool( poolHandle ) );
+    ASSERT_EQ( QC_STATUS_OK, Ifs->UnRegister( handle ) );
+}
+
 /**
  * Test: ST_RegisterUnregister_Loop_1000000
  * Use Case: UC‑001 Register Node (Stress)

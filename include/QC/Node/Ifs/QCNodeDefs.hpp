@@ -55,6 +55,27 @@ typedef struct QCNodeBufferMapEntry_t
     uint32_t globalBufferId;
 } QCNodeBufferMapEntry_t;
 
+/** @brief QCNode frame execution mode. */
+typedef enum
+{
+    QC_EXECUTE_MODE_SYNC = 0, /**< ProcessFrameDescriptor blocks until processing completes. */
+    QC_EXECUTE_MODE_ASYNC,    /**< Processing completes through the node event callback. */
+    QC_EXECUTE_MODE_MAX
+} QCExecuteMode_e;
+
+/**
+ * @brief QCNode Frame Descriptor Type
+ * Identifies the concrete QCFrameDescriptorNodeIfs implementation that
+ * QCNodeFrameDescriptorFactory::CreateFrameDescriptor() should instantiate.
+ * New descriptor types are added here as they are introduced.
+ */
+typedef enum
+{
+    QC_NODE_FRAME_DESC_TYPE_NODE_FRAME_DESCRIPTOR = 0, /**< NodeFrameDescriptor */
+    QC_NODE_FRAME_DESC_TYPE_LAST,
+    QC_NODE_FRAME_DESC_TYPE_MAX = UINT8_MAX
+} QCNodeFrameDescType_e;
+
 }   // namespace QC
 
 #endif   // QC_NODE_DEFS_HPP

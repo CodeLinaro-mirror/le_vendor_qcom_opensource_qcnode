@@ -89,12 +89,19 @@ std::shared_ptr<DefaultMemoryManagerInstance>
 BufferManager::BufferManager( const QCNodeID_t &nodeId, Logger_Level_e logLevel )
 {
     m_nodeId = nodeId;
-    (void) QC_LOGGER_INIT( m_nodeId.name.c_str(), logLevel );
-    QCMemoryManagerIfs &memMgrIfs = DefaultMemoryManagerInstance::GetInstance()->GetMemoryManager();
-    QCStatus_e status = memMgrIfs.Register( m_nodeId, m_memoryHandle );
+    const std::string loggerName = "BUF_MANAGER_" + m_nodeId.name + "_" +
+                                   std::to_string( m_nodeId.id );
+    QCStatus_e status = QC_LOGGER_INIT( loggerName.c_str(), logLevel );
+    if ( QC_STATUS_OK == status )
+    {
+        QCMemoryManagerIfs &memMgrIfs =
+                DefaultMemoryManagerInstance::GetInstance()->GetMemoryManager();
+        status = memMgrIfs.Register( m_nodeId, m_memoryHandle );
+    }
     if ( QC_STATUS_OK != status )
     {
-        QC_ERROR( "Failed to register memory handle for %s.", m_nodeId.name.c_str() );
+        QC_LOG_ERROR( "Failed to initialize buffer manager for %s: %d", m_nodeId.name.c_str(),
+                      status );
     }
 }
 

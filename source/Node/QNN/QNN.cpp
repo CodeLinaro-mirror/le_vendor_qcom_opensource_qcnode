@@ -11,7 +11,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_QNN, Qnn )
+const NodeRegistrar<Qnn> g_registerQnn{ QC_NODE_TYPE_QNN };
 
 using namespace QC::Memory;
 
@@ -99,6 +99,8 @@ QCStatus_e Qnn::DeInitialize()
         {
             status = status2;
         }
+
+        m_configIfs.Reset();
 
         status2 = NodeBase::DeInitialize();
         if ( QC_STATUS_OK != status2 )

@@ -59,11 +59,10 @@ public:
 
     /**
      * @brief Get Configuration Options
-     * @param[out] options The JSON configuration options string.
-     * @return QC_STATUS_OK on success (options populated); an error code on failure
-     * (options set to "{}").
+     * @param[out] options JSON configuration options string.
+     * @return QCStatus_e indicating success or failure.
      */
-    virtual QCStatus_e GetOptions( std::string &options ) = 0;
+    virtual QCStatus_e GetOptions( std::string &options );
 
     /**
      * @brief Get the Configuration Structure.
@@ -75,11 +74,7 @@ protected:
     bool m_bLoggerInit = false;
     DataTree m_dataTree;
     Logger &m_logger;
-    static const std::string s_QC_STATUS_UNSUPPORTED;   //= "QC_STATUS_UNSUPPORTED";
 };
-
-// @deprecated TO BE removed after phase 2 dev done
-using NodeConfigIfs = NodeConfigBase;
 
 }   // namespace Node
 }   // namespace QC

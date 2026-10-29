@@ -10,7 +10,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_VOXEL, Voxelization )
+const NodeRegistrar<Voxelization> g_registerVoxelization{ QC_NODE_TYPE_VOXEL };
 
 using namespace QC::Memory;
 

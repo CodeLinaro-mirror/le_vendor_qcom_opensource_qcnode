@@ -47,6 +47,7 @@ The Remap node is configured via a single JSON document under the "static" key. 
 | `logLevel` | false     | string      | The message log level. <br> Options: `VERBOSE`, `DEBUG`, `INFO`, `WARN`, `ERROR` <br> Default: `ERROR`   |
 | `processorType` | true | string      | The processor type, type: string. <br> Options: `cpu`, `gpu`, `htp0`, `htp1`, `htp2`, `htp3`|
 | `coreId`       | false      | uint32_t    | The core ID of processor. <br> Default: `0`|
+| `cpuThreadsAffinity` | true if `processorType` is `cpu`, else n/a | int32_t[] | CPU core IDs to pin worker threads to. <br> Mandatory when `processorType` is `cpu` — there is no platform default fallback. Every listed core ID must be currently online (validated on QNX and Linux); an offline or negative core ID fails `Initialize` with `QC_STATUS_BAD_ARGUMENTS`. <br> Not used for `htp0`/`htp1`/`htp2`/`htp3`/`gpu`. |
 | `outputWidth`  | true  | uint32_t    | The output width.      |
 | `outputHeight` | true  | uint32_t    | The output height.     |
 | `outputFormat` | true  | string      | The output format. <br> Options: `rgb`, `bgr` <br> Default: `rgb` |
@@ -123,6 +124,7 @@ The Remap node is configured via a single JSON document under the "static" key. 
             "outputHeight":800,
             "outputWidth":1152,
             "processorType":"cpu",
+            "cpuThreadsAffinity":[0,1,2,3],
             "bEnableUndistortion":true,
             "bEnableNormalize":false
         }

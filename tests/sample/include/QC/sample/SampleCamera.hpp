@@ -11,6 +11,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <mutex>
 #include <queue>
@@ -240,7 +241,7 @@ private:
 
     CameraBufferManager m_camBufferManager;
 
-    std::vector<SharedBufferPool> m_bufferPools;
+    std::deque<SharedBufferPool> m_bufferPools;
     std::map<uint32_t, Profiler> m_profilers;
 
 };   // class SampleCamera

@@ -57,6 +57,23 @@ private:
     void Execute();
     QCStatus_e ParseConfig( SampleConfig_t &config );
 
+    /// @brief Bind the input frame and the two output buffers to the frame descriptor
+    /// @param frameDesc the frame descriptor to fill in
+    /// @param frames the received input frames
+    /// @param pOutputPlrBuffer the pillar output buffer
+    /// @param pOutputFeatBuffer the feature output buffer
+    /// @return QC_STATUS_OK on success, others on failure
+    QCStatus_e SetupFrameDescriptor( NodeFrameDescriptor &frameDesc, DataFrames_t &frames,
+                                     std::shared_ptr<SharedBuffer_t> &pOutputPlrBuffer,
+                                     std::shared_ptr<SharedBuffer_t> &pOutputFeatBuffer );
+
+    /// @brief Publish the pillar and feature output buffers of one processed frame
+    /// @param frames the received input frames, carrying the frame id and timestamp
+    /// @param pOutputPlrBuffer the pillar output buffer
+    /// @param pOutputFeatBuffer the feature output buffer
+    void PublishOutput( DataFrames_t &frames, std::shared_ptr<SharedBuffer_t> &pOutputPlrBuffer,
+                        std::shared_ptr<SharedBuffer_t> &pOutputFeatBuffer );
+
 #ifdef QC_ENABLE_HS
     void RunnableCallback( const std::uint32_t *rids, std::size_t count );
 #endif
@@ -68,7 +85,6 @@ private:
     DataTree m_dataTree;
     QCProcessorType_e m_processor;
     std::vector<uint32_t> m_coreIds = { 0u };
-    int m_rsmPriority = 0;
 
     uint32_t m_poolSize = 4;
 

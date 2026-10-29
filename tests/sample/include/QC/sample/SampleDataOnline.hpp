@@ -6,6 +6,7 @@
 #define QC_SAMPLE_DATA_ONLINE_HPP
 
 #include "QC/sample/SampleIF.hpp"
+#include <deque>
 #include <mutex>
 
 namespace QC
@@ -184,7 +185,7 @@ private:
 
     std::thread m_subThread;
     std::thread m_pubThread;
-    std::vector<SharedBufferPool> m_bufferPools;
+    std::deque<SharedBufferPool> m_bufferPools;
     bool m_stop;
 
     uint32_t m_timeout = 2;

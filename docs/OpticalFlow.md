@@ -52,7 +52,7 @@
 | `width`    | true      | uint32_t    | The width in pixels of the input frames. Must be greater than 0. |
 | `height`   | true      | uint32_t    | The height in pixels of the input frames. Must be greater than 0. |
 | `fps`      | false     | uint32_t    | Input frames per second. Must be greater than 0. <br> Default: `30` |
-| `format`   | false     | string      | Input image format. <br> Options: `NV12`, `NV12_UBWC` <br> Default: `NV12` |
+| `format`   | false     | string      | Input image format. <br> Options: `nv12`, `nv12_ubwc` <br> Default: `nv12` |
 | `motionMapFormat` | false | uint8_t | Motion map output format. <br> Options: `0` (MOTION_FORMAT_12_LA) <br> Default: `0` |
 | `motionMapFracEn` | false | bool | Enable fractional bits of motion vector values. <br> Default: `true` |
 | `motionMapUpscale` | false | uint8_t | Upscaling of final motion vector output. <br> Options: `0` (NONE), `1` (UPSCALE_2), `2` (UPSCALE_4) <br> Default: `0` |
@@ -97,7 +97,7 @@
         "width": 1920,
         "height": 1024,
         "fps": 30,
-        "format": "NV12",
+        "format": "nv12",
         "confidenceOutputEn": true,
         "motionDirection": 0,
         "computationAccuracy": 1,
@@ -116,7 +116,7 @@
         "width": 1920,
         "height": 1024,
         "fps": 30,
-        "format": "NV12_UBWC",
+        "format": "nv12_ubwc",
         "confidenceOutputEn": true,
         "motionDirection": 1,
         "computationAccuracy": 1,
@@ -135,7 +135,7 @@
         "width": 1920,
         "height": 1024,
         "fps": 30,
-        "format": "NV12",
+        "format": "nv12",
         "confidenceOutputEn": true,
         "motionDirection": 2,
         "computationAccuracy": 1,
@@ -216,7 +216,7 @@ public:
           "width": 1920,
           "height": 1024,
           "fps": 30,
-          "format": "NV12",
+          "format": "nv12",
           "confidenceOutputEn": true,
           "motionDirection": 0,
           "computationAccuracy": 1,

@@ -118,7 +118,7 @@ CameraBufferManager::~CameraBufferManager() {}
 QCStatus_e CameraBufferManager::AllocateFrameBuffers(
         DataTree &configTree,
         std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers, uint32_t streamNum,
-        std::vector<SharedBufferPool> &bufferPools, QCNodeID_t &nodeId )
+        std::deque<SharedBufferPool> &bufferPools, QCNodeID_t &nodeId )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
@@ -211,7 +211,7 @@ QCStatus_e CameraBufferManager::AllocateFrameBuffers(
 QCStatus_e CameraBufferManager::AllocateMetaDataBuffers(
         DataTree &configTree,
         std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers, uint32_t streamNum,
-        uint32_t metaDataNum, std::vector<SharedBufferPool> &bufferPools, QCNodeID_t &nodeId )
+        uint32_t metaDataNum, std::deque<SharedBufferPool> &bufferPools, QCNodeID_t &nodeId )
 {
     QCStatus_e ret = QC_STATUS_OK;
 
@@ -476,7 +476,7 @@ QCStatus_e CameraBufferManager::AllocateMetaDataBuffers(
 QCStatus_e CameraBufferManager::PreprocessMetaDataBuffers(
         DataTree &configTree,
         std::vector<std::reference_wrapper<QCBufferDescriptorBase_t>> &buffers, uint32_t streamNum,
-        uint32_t metaDataNum, std::vector<SharedBufferPool> &bufferPools, QCNodeID_t &nodeId,
+        uint32_t metaDataNum, std::deque<SharedBufferPool> &bufferPools, QCNodeID_t &nodeId,
         uint32_t *pInjSensorMetaTagId )
 {
     QCStatus_e ret = QC_STATUS_OK;

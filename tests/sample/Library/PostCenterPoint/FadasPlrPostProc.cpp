@@ -20,7 +20,7 @@ namespace FadasIface
 
 #define PLRPOST_NUM_INPUTS 10
 
-FadasPlrPostProc::FadasPlrPostProc()
+FadasPlrPostProc::FadasPlrPostProc( Logger &logger ) : FadasSrv( logger )
 {
     m_plrHandler.hHandle = nullptr;
 }

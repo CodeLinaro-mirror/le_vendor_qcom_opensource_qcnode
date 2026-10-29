@@ -108,7 +108,7 @@ static float sigmoid( float data )
     return 1. / ( 1. + fastExp( -data ) );
 }
 
-SamplePostProcCenternet::SamplePostProcCenternet() {}
+SamplePostProcCenternet::SamplePostProcCenternet() : m_OpenclSrvObj( m_logger ) {}
 SamplePostProcCenternet::~SamplePostProcCenternet() {}
 
 #ifdef QC_ENABLE_HS
@@ -189,7 +189,7 @@ QCStatus_e SamplePostProcCenternet::Init( std::string name, SampleConfig_t &conf
     {
         if ( QC_PROCESSOR_GPU == m_processor )
         {
-            ret = m_OpenclSrvObj.Init( name.c_str(), LOGGER_LEVEL_ERROR );
+            ret = m_OpenclSrvObj.Init();
             SetCLParams();
             if ( QC_STATUS_OK != ret )
             {

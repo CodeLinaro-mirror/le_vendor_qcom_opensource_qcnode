@@ -280,6 +280,7 @@ These options can be used with all build methods.
 | `ENABLE_TINYVIZ` | Enable TinyViz (SDL) | Default: `ON` |
 | `ENABLE_FADAS` | Enable FastADAS | Default: `ON` |
 | `ENABLE_SDP8` | Enable QNX SDP 8.0 | Auto-detected for 8797 |
+| `ENABLE_CAMERA_ISP_SETTINGS` | Enable Camera ISP Settings | Auto-detected: `ON` for SOC 8797/8787, `OFF` otherwise |
 | `ENABLE_C2D` | Enable C2D support | Platform dependent |
 | `ENABLE_EVA` | Enable EVA SV (Snapdragon Vision) support | Default: `ON` for 8797, else `OFF` |
 | `ENABLE_EVA_AUTO` | Enable EVA Auto support | Default: `OFF` for 8797, else `ON` |

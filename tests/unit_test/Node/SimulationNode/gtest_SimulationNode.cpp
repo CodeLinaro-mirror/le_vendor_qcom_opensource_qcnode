@@ -13,9 +13,6 @@
 using namespace QC;
 using namespace QC::Node;
 
-// Define the static member of NodeFrameDescriptor
-QC::Node::QCDummyBufferDescriptor_t QC::Node::NodeFrameDescriptor::s_dummy;
-
 // Creates a buffer descriptor with specified ID and size using HeapAllocator
 BufferDescriptor_t CreateBufferDescriptor( uint32_t id, size_t size )
 {

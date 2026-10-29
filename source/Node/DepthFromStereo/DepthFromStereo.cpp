@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 #include "QC/Node/DepthFromStereo.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
 #include "svBuffer.h"
 #include <unistd.h>
 
@@ -10,7 +11,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_EVA_DFS, DepthFromStereo )
+const NodeRegistrar<DepthFromStereo> g_registerDepthFromStereo{ QC_NODE_TYPE_EVA_DFS };
 
 DepthFromStereo_Config::DepthFromStereo_Config()
 {
@@ -389,6 +390,40 @@ QCStatus_e DepthFromStereoConfigIfs::ParseStaticConfig( DataTree &dt, std::strin
         m_config.occlusionTolerance = dt.Get<float32_t>( "occlusionTolerance", 0.5f );
         m_config.refinementThreshold = dt.Get<float32_t>( "refinementThreshold", 0.75f );
         m_config.maxDisparityRange = dt.Get<uint32_t>( "maxDisparityRange", 64 );
+
+        m_config.executeMode = QC_EXECUTE_MODE_SYNC;
+        m_config.processor = QC_PROCESSOR_MAX;
+        m_config.coreIds.clear();
+        Memory::ImageBasicProps_t basicProps( m_config.width, m_config.height,
+                                              m_config.imageFormat );
+        Memory::UtilsBase memoryUtils;
+        Memory::ImageProps_t inputProps;
+        status = memoryUtils.SetImagePropsFromImageBasicProp( basicProps, inputProps );
+        if ( QC_STATUS_OK != status )
+        {
+            errors += "failed to derive stereo input buffer properties, ";
+            return status;
+        }
+        m_config.inputs = {
+            { "primaryImage", QC_BUFFER_TYPE_IMAGE, inputProps },
+            { "auxiliaryImage", QC_BUFFER_TYPE_IMAGE, inputProps },
+        };
+        const uint32_t disparityHeight = ( ( m_config.height + 1U ) / 2U ) * 2U;
+        const uint32_t disparityWidth = ( ( m_config.width + 127U ) / 128U ) * 128U;
+        m_config.outputs = {
+            { "disparityMap", QC_BUFFER_TYPE_TENSOR,
+              Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_16,
+                                     { 1U, disparityHeight, disparityWidth, 1U },
+                                     QC_MEMORY_ALLOCATOR_DMA_EVA ) },
+        };
+        if ( m_config.confidenceOutputEn )
+        {
+            m_config.outputs.push_back(
+                    { "disparityConfidence", QC_BUFFER_TYPE_TENSOR,
+                      Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_8,
+                                             { 1U, disparityHeight, disparityWidth, 1U },
+                                             QC_MEMORY_ALLOCATOR_DMA_EVA ) } );
+        }
     }
 
     return status;
@@ -403,7 +438,7 @@ QCStatus_e DepthFromStereoConfigIfs::ApplyDynamicConfig( DataTree &dt, std::stri
 
 QCStatus_e DepthFromStereoConfigIfs::VerifyAndSet( const std::string config, std::string &errors )
 {
-    QCStatus_e status = NodeConfigIfs::VerifyAndSet( config, errors );
+    QCStatus_e status = NodeConfigBase::VerifyAndSet( config, errors );
 
     if ( QC_STATUS_OK == status )
     {
@@ -987,9 +1022,17 @@ QCStatus_e DepthFromStereo::RegisterMemory( const BufferDescriptor_t &bufferDesc
     }
     else
     {
-        auto it = m_memMap.find( bufferDesc.GetDataPtr() );
-        if ( it == m_memMap.end() )
+        const std::lock_guard<std::mutex> lock( m_memMapMutex );
+        Buffer *pFound = nullptr;
+
+        ret = m_memMap.Find( bufferDesc.GetDataPtr(), pFound );
+        if ( QC_STATUS_OK == ret )
         {
+            pBuff = *pFound;
+        }
+        else
+        {
+            ret = QC_STATUS_OK;
             QC_DEBUG( "DepthFromStereo: Buffer not found in map" );
             QC_DEBUG( "DepthFromStereo: Buffer size %d", bufferDesc.GetDataSize() );
             QC_DEBUG( "DepthFromStereo: Buffer offset %d", bufferDesc.offset );
@@ -1009,13 +1052,17 @@ QCStatus_e DepthFromStereo::RegisterMemory( const BufferDescriptor_t &bufferDesc
             }
             else
             {
-                m_memMap[bufferDesc.GetDataPtr()] = buff;
-                pBuff = m_memMap[bufferDesc.GetDataPtr()];
+                ret = m_memMap.Insert( bufferDesc.GetDataPtr(), buff );
+                if ( QC_STATUS_OK != ret )
+                {
+                    QC_ERROR( "DepthFromStereo: memory map insert failed (%u max entries): %d",
+                              QC_NODE_DFS_MAX_BUFFERS, ret );
+                }
+                else
+                {
+                    pBuff = buff;
+                }
             }
-        }
-        else
-        {
-            pBuff = it->second;
         }
     }
     return ret;
@@ -1318,18 +1365,23 @@ QCStatus_e DepthFromStereo::DeInitialize()
             QC_ERROR( "DepthFromStereo: Failed to destroy stereo disparity: %d", ret );
         }
 
-        for ( auto &it : m_memMap )
         {
-            Buffer mem = it.second;
-            status = BufferDeregister( m_session, mem );
-            if ( status != Status::SUCCESS )
+            const std::lock_guard<std::mutex> lock( m_memMapMutex );
+
+            for ( auto &entry : m_memMap )
             {
-                QC_ERROR( "DepthFromStereo: Mem Deregister(%p) failed: %d", mem.pAddress, status );
-                ret = QC_STATUS_FAIL;
+                status = BufferDeregister( m_session, entry.second );
+                if ( status != Status::SUCCESS )
+                {
+                    QC_ERROR( "DepthFromStereo: Mem Deregister(%p) failed: %d",
+                              entry.second.pAddress, status );
+                    ret = QC_STATUS_FAIL;
+                }
             }
+
+            (void) m_memMap.Clear();
         }
 
-        m_memMap.clear();
         status = m_session->Destroy();
         if ( status != Status::SUCCESS )
         {

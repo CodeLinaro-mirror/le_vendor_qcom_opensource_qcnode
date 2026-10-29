@@ -6,6 +6,7 @@
 #define QC_SAMPLE_DATAREADER_HPP
 
 #include "QC/sample/SampleIF.hpp"
+#include <deque>
 #include <mutex>
 
 namespace QC
@@ -86,7 +87,7 @@ private:
     uint64_t m_frameId;
 
     std::thread m_thread;
-    std::vector<SharedBufferPool> m_bufferPools;
+    std::deque<SharedBufferPool> m_bufferPools;
     bool m_stop;
 
     DataPublisher<DataFrames_t> m_pub;

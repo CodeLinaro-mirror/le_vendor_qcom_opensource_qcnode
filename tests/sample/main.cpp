@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
 
+#include "QC/Infras/Log/Logger.hpp"
 #include "QC/sample/SampleIF.hpp"
 
 #include <chrono>
@@ -12,7 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <thread>
-#include <time.h>
 #include <unistd.h>
 #ifdef QC_ENABLE_HS
 #include "HeteroSchedulerWrapper.hpp"
@@ -20,63 +20,7 @@
 
 using namespace QC::sample;
 
-typedef struct
-{
-    std::string name;
-} Logger_HandleContextUser_t;
-
 std::condition_variable CV;
-
-static void UserLog( Logger_Handle_t hHandle, Logger_Level_e level, const char *pFormat,
-                     va_list args )
-{
-    std::string strFmt;
-    Logger_HandleContextUser_t *pContext = (Logger_HandleContextUser_t *) hHandle;
-    time_t rawtime;
-    struct tm *info;
-    char timeStr[80];
-    time( &rawtime );
-    info = localtime( &rawtime );
-    strftime( timeStr, 80, "%Y-%m-%d %H:%M:%S ", info );
-    strFmt = std::string( timeStr ) + pContext->name + " : " + std::string( pFormat ) + "\n";
-    vprintf( strFmt.c_str(), args );
-}
-
-static QCStatus_e UserLoggerHandleCreate( const char *pName, Logger_Level_e level,
-                                          Logger_Handle_t *pHandle )
-{
-    QCStatus_e ret = QC_STATUS_OK;
-
-    if ( ( nullptr == pName ) || ( nullptr == pHandle ) )
-    {
-        ret = QC_STATUS_BAD_ARGUMENTS;
-    }
-    else
-    {
-        Logger_HandleContextUser_t *pContext = new Logger_HandleContextUser_t;
-        if ( nullptr != pContext )
-        {
-            pContext->name = pName;
-            (void) level;
-            *pHandle = (Logger_Handle_t) pContext;
-        }
-        else
-        {
-            ret = QC_STATUS_NOMEM;
-        }
-    }
-
-    return ret;
-}
-
-static void UserLoggerHandleDestroy( Logger_Handle_t hHandle )
-{
-    Logger_HandleContextUser_t *pContext = (Logger_HandleContextUser_t *) hHandle;
-    if ( nullptr != pContext )
-    {
-        delete pContext;
-    }
-}
 
 void SignalHandler( int signal )
 {
@@ -171,7 +115,7 @@ int main( int argc, char *argv[] )
                 break;
             }
             case 'd':
-                (void) Logger::Setup( UserLog, UserLoggerHandleCreate, UserLoggerHandleDestroy );
+                (void) Logger::SetDefaultBackend( LOGGER_BACKEND_STDOUT );
                 break;
             case 'h':
                 return Usage( argv[0], 0 );

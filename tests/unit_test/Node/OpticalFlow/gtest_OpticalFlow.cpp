@@ -178,14 +178,18 @@ static void Eva_NodeOpticalFlowRun( std::string name, OpticalFlow_Config_t &conf
          ( config.motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) )
     {
 
-        mvFwdMapProp = { QC_TENSOR_TYPE_UINT_16,
-                         { 1, ALIGN_S( config.height, 8 ), ALIGN_S( config.width * 2, 128 ), 1 } };
+        TensorProps_t requestedMvFwdMapProp(
+                QC_TENSOR_TYPE_UINT_16,
+                { 1, ALIGN_S( config.height, 8 ), ALIGN_S( config.width * 2, 128 ), 1 } );
+        mvFwdMapProp = requestedMvFwdMapProp;
 
         ret = bufMgr.Allocate( mvFwdMapProp, mvFwdMapDesc );
         ASSERT_EQ( QC_STATUS_OK, ret );
 
-        mvFwdConfProp = { QC_TENSOR_TYPE_UINT_8,
-                          { 1, ALIGN_S( config.height, 8 ), ALIGN_S( config.width, 128 ), 1 } };
+        TensorProps_t requestedMvFwdConfProp(
+                QC_TENSOR_TYPE_UINT_8,
+                { 1, ALIGN_S( config.height, 8 ), ALIGN_S( config.width, 128 ), 1 } );
+        mvFwdConfProp = requestedMvFwdConfProp;
 
 
         ret = bufMgr.Allocate( mvFwdConfProp, mvFwdconfMapDesc );
@@ -199,14 +203,18 @@ static void Eva_NodeOpticalFlowRun( std::string name, OpticalFlow_Config_t &conf
          ( config.motionDirection == MOTION_DIRECTION_BIDIRECTIONAL ) )
     {
 
-        mvBwdMapProp = { QC_TENSOR_TYPE_UINT_16,
-                         { 1, ALIGN_S( config.height, 8 ), ALIGN_S( config.width * 2, 128 ), 1 } };
+        TensorProps_t requestedMvBwdMapProp(
+                QC_TENSOR_TYPE_UINT_16,
+                { 1, ALIGN_S( config.height, 8 ), ALIGN_S( config.width * 2, 128 ), 1 } );
+        mvBwdMapProp = requestedMvBwdMapProp;
 
         ret = bufMgr.Allocate( mvBwdMapProp, mvBwdMapDesc );
         ASSERT_EQ( QC_STATUS_OK, ret );
 
-        mvBwdConfProp = { QC_TENSOR_TYPE_UINT_8,
-                          { 1, ALIGN_S( config.height, 8 ), ALIGN_S( config.width, 128 ), 1 } };
+        TensorProps_t requestedMvBwdConfProp(
+                QC_TENSOR_TYPE_UINT_8,
+                { 1, ALIGN_S( config.height, 8 ), ALIGN_S( config.width, 128 ), 1 } );
+        mvBwdConfProp = requestedMvBwdConfProp;
 
 
         ret = bufMgr.Allocate( mvBwdConfProp, mvBwdconfMapDesc );

@@ -92,6 +92,9 @@ TEST_F( Test_QCMemoryPool, SANITY )
         status = memoryPool.PutElement( buffer[0] );
         ASSERT_EQ( QC_STATUS_OK, status );
 
+        status = memoryPool.PutElement( buffer[0] );
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
+
         status = memoryPool.PutElement( buffer[1] );
         ASSERT_EQ( QC_STATUS_OK, status );
 
@@ -138,6 +141,20 @@ TEST_F( Test_QCMemoryPool, SANITY_Init )
         QCStatus_e status = memoryPool.Init();
         ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, status );
     }
+}
+
+TEST_F( Test_QCMemoryPool, InitSupportsMoreThanLegacyTrackedBufferLimit )
+{
+    HeapAllocator allocatorIfs;
+    QCMemoryPoolConfig_t poolCfg( allocatorIfs );
+    poolCfg.buff.size = 1;
+    poolCfg.buff.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    poolCfg.buff.cache = QC_CACHEABLE;
+    poolCfg.maxElements = 129;
+    poolCfg.name = "Test Pool";
+
+    Pool memoryPool( poolCfg );
+    EXPECT_EQ( QC_STATUS_OK, memoryPool.Init() );
 }
 
 TEST_F( Test_QCMemoryPool, SANITY_detructor_with_non_returned_buffers )

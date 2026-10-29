@@ -4,8 +4,10 @@
 #include "QC/Infras/Memory/DMABUFFAllocator.hpp"
 #include "gtest/gtest.h"
 #include <atomic>
+#include <cerrno>
 #include <condition_variable>
 #include <deque>
+#include <fcntl.h>
 #include <mutex>
 #include <thread>
 
@@ -171,6 +173,149 @@ TEST_F( Test_DMABUFFAllocator, SANITY_8 )
     ASSERT_EQ( QC_STATUS_FAIL, status );
 }
 
+
+// ---------------------------------------------------------------------------
+// Additional negative / boundary coverage for DMABUFFAllocator
+// ---------------------------------------------------------------------------
+
+/**
+ * @test SANITY_allocate_unsupported_cache_types
+ * @brief DMABUFFAllocator only supports QC_CACHEABLE; every other cache attribute
+ *        must be rejected with QC_STATUS_UNSUPPORTED.
+ */
+TEST_F( Test_DMABUFFAllocator, SANITY_allocate_unsupported_cache_types )
+{
+    const QCAllocationCache_e caches[] = { QC_CACHEABLE_NON, QC_CACHEABLE_WRITE_THROUGH,
+                                           QC_CACHEABLE_WRITE_BACK, QC_CACHEABLE_LAST };
+
+    for ( QCAllocationCache_e cache : caches )
+    {
+        QCBufferPropBase_t request;
+        request.size = 64;
+        request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+        request.cache = cache;
+
+        QCBufferDescriptorBase_t response;
+        ASSERT_EQ( QC_STATUS_UNSUPPORTED, allocatorIfs->Allocate( request, response ) )
+                << "cache=" << static_cast<int>( cache );
+        ASSERT_EQ( nullptr, response.pBuf );
+    }
+}
+
+/**
+ * @test SANITY_allocate_alignment_too_large
+ * @brief Alignment larger than QC_MEMORY_DEFAULT_ALLIGNMENT is unsupported.
+ */
+TEST_F( Test_DMABUFFAllocator, SANITY_allocate_alignment_too_large )
+{
+    QCBufferPropBase_t request;
+    request.size = 64;
+    request.cache = QC_CACHEABLE;
+
+    QCBufferDescriptorBase_t response;
+
+    request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT + 1;
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, allocatorIfs->Allocate( request, response ) );
+
+    request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT * 4;
+    ASSERT_EQ( QC_STATUS_UNSUPPORTED, allocatorIfs->Allocate( request, response ) );
+}
+
+/**
+ * @test SANITY_allocate_various_valid_sizes
+ * @brief Exercise the successful Allocate()/Free() path with multiple sizes and
+ *        validate the produced descriptor content.
+ */
+TEST_F( Test_DMABUFFAllocator, SANITY_allocate_various_valid_sizes )
+{
+    const size_t sizes[] = { 1, 16, 4095, 4096, 4097, 1024 * 128 };
+
+    for ( size_t size : sizes )
+    {
+        QCBufferPropBase_t request;
+        request.size = size;
+        request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+        request.cache = QC_CACHEABLE;
+
+        QCBufferDescriptorBase_t response;
+        ASSERT_EQ( QC_STATUS_OK, allocatorIfs->Allocate( request, response ) ) << "size=" << size;
+        ASSERT_NE( nullptr, response.pBuf );
+        ASSERT_EQ( size, response.size );
+        ASSERT_EQ( QC_CACHEABLE, response.cache );
+        ASSERT_EQ( QC_MEMORY_ALLOCATOR_DMA, response.allocatorType );
+        ASSERT_NE( 0u, response.dmaHandle );
+        ASSERT_TRUE( response.name.IsEmpty() );
+
+        ASSERT_EQ( QC_STATUS_OK, allocatorIfs->Free( response ) );
+    }
+}
+
+/**
+ * @test SANITY_free_invalid_descriptors
+ * @brief Cover every rejection decision of DMABUFFAllocator::Free().
+ */
+TEST_F( Test_DMABUFFAllocator, SANITY_free_invalid_descriptors )
+{
+    /* null pBuf */
+    QCBufferDescriptorBase_t buff;
+    buff.pBuf = nullptr;
+    buff.size = 16;
+    buff.dmaHandle = 3;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs->Free( buff ) );
+
+    /* negative fd */
+    buff.pBuf = reinterpret_cast<void *>( 0x1000 );
+    buff.dmaHandle = static_cast<uint64_t>( -1 );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs->Free( buff ) );
+
+    /* zero size */
+    buff.dmaHandle = 3;
+    buff.size = 0;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs->Free( buff ) );
+}
+
+/**
+ * @test SANITY_free_munmap_failure_reports_fail
+ * @brief Drive the munmap() failure branch of Free() deterministically.
+ *
+ * A misaligned address is guaranteed to make munmap() fail with EINVAL (the
+ * address must be page aligned), so Free() must report QC_STATUS_FAIL.
+ *
+ * Note: a "double free" cannot be asserted on reliably and must not be used
+ * here. munmap() on an already unmapped page aligned range *succeeds* (POSIX:
+ * unmapping a range that contains no mappings is not an error), and the second
+ * dmabufheap_free() only fails while the file descriptor number has not been
+ * recycled by an unrelated open() - which the logger or gtest itself may do at
+ * any time. Such a test would be flaky and could also close a live descriptor.
+ *
+ * The descriptor used below therefore carries a file descriptor that is proven
+ * to be closed via fcntl(), so calling close() on it is both harmless and
+ * guaranteed to fail.
+ */
+TEST_F( Test_DMABUFFAllocator, SANITY_free_munmap_failure_reports_fail )
+{
+    /* Find a file descriptor number that is definitely not open, so that the
+     * dmabufheap_free()/close() inside Free() cannot disturb this process. */
+    int closedFd = -1;
+    for ( int candidate = 4096; candidate < 4196; ++candidate )
+    {
+        if ( ( fcntl( candidate, F_GETFD ) == -1 ) && ( errno == EBADF ) )
+        {
+            closedFd = candidate;
+            break;
+        }
+    }
+    ASSERT_NE( -1, closedFd ) << "could not find a closed file descriptor number";
+
+    QCBufferDescriptorBase_t buff;
+    /* deliberately misaligned -> munmap() fails with EINVAL */
+    buff.pBuf = reinterpret_cast<void *>( 0x1001 );
+    buff.size = 4096;
+    buff.cache = QC_CACHEABLE;
+    buff.dmaHandle = static_cast<uint64_t>( closedFd );
+
+    ASSERT_EQ( QC_STATUS_FAIL, allocatorIfs->Free( buff ) );
+}
 
 TEST_F( Test_DMABUFFAllocator, SANITY_multiple_allocations_1 )
 {

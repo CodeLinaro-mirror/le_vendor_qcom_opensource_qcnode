@@ -19,6 +19,7 @@
   - [4.2 Assumptions of Use (SWAOU)](#42-assumptions-of-use-swaou)
     - [QCNODE-COMMON-SWAOU-1](#qcnode-common-swaou-1)
     - [QCNODE-COMMON-SWAOU-2](#qcnode-common-swaou-2)
+    - [QCNODE-COMMON-SWAOU-3](#qcnode-common-swaou-3)
 
 ---
 
@@ -153,3 +154,14 @@ This section provides an overview of QCNode common usage for functional safety u
 
 - **SW AoU Rationale:**  
   Unbounded buffer allocation or mapping can exhaust SMMU resources, leading to mapping failures and potential system instability. Restricting shared buffers to a validated maximum ensures deterministic resource usage and prevents runtime failures that could compromise safety functions.
+
+### QCNODE-COMMON-SWAOU-3
+
+- **Assumption:**
+  The system integrator **shall** provision sufficient heap memory for QCNode initialization, deinitialization, and configuration interface operations. The system integrator **shall** also implement a supervision mechanism, such as a watchdog, to monitor QCNode or pipeline status and trigger the applicable recovery or safe-state strategy if QCNode terminates due to heap exhaustion.
+
+- **Sample of "How AoU can be met?":**
+  The application determines the worst-case heap requirement for `Init()`, `Deinit()`, `GetConfigurationIfs()`, `GetOptions()`, `VerifyAndSet()`, and `Monitor()` through profiling and stress testing, then reserves the required memory budget. During operation, the application uses bounded, pre-allocated resources for runtime data paths and relies on a supervision mechanism to monitor QCNode or pipeline health. If an out-of-memory condition causes QCNode to terminate, the supervisor detects the failure and restarts the pipeline or transitions the system to the validated safe state.
+
+- **SW AoU Rationale:**
+  QCNode initialization and configuration paths may allocate heap memory. If heap allocation fails, QCNode may terminate instead of handling the allocation failure locally; this termination is treated as a safe-state trigger under the system integrator's supervision strategy. The monitor mechanism is therefore used to monitor QCNode status and support fault recovery, not to monitor available heap memory or heap usage. QCNode operational paths are expected to avoid heap allocation by using bounded, pre-allocated resources.

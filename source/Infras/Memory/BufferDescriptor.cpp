@@ -3,12 +3,28 @@
 
 #include "QC/Infras/Memory/BufferDescriptor.hpp"
 
+#include <utility>
+
 namespace QC
 {
 namespace Memory
 {
 
-BufferDescriptor &BufferDescriptor::operator=( const BufferDescriptor &other )
+BufferDescriptor::BufferDescriptor( const BufferDescriptor &other ) noexcept
+    : QCBufferDescriptorBase_t( other ),
+      validSize( other.validSize ),
+      offset( other.offset ),
+      id( other.id )
+{}
+
+BufferDescriptor::BufferDescriptor( BufferDescriptor &&other ) noexcept
+    : QCBufferDescriptorBase_t( std::move( other ) ),
+      validSize( other.validSize ),
+      offset( other.offset ),
+      id( other.id )
+{}
+
+BufferDescriptor &BufferDescriptor::operator=( const BufferDescriptor &other ) noexcept
 {
     if ( this != &other )
     {
@@ -27,7 +43,19 @@ BufferDescriptor &BufferDescriptor::operator=( const BufferDescriptor &other )
     return *this;
 }
 
-BufferDescriptor &BufferDescriptor::operator=( const QCBufferDescriptorBase_t &other )
+BufferDescriptor &BufferDescriptor::operator=( BufferDescriptor &&other ) noexcept
+{
+    if ( this != &other )
+    {
+        QCBufferDescriptorBase_t::operator=( std::move( other ) );
+        validSize = other.validSize;
+        offset = other.offset;
+        id = other.id;
+    }
+    return *this;
+}
+
+BufferDescriptor &BufferDescriptor::operator=( const QCBufferDescriptorBase_t &other ) noexcept
 {
     if ( this != &other )
     {

@@ -15,6 +15,16 @@ namespace Memory
 {
 
 /**
+ * @brief Quantization encoding associated with a tensor buffer.
+ */
+typedef enum QCTensorQuantizationEncoding
+{
+    QC_TENSOR_QUANTIZATION_NONE,
+    QC_TENSOR_QUANTIZATION_SCALE_OFFSET,
+    QC_TENSOR_QUANTIZATION_AXIS_SCALE_OFFSET,
+} QCTensorQuantizationEncoding_e;
+
+/**
  * @brief QCNode Tensor Buffer Properties.
  *
  * Inherited Members from BufferProps:
@@ -27,6 +37,10 @@ namespace Memory
  * @param type The tensor type.
  * @param dims The tensor dimensions.
  * @param numDims The number of dimensions.
+ * @param quantizationEncodingType The tensor quantization encoding.
+ * @param quantizationAxis The dimension used by per-channel quantization.
+ * @param quantScales The scale values for per-tensor or per-channel quantization.
+ * @param quantOffsets The offset values for per-tensor or per-channel quantization.
  *
  * @note When using this struct to request tensor buffer allocation, the member "size" will not be
  * used. The size is determined by the other new members.
@@ -39,6 +53,16 @@ public:
      * @return None.
      */
     TensorProps() : BufferProps() {}
+
+    TensorProps( const TensorProps & ) = default;
+    TensorProps &operator=( const TensorProps & ) = default;
+    TensorProps( TensorProps &&other ) noexcept
+        : TensorProps( static_cast<const TensorProps &>( other ) )
+    {}
+    TensorProps &operator=( TensorProps &&other ) noexcept
+    {
+        return operator=( static_cast<const TensorProps &>( other ) );
+    }
 
     /**
      * @brief Constructor for TensorProps.
@@ -53,18 +77,22 @@ public:
      * @note The user must ensure the sizes of the vector dims is less than or equal to
      * QC_NUM_TENSOR_DIMS.
      */
-    TensorProps( QCTensorType_e tensorType, std::vector<uint32_t> dims,
-                 QCMemoryAllocator_e allocatorType = QC_MEMORY_ALLOCATOR_DMA_HTP,
-                 QCAllocationCache_e cache = QC_CACHEABLE )
-        : BufferProps( 0, allocatorType, cache ),
-          tensorType( tensorType )
+    TensorProps( QCTensorType_e requestedTensorType, std::vector<uint32_t> requestedDims,
+                 QCMemoryAllocator_e requestedAllocatorType = QC_MEMORY_ALLOCATOR_DMA_HTP,
+                 QCAllocationCache_e requestedCache = QC_CACHEABLE )
+        : BufferProps( 0, requestedAllocatorType, requestedCache ),
+          tensorType( requestedTensorType )
     {
-        numDims = static_cast<uint32_t>( dims.size() );
-        std::copy( dims.begin(), dims.end(), this->dims );
+        numDims = std::min( static_cast<uint32_t>( requestedDims.size() ), (uint32_t) QC_NUM_TENSOR_DIMS );
+        (void) std::copy_n( requestedDims.begin(), numDims, std::begin( this->dims ) );
     }
     QCTensorType_e tensorType;
     uint32_t dims[QC_NUM_TENSOR_DIMS];
     uint32_t numDims;
+    QCTensorQuantizationEncoding_e quantizationEncodingType{ QC_TENSOR_QUANTIZATION_NONE };
+    uint32_t quantizationAxis{ 0U };
+    std::vector<float> quantScales;
+    std::vector<int32_t> quantOffsets;
 } TensorProps_t;
 
 /**
@@ -96,18 +124,22 @@ typedef struct TensorDescriptor : public BufferDescriptor
 public:
     TensorDescriptor() : BufferDescriptor() {}
 
-    ~TensorDescriptor() override = default;
+    ~TensorDescriptor() override {}
 
-    TensorDescriptor( const TensorDescriptor &other ) = default;
+    TensorDescriptor( const TensorDescriptor &other ) noexcept;
+    TensorDescriptor( TensorDescriptor &&other ) noexcept;
+
+    using BufferDescriptor::operator=;
 
     /**
      * @brief Sets up the tensor descriptor from another buffer descriptor object.
      * @param[in] other The buffer descriptor object from which buffer members are copied.
      * @return The updated tensor descriptor object.
      */
-    TensorDescriptor &operator=( const BufferDescriptor &other );
-    TensorDescriptor &operator=( const TensorDescriptor &other );
-    TensorDescriptor &operator=( const QCBufferDescriptorBase_t &other );
+    TensorDescriptor &operator=( const BufferDescriptor &other ) noexcept override;
+    TensorDescriptor &operator=( const TensorDescriptor &other ) noexcept;
+    TensorDescriptor &operator=( TensorDescriptor &&other ) noexcept;
+    TensorDescriptor &operator=( const QCBufferDescriptorBase_t &other ) noexcept override;
 
     QCTensorType_e tensorType;
     uint32_t dims[QC_NUM_TENSOR_DIMS];

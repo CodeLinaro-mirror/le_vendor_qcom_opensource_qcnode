@@ -1,4 +1,3 @@
-
 // Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
@@ -74,6 +73,13 @@ using QCMemoryTransitionFn_t = std::function<QCStatus_e( const QCBufferDescripto
 class QCMemoryUtilsIfs
 {
 public:
+    QCMemoryUtilsIfs() = default;
+    QCMemoryUtilsIfs( const QCMemoryUtilsIfs & ) = delete;
+    QCMemoryUtilsIfs &operator=( const QCMemoryUtilsIfs & ) = delete;
+    QCMemoryUtilsIfs( QCMemoryUtilsIfs && ) = delete;
+    QCMemoryUtilsIfs &operator=( QCMemoryUtilsIfs && ) = delete;
+    virtual ~QCMemoryUtilsIfs() = default;
+
     /**
      * @brief Maps a buffer into memory.
      * This method maps a buffer into memory and returns a status code indicating success or
@@ -128,9 +134,11 @@ public:
      * @brief Returns all transition types supported by this utils implementation.
      *
      * All returned types are guaranteed to succeed when passed to CreateTransition().
-     * @return Const reference to a static vector of supported QCMemoryTransition_e values.
+     * @param outTypes  On success, populated with the supported QCMemoryTransition_e values.
+     * @return QC_STATUS_OK on success.
      */
-    virtual const std::vector<QCMemoryTransition_e> &GetSupportedTransitionTypes() = 0;
+    virtual QCStatus_e GetSupportedTransitionTypes(
+            std::vector<QCMemoryTransition_e> &outTypes ) = 0;
 
     /**
      * @brief Returns a transition callable for the given type.
@@ -155,15 +163,10 @@ public:
      * @code
      * {"QC_MEMORY_TRANSITION_RGB_TO_TENSOR":0,"QC_MEMORY_TRANSITION_BGR_TO_TENSOR":1,...}
      * @endcode
-     * @return JSON string of supported transition types.
+     * @param outJson  On success, populated with the JSON string of supported transition types.
+     * @return QC_STATUS_OK on success.
      */
-    virtual std::string GetSupportedBufferTransitionTypesJson() = 0;
-
-protected:
-    QCMemoryUtilsIfs() = default;
-    QCMemoryUtilsIfs( const QCMemoryUtilsIfs & ) = default;
-    QCMemoryUtilsIfs& operator=( const QCMemoryUtilsIfs& ) = default;
-    ~QCMemoryUtilsIfs() = default;
+    virtual QCStatus_e GetSupportedBufferTransitionTypesJson( std::string &outJson ) = 0;
 };
 
 }   // namespace Memory

@@ -54,31 +54,31 @@ public:
     // Supported-type queries
     // ------------------------------------------------------------------
 
-    // Returns the allocator types constructible via CreateAllocator() on the
-    // current platform. DMA variants are excluded on unsupported platforms.
-    // outTypes receives the list; returns QC_STATUS_OK on success.
+    // Populates outTypes with allocator types constructible via CreateAllocator().
+    // DMA variants are excluded on unsupported platforms.
+    // Returns QC_STATUS_OK on success; outTypes is valid only on QC_STATUS_OK.
     static QCStatus_e GetSupportedAllocatorTypes( std::vector<QCMemoryAllocator_e> &outTypes );
 
-    // Returns the buffer types constructible via CreateBufferDescriptor().
-    // outTypes receives the list; returns QC_STATUS_OK on success.
+    // Populates outTypes with buffer types constructible via CreateBufferDescriptor().
+    // Returns QC_STATUS_OK on success; outTypes is valid only on QC_STATUS_OK.
     static QCStatus_e GetSupportedBufferDescriptorTypes( std::vector<QCBufferType_e> &outTypes );
 
-    // Returns the memory manager types constructible via CreateMemoryManager().
+    // Populates outTypes with memory manager types constructible via CreateMemoryManager().
     // Currently only QC_MEMORY_MANAGER_LOCAL is available; extend when remote
     // or other manager variants are introduced.
-    // outTypes receives the list; returns QC_STATUS_OK on success.
-    static QCStatus_e
-    GetSupportedMemoryManagerTypes( std::vector<QCMemoryManagerType_e> &outTypes );
+    // Returns QC_STATUS_OK on success; outTypes is valid only on QC_STATUS_OK.
+    static QCStatus_e GetSupportedMemoryManagerTypes( std::vector<QCMemoryManagerType_e> &outTypes );
 
-    // Returns the allocator types json in outJson; returns QC_STATUS_OK on success.
+    // Populates outJson with a JSON object of allocator types constructible via CreateAllocator().
+    // Returns QC_STATUS_OK on success; outJson is valid only on QC_STATUS_OK.
     static QCStatus_e GetSupportedAllocatorTypesJson( std::string &outJson );
 
-    // Returns the supported buffer descriptor types json in outJson;
-    // returns QC_STATUS_OK on success.
+    // Populates outJson with a JSON object of buffer descriptor types constructible via CreateBufferDescriptor().
+    // Returns QC_STATUS_OK on success; outJson is valid only on QC_STATUS_OK.
     static QCStatus_e GetSupportedBufferDescriptorTypesJson( std::string &outJson );
 
-    // Returns the supported memory manager types json in outJson;
-    // returns QC_STATUS_OK on success.
+    // Populates outJson with a JSON object of memory manager types constructible via CreateMemoryManager().
+    // Returns QC_STATUS_OK on success; outJson is valid only on QC_STATUS_OK.
     static QCStatus_e GetSupportedMemoryManagerTypesJson( std::string &outJson );
 
 private:

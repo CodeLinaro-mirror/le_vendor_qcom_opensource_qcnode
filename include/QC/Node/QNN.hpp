@@ -14,7 +14,7 @@ namespace Node
 
 /** @brief The QCNode QNN Version */
 #define QCNODE_QNN_VERSION_MAJOR 2U
-#define QCNODE_QNN_VERSION_MINOR 2U
+#define QCNODE_QNN_VERSION_MINOR 4U
 #define QCNODE_QNN_VERSION_PATCH 0U
 
 #define QCNODE_QNN_VERSION                                                                         \
@@ -98,6 +98,8 @@ public:
      *                          options: [ htp0, htp1, htp2, htp3, cpu, gpu ],
      *                          default: htp0",
      *        "coreIds": [ A list of uint32_t values representing core id ]
+     *        "executeMode": "Execution mode, type: string, options: [sync, async],
+     *                        default: sync",
      *                   default: [0],
      *        "loadType": "The load type, type: string, options: [binary, library, buffer],
      *                     default: binary",
@@ -148,6 +150,7 @@ public:
      * @return A reference string to the JSON configuration options.
      * @note
      * Use this API to query detailed input and output information from the loaded QNN model.
+     * Per-channel tensors use quantizationAxis, quantScales, and quantOffsets.
      */
     virtual QCStatus_e GetOptions( std::string &options );
 
@@ -157,17 +160,32 @@ public:
      */
     virtual const QCNodeConfigBase_t &Get();
 
+    void Reset();
+
 private:
     QCStatus_e VerifyStaticConfig( DataTree &dt, std::string &errors );
     QCStatus_e ParseStaticConfig( DataTree &dt, std::string &errors );
     QCStatus_e ApplyDynamicConfig( DataTree &dt, std::string &errors );
 
+    /**
+     * @brief Parse a JSON literal (used for the schema raw strings) into a DataTree.
+     * @param[in] json  The raw JSON string.
+     * @param[out] dt   On success, the parsed DataTree.
+     * @return QC_STATUS_OK on success; the underlying DataTree::Load status on failure.
+     * @note On failure, dt is left in its default-constructed (empty) state.
+     */
+    static QCStatus_e LoadJson( const std::string &json, DataTree &dt );
+
     DataTree ConvertTensorInfoToJson( const Qnn_Tensor_t &info );
     std::vector<DataTree> ConvertTensorInfoListToJson( const std::vector<Qnn_Tensor_t> &infoList );
+    std::vector<DataTree>
+    ConvertTensorListToBufferDescriptors( const std::vector<Qnn_Tensor_t> &tensors );
 
     QnnImpl *m_pQnnImpl = nullptr;
+    bool m_bSchemaLoaded = false;
     bool m_bOptionsBuilt = false;
     std::string m_options;
+    DataTree m_optionsTree;
 };
 
 // TODO: how to handle QnnMonitor
@@ -235,9 +253,9 @@ public:
      * @brief Initializes Node QNN.
      * @param[in] config The Node QNN configuration.
      * @note QCNodeInit::config - Refer to the comments of the API QnnConfig::VerifyAndSet.
-     * @note QCNodeInit::callback - The user application callback to notify the status of
-     * the API ProcessFrameDescriptor. This is optional. If provided, the API ProcessFrameDescriptor
-     * will be asynchronous; otherwise, the API ProcessFrameDescriptor will be synchronous.
+     * @note QCNodeInit::callback - The user application callback used when executeMode is async.
+     * Async mode requires a callback. Sync mode completes inline and does not use the callback for
+     * frame completion.
      * @note QCNodeInit::buffers - Buffers provided by the user application. The buffers can be
      * provided for two purposes:
      * - 1. A buffer provided to store the decrypted QNN context binary (see
@@ -268,12 +286,9 @@ public:
     /**
      * @brief Processes the Frame Descriptor.
      * @param[in] frameDesc The frame descriptor containing a vector of input/output buffers.
-     * @note If the QCNodeInit::callback is provided, this ProcessFrameDescriptor call will
-     * return immediately after queuing the job into the QNN engine. Once the inference job
-     * is completed, the callback will be invoked, making this an asynchronous API.
-     * If the QCNodeInit::callback is not provided, this API is synchronous. When it
-     * returns without error, it means the inference job is done and the output buffer will be
-     * filled with valid output data.
+     * @note When executeMode is async, this call returns after queuing the job and invokes the
+     * configured callback when inference completes. When executeMode is sync, this call blocks
+     * until inference completes and the output buffers contain valid data.
      * @note The configuration globalBufferIdMap determines which buffers are input and which
      * are output.
      * @example For a QNN model with N inputs and M outputs:

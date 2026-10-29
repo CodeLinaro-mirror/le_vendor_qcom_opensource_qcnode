@@ -719,7 +719,7 @@ TEST( FadasPlr, L2_FadasPlrPostProc )
     QCProcessorType_e processors[2] = { QC_PROCESSOR_HTP0, QC_PROCESSOR_CPU };
     for ( int i = 0; i < 2; i++ )
     {
-        FadasPlrPostProc plrPost;
+        FadasPlrPostProc plrPost( Logger::GetDefault() );
         QCStatus_e ret;
         PostCenterPoint_Config_t config = plrPostConfig1;
         config.processor = processors[i];
@@ -814,7 +814,7 @@ TEST( FadasPlr, L2_FadasPlrPostProc )
         ret = plrPost.CreatePostProc();
         ASSERT_EQ( QC_STATUS_BAD_STATE, ret );
 
-        ret = plrPost.Init( config.processor, "PLRPOST0", LOGGER_LEVEL_ERROR );
+        ret = plrPost.Init( config.processor );
         ASSERT_EQ( QC_STATUS_OK, ret );
 
         ret = plrPost.SetParams( config.pillarXSize, config.pillarYSize, config.minXRange,

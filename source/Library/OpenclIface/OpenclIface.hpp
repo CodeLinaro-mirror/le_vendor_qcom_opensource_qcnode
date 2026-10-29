@@ -11,9 +11,19 @@
 #include <vector>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Common/QCMap.hpp"
 #include "QC/Infras/Log/Logger.hpp"
 #include "QC/Infras/Memory/ImageDescriptor.hpp"
 #include "QC/Infras/Memory/TensorDescriptor.hpp"
+
+#ifndef CL_DEVICE_TYPE_SECOND_QCOM
+/* For Nordy specific 2xGPU OpenCL support */
+#define CL_DEVICE_TYPE_SECOND_QCOM ( (cl_device_type) ( 1ULL << 33 ) )
+#endif
+
+#ifndef OPENCLIFACE_MAX_REGISTERED_BUFFERS
+#define OPENCLIFACE_MAX_REGISTERED_BUFFERS 128U
+#endif
 
 using namespace QC;
 using namespace QC::Memory;
@@ -68,10 +78,10 @@ class OpenclSrv
     =================================================================================================*/
 
 public:
+    explicit OpenclSrv( Logger &logger ) : m_logger( logger ) {}
+
     /**
      * @brief Initialize the OpenclIface object
-     * @param[in] pName the OpenclIface unique instance name
-     * @param[in] level the logger message level
      * @param[in] priority the desired performance priority level, default one is normal
      * @param[in] deviceId the device ID to be used, default one is 0
      * @return QC_STATUS_OK on success, others on failure
@@ -79,8 +89,7 @@ public:
      * ID, create context, create command queue, get device info. Must be called at the beginning of
      * pipeline.
      */
-    QCStatus_e Init( const char *pName, Logger_Level_e level,
-                     OpenclIfcae_Perf_e priority = OPENCLIFACE_PERF_NORMAL, uint32_t deviceId = 0 );
+    QCStatus_e Init( OpenclIfcae_Perf_e priority = OPENCLIFACE_PERF_NORMAL, uint32_t deviceId = 0 );
 
     /**
      * @brief Load OpenCL program from source file
@@ -211,9 +220,12 @@ private:
     cl_command_queue m_commandQueue;                     /**OpenCL command queue*/
     cl_context m_context;                                /**OpenCL context*/
     cl_program m_program;                                /**OpenCL program*/
-    std::map<void *, OpenclIface_MemInfo_t> m_bufferMap; /**OpenCL buffer memory map*/
-    std::map<void *, OpenclIface_MemInfo_t> m_imageMap;  /**OpenCL image memory map*/
-    std::map<std::pair<void *, uint32_t>, OpenclIface_MemInfo_t>
+    QCMap<void *, OpenclIface_MemInfo_t, OPENCLIFACE_MAX_REGISTERED_BUFFERS>
+            m_bufferMap; /**OpenCL buffer memory map*/
+    QCMap<void *, OpenclIface_MemInfo_t, OPENCLIFACE_MAX_REGISTERED_BUFFERS>
+            m_imageMap; /**OpenCL image memory map*/
+    QCMap<std::pair<void *, uint32_t>, OpenclIface_MemInfo_t,
+          OPENCLIFACE_MAX_REGISTERED_BUFFERS>
             m_planeMap;                           /**OpenCL plane memory map*/
     std::map<std::string, cl_kernel> m_kernelMap; /**OpenCL kernel map*/
 
@@ -221,7 +233,7 @@ public:
     cl_sampler m_sampler; /**OpenCL sampler*/
 
 protected:
-    QC_DECLARE_LOGGER();
+    Logger &m_logger;
 };
 
 }   // namespace OpenclIface

@@ -368,7 +368,8 @@ struct CallCounters
 class VidcDrvClientTest : public testing::Test
 {
 protected:
-    VidcDrvClient dut{};
+    Logger logger{};
+    VidcDrvClient dut{ logger };
     CallCounters calls{};
     VideoFrameDescriptor_t last_in{};
     VideoFrameDescriptor_t last_out{};
@@ -426,7 +427,7 @@ protected:
         VidcNodeBase_Config_t cfg{};
         cfg.numInputBufferReq = 4;
         cfg.numOutputBufferReq = 4;
-        dut.Init( "test", QC::LOGGER_LEVEL_DEBUG, VIDEO_DEC, cfg );
+        dut.Init( VIDEO_DEC, cfg );
 
         // Open driver (inject callbacks)
         ASSERT_EQ( QC_STATUS_OK,
@@ -1212,8 +1213,9 @@ TEST( VidcDrvClientStatic, OpenDriver_DeviceOpenFails_ReturnsError )
     cfg.outFormat = QC_IMAGE_FORMAT_COMPRESSED_H264;
     cfg.logLevel = LOGGER_LEVEL_ERROR;
 
-    VidcDrvClient client;
-    client.Init( "OpenFailTest", LOGGER_LEVEL_ERROR, VIDEO_ENC, cfg );
+    Logger logger;
+    VidcDrvClient client( logger );
+    client.Init( VIDEO_ENC, cfg );
 
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS,
                client.OpenDriver( TestInputDoneCb, TestOutputDoneCb, TestEventCb, &client ) );
@@ -1235,8 +1237,9 @@ TEST( VidcDrvClientStatic, CloseDriver_WithoutOpen_DoesNotCrash )
     cfg.outFormat = QC_IMAGE_FORMAT_COMPRESSED_H264;
     cfg.logLevel = LOGGER_LEVEL_ERROR;
 
-    VidcDrvClient client;
-    client.Init( "CloseTest", LOGGER_LEVEL_ERROR, VIDEO_ENC, cfg );
+    Logger logger;
+    VidcDrvClient client( logger );
+    client.Init( VIDEO_ENC, cfg );
 
     // CloseDriver should handle nullptr m_pIoHandle gracefully
     client.CloseDriver();
@@ -1260,8 +1263,9 @@ TEST( VidcDrvClientStatic, CloseDriver_AfterOpen_Succeeds )
     cfg.outFormat = QC_IMAGE_FORMAT_COMPRESSED_H264;
     cfg.logLevel = LOGGER_LEVEL_ERROR;
 
-    VidcDrvClient client;
-    client.Init( "CloseAfterOpenTest", LOGGER_LEVEL_ERROR, VIDEO_ENC, cfg );
+    Logger logger;
+    VidcDrvClient client( logger );
+    client.Init( VIDEO_ENC, cfg );
 
     ASSERT_EQ( QC_STATUS_OK,
                client.OpenDriver( TestInputDoneCb, TestOutputDoneCb, TestEventCb, &client ) );
@@ -1436,8 +1440,9 @@ TEST( VidcDrvClientStatic, GetType_ReturnsVideoDec )
     cfg.outFormat = QC_IMAGE_FORMAT_NV12;
     cfg.logLevel = LOGGER_LEVEL_ERROR;
 
-    VidcDrvClient dec;
-    dec.Init( "DecTypeTest", LOGGER_LEVEL_ERROR, VIDEO_DEC, cfg );
+    Logger logger;
+    VidcDrvClient dec( logger );
+    dec.Init( VIDEO_DEC, cfg );
     EXPECT_EQ( VIDEO_DEC, dec.GetType() );
     Mockup_Cfg_Reset();
 }
@@ -1468,8 +1473,9 @@ TEST( VidcDrvClientStatic, DeviceCallback_NullSelf_DoesNotCrash )
     cfg.outFormat = QC_IMAGE_FORMAT_COMPRESSED_H264;
     cfg.logLevel = LOGGER_LEVEL_ERROR;
 
-    VidcDrvClient client;
-    client.Init( "NullSelfTest", LOGGER_LEVEL_ERROR, VIDEO_ENC, cfg );
+    Logger logger;
+    VidcDrvClient client( logger );
+    client.Init( VIDEO_ENC, cfg );
     ASSERT_EQ( QC_STATUS_OK,
                client.OpenDriver( TestInputDoneCb, TestOutputDoneCb, TestEventCb, &client ) );
 
@@ -1716,8 +1722,9 @@ TEST( VidcDrvClientStatic, InitDriver_EncoderHevc_AndPrintConfig )
     cfg.numInputBufferReq = 4;
     cfg.numOutputBufferReq = 4;
 
-    VidcDrvClient client;
-    client.Init( "EncHevc", LOGGER_LEVEL_ERROR, VIDEO_ENC, cfg );
+    Logger logger;
+    VidcDrvClient client( logger );
+    client.Init( VIDEO_ENC, cfg );
     ASSERT_EQ( QC_STATUS_OK,
                client.OpenDriver( TestInputDoneCb, TestOutputDoneCb, TestEventCb, &client ) );
 

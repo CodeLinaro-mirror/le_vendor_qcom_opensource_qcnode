@@ -568,6 +568,7 @@ QCarCamRet_e QCarCamSetParam( const QCarCamHndl_t hndl, const QCarCamParamType_e
                         MOCK_CONTROL_API_NONE;
             }
             break;
+#ifdef ENABLE_CAMERA_ISP_SETTINGS
         case QCARCAM_STREAM_CONFIG_PARAM_ISP_SETTINGS:
             if ( MOCK_CONTROL_API_NONE !=
                  s_MockParams[MOCK_API_QCARCAM_SET_PARAM_ISP_SETTINGS].action )
@@ -582,6 +583,7 @@ QCarCamRet_e QCarCamSetParam( const QCarCamHndl_t hndl, const QCarCamParamType_e
                         MOCK_CONTROL_API_NONE;
             }
             break;
+#endif
         default:
             break;
     }

@@ -32,7 +32,7 @@ typedef struct
 class FadasPlrPostProc : public FadasSrv
 {
 public:
-    FadasPlrPostProc();
+    explicit FadasPlrPostProc( Logger &logger );
     ~FadasPlrPostProc();
 
     QCStatus_e SetParams( float pillarXSize, float pillarYSize, float minXRange, float minYRange,

@@ -6,7 +6,7 @@
 
 namespace QC::Memory
 {
-VideoFrameDescriptor &VideoFrameDescriptor::operator=( const QCBufferDescriptorBase &other )
+VideoFrameDescriptor &VideoFrameDescriptor::operator=( const QCBufferDescriptorBase &other ) noexcept
 {
     if ( this != &other )
     {

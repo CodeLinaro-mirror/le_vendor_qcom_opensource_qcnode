@@ -19,7 +19,7 @@ namespace FadasIface
 class FadasRemap : public FadasSrv
 {
 public:
-    FadasRemap();
+    explicit FadasRemap( Logger &logger );
     ~FadasRemap();
     QCStatus_e SetRemapParams( uint32_t numOfInputs, uint32_t outputWidth, uint32_t outputHeight,
                                QCImageFormat_e outputFormat, FadasNormlzParams_t normlzR,

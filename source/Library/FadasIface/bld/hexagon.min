@@ -25,7 +25,7 @@ INCDIRS+=$(HEXAGON_SDK_ROOT)/rtos/qurt/computev81/include/qurt
 endif
 
 
-libFadasIface_skel_DLLS += libfadasNsp libworker_pool
+libFadasIface_skel_DLLS += libfadasNsp
 
 # copy final build products to the ship directory
 BUILD_COPIES = \

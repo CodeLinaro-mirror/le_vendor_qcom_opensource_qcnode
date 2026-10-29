@@ -41,6 +41,7 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
     m_dataTree.Set<uint32_t>( "static.id", 0 );
 
     m_bNoPadding = Get( config, "no_padding", false );
+    m_dataTree.Set<bool>( "static.noPadding", m_bNoPadding );
 
     m_processor = Get( config, "processor", QC_PROCESSOR_HTP0 );
     if ( QC_PROCESSOR_MAX == m_processor )
@@ -68,7 +69,9 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
     }
 
     m_coreIds = { coreId };
-    m_rsmPriority = Get( config, "rsm_priority", 0 );
+    m_rsmPriority = Get( config, "rsm_priority", SampleIF::kDefaultRsmPriority );
+    m_rsmTimeoutUs = Get( config, "rsm_timeout", SampleIF::kDefaultRsmTimeoutUs );
+    m_rsmDurationUs = Get( config, "rsm_duration", SampleIF::kDefaultRsmDurationUs );
 
     m_outputWidth = Get( config, "output_width", 1920 );
     if ( 0 == m_outputWidth )
@@ -217,19 +220,16 @@ QCStatus_e SampleRemap::ParseConfig( SampleConfig_t &config )
         if ( true == m_bEnableUndistortion )
         {
             bool bAllocateOK = true;
-            TensorProps_t mapXProp;
-            mapXProp = {
-                    QC_TENSOR_TYPE_FLOAT_32,
-                    { mapWidths[i], mapHeights[i] },
-            };
+            TensorProps_t mapXProp( QC_TENSOR_TYPE_FLOAT_32,
+                                    { mapWidths[i], mapHeights[i] } );
             ret = m_pBufMgr->Allocate( mapXProp, m_mapXBufferDesc[i] );
             if ( QC_STATUS_OK != ret )
             {
                 bAllocateOK = false;
                 QC_ERROR( "failed to allocate mapX%u!\n", i );
             }
-            TensorProps_t mapYProp;
-            mapYProp = { QC_TENSOR_TYPE_FLOAT_32, { mapWidths[i], mapHeights[i] } };
+            TensorProps_t mapYProp( QC_TENSOR_TYPE_FLOAT_32,
+                                    { mapWidths[i], mapHeights[i] } );
             ret = m_pBufMgr->Allocate( mapYProp, m_mapYBufferDesc[i] );
             if ( QC_STATUS_OK != ret )
             {
@@ -343,7 +343,7 @@ QCStatus_e SampleRemap::Init( std::string name, SampleConfig_t &config )
 
     if ( QC_STATUS_OK == ret )
     {
-        ret = SampleIF::Init( m_processor, m_rsmPriority, m_coreIds );
+        ret = SampleIF::Init( m_processor, m_coreIds );
     }
 
     if ( QC_STATUS_OK == ret )
@@ -545,8 +545,8 @@ void SampleRemap::Execute()
             {
                 QC_ERROR( "Remap execute failed for %" PRIu64 " : %d", frames.FrameId( 0 ), ret );
             }
+            (void) SampleIF::Unlock();
         }
-        (void) SampleIF::Unlock();
     }
 #ifdef QC_ENABLE_HS
     else if ( m_bOrchestratorEnabled )

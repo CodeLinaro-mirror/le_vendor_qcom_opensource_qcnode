@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cstring>
+#include <deque>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -28,7 +29,7 @@ using namespace QC::sample;
 
 QC::Node::Camera *g_pCamera = nullptr;
 uint32_t g_frameIdx = 0;
-std::vector<SharedBufferPool> g_bufferPools;
+std::deque<SharedBufferPool> g_bufferPools;
 
 // A minimal callback for *MockCov tests that doesn't depend on g_pCamera being set.
 // target.
@@ -182,7 +183,6 @@ QCStatus_e AllocateFrameBuffers(
     uint32_t bufferId = 0;
     uint32_t streamNum = streamConfigs.size();
     uint32_t bufferNum = 0;
-    g_bufferPools.reserve( QCNODE_CAMERA_MAX_STREAM_NUM );
     g_bufferPools.resize( streamNum );
 
     for ( uint32_t i = 0; i < streamNum; i++ )
@@ -268,7 +268,6 @@ QCStatus_e AllocateMetaDataBuffers(
     const uint32_t MAX_METADATA_TAG_DATA = 65536;
     camera_metadata_t *pMetaData = nullptr;
     uint32_t basePool = g_bufferPools.size();
-    g_bufferPools.reserve( QCNODE_CAMERA_MAX_STREAM_NUM );
     g_bufferPools.resize( basePool + metaDataNum );
 
     for ( uint32_t i = 0; i < metaDataNum; i++ )
@@ -383,6 +382,55 @@ static void LoadCameraConfig( QCNodeInit_t &outConfig, const std::string &filePa
     ASSERT_EQ( QC_STATUS_OK, dt.Load( jsonData.dump(), errors ) );
     outConfig.config = dt.Dump();
     outConfig.callback = callback;
+}
+
+TEST( Camera, ConfigurationDescribesImagePortsAndExecution )
+{
+    DataTree dt;
+    dt.Set<std::string>( "static.name", "CameraConfigDescriptor" );
+    dt.Set<uint32_t>( "static.id", 1U );
+    dt.Set<uint32_t>( "static.inputId", 0U );
+    dt.Set<uint32_t>( "static.clientId", 0U );
+    dt.Set<uint32_t>( "static.srcId", 0U );
+    dt.Set<uint32_t>( "static.inputMode", 0U );
+    dt.Set<uint32_t>( "static.ispUseCase", 0U );
+    dt.Set<uint32_t>( "static.camFrameDropPattern", 0U );
+    dt.Set<uint8_t>( "static.camFrameDropPeriod", 0U );
+    dt.Set<uint32_t>( "static.opMode", 0U );
+    dt.Set<bool>( "static.enableMetaData", false );
+
+    DataTree stream;
+    stream.Set<uint32_t>( "streamId", 3U );
+    stream.Set<uint32_t>( "width", 1920U );
+    stream.Set<uint32_t>( "height", 1080U );
+    stream.Set<std::string>( "format", "nv12" );
+    stream.Set<uint32_t>( "submitRequestPattern", 1U );
+    std::vector<uint32_t> bufferIds{ 0U, 1U };
+    stream.Set( "bufferIds", bufferIds );
+    std::vector<DataTree> streamConfigs{ stream };
+    dt.Set( "static.streamConfigs", streamConfigs );
+
+    QC::Node::Camera camera;
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, camera.GetConfigurationIfs().VerifyAndSet( dt.Dump(), errors ) );
+
+    const QCNodeConfigBase_t &config = camera.GetConfigurationIfs().Get();
+    EXPECT_EQ( QC_EXECUTE_MODE_ASYNC, config.executeMode );
+    EXPECT_EQ( QC_PROCESSOR_MAX, config.processor );
+    EXPECT_TRUE( config.coreIds.empty() );
+    EXPECT_TRUE( config.inputs.empty() );
+    ASSERT_EQ( 1U, config.outputs.size() );
+    EXPECT_EQ( "stream3", config.outputs[0].name );
+    EXPECT_EQ( QC_BUFFER_TYPE_IMAGE, config.outputs[0].bufferType );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageProps_t>( config.outputs[0].bufProps ) );
+    const auto &outputProps = std::get<Memory::ImageProps_t>( config.outputs[0].bufProps );
+    EXPECT_EQ( 1920U, outputProps.width );
+    EXPECT_EQ( 1080U, outputProps.height );
+    EXPECT_EQ( QC_IMAGE_FORMAT_NV12, outputProps.format );
+    EXPECT_EQ( 2U, outputProps.numPlanes );
+    EXPECT_NE( 0U, outputProps.stride[0] );
+    EXPECT_NE( 0U, outputProps.actualHeight[0] );
+    EXPECT_NE( 0U, outputProps.planeBufSize[0] );
 }
 
 static nlohmann::json &NavigateConfigParent( nlohmann::json &root, const std::string &path,
@@ -2328,7 +2376,6 @@ static QCStatus_e AllocateGenericBuffers(
     bufProp.cache = QC_CACHEABLE;
 
     uint32_t basePool = g_bufferPools.size();
-    g_bufferPools.reserve( QCNODE_CAMERA_MAX_STREAM_NUM );
     g_bufferPools.resize( basePool + 1 );
 
     QCStatus_e ret = g_bufferPools[basePool].Init( name + "_pool", nodeId, LOGGER_LEVEL_ERROR,
@@ -4029,6 +4076,7 @@ TEST( Camera, SANITY_Test_Init_TuningFeatureIspSettings_Mock )
     (void) DeinitBuffers();
 }
 
+#ifdef ENABLE_CAMERA_ISP_SETTINGS
 TEST( Camera, EXCEPTION_Test_Init_IspSettings_Fail_Mock )
 {
     QCNodeInit_t config;
@@ -4061,6 +4109,7 @@ TEST( Camera, EXCEPTION_Test_Init_IspSettings_Fail_Mock )
 
     (void) DeinitBuffers();
 }
+#endif  // ENABLE_CAMERA_ISP_SETTINGS
 
 // QCarCamRelease fails during DeInitialize -> CameraImpl::DeInitialize error
 // branch.
@@ -4540,7 +4589,7 @@ TEST( Camera, EXCEPTION_Test_ProcessFrame_InvalidBufferType_Mock )
     // nor CameraMetaDataDescriptor -> dynamic_cast fails -> INVALID_BUF.
     NodeFrameDescriptor frameDesc( 1 );
     QC::Memory::QCBufferDescriptorBase_t baseDesc;
-    baseDesc.name = "Generic";
+    (void) baseDesc.name.Assign( "Generic" );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, baseDesc ) );
 
     QCStatus_e ret = camera.ProcessFrameDescriptor( frameDesc );
@@ -5340,7 +5389,7 @@ TEST( Camera, EXCEPTION_Test_ProcessFrame_BothCastsFail_Mock )
 
     NodeFrameDescriptor frameDesc( 1 );
     QC::Memory::QCBufferDescriptorBase_t baseDesc;
-    baseDesc.name = "Generic";
+    (void) baseDesc.name.Assign( "Generic" );
     ASSERT_EQ( QC_STATUS_OK, frameDesc.SetBuffer( 0, baseDesc ) );
 
     QCStatus_e ret = camera.ProcessFrameDescriptor( frameDesc );

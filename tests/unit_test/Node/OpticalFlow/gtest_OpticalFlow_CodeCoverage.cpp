@@ -1757,7 +1757,7 @@ TEST_F( OpticalFlowConfigTest, ProcessFrameDescriptor_Bidirectional_MissingBwdCo
     // Register memory manually
     Buffer buff;
     buff.pAddress = &data;
-    ofl.m_memMap[&data] = buff;
+    ASSERT_EQ( QC_STATUS_OK, ofl.m_memMap.InsertOrAssign( &data, buff ) );
 
     QCStatus_e status = ofl.ProcessFrameDescriptor( frameDesc );
     EXPECT_EQ( QC_STATUS_FAIL, status );
@@ -1946,7 +1946,7 @@ TEST_F( OpticalFlowConfigTest, RegisterMemory_DuplicateRegistration )
     int dummyData = 0;
     Buffer buff;
     buff.pAddress = &dummyData;
-    ofl.m_memMap[&dummyData] = buff;
+    ASSERT_EQ( QC_STATUS_OK, ofl.m_memMap.InsertOrAssign( &dummyData, buff ) );
 
     BufferDescriptor_t desc;
     desc.pBuf = &dummyData;
@@ -2047,7 +2047,7 @@ TEST_F( OpticalFlowConfigTest, ProcessFrameDescriptor_MissingFwdConfBuffer )
     // Also we need to register memory manually since we bypass Initialize
     Buffer buff;
     buff.pAddress = &data;
-    ofl.m_memMap[&data] = buff;
+    ASSERT_EQ( QC_STATUS_OK, ofl.m_memMap.InsertOrAssign( &data, buff ) );
 
     QCStatus_e status = ofl.ProcessFrameDescriptor( frameDesc );
     EXPECT_EQ( QC_STATUS_FAIL, status );
@@ -2114,7 +2114,7 @@ TEST_F( OpticalFlowConfigTest, ProcessFrameDescriptor_MissingBwdConfBuffer )
     // Register memory manually
     Buffer buff;
     buff.pAddress = &data;
-    ofl.m_memMap[&data] = buff;
+    ASSERT_EQ( QC_STATUS_OK, ofl.m_memMap.InsertOrAssign( &data, buff ) );
 
     QCStatus_e status = ofl.ProcessFrameDescriptor( frameDesc );
     EXPECT_EQ( QC_STATUS_FAIL, status );

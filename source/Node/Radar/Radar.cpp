@@ -10,7 +10,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_RADAR, Radar )
+const NodeRegistrar<Radar> g_registerRadar{ QC_NODE_TYPE_RADAR };
 
 Radar::Radar() : m_pImpl( std::make_unique<RadarImpl>() ), m_configIfs( m_logger ) {}
 
@@ -134,6 +134,27 @@ QCStatus_e RadarConfigIfs::ParseStaticConfig( DataTree &dt, std::string &errors 
 
         m_config.bDeRegisterAllBuffersWhenStop =
                 dt.Get<bool>( "deRegisterAllBuffersWhenStop", false );
+
+        m_config.executeMode = QC_EXECUTE_MODE_SYNC;
+        m_config.processor = QC_PROCESSOR_MAX;
+        m_config.coreIds.clear();
+        m_config.inputs.clear();
+        m_config.outputs.clear();
+        m_config.inputs.reserve( m_config.inputBufferIds.size() );
+        m_config.outputs.reserve( m_config.outputBufferIds.size() );
+        for ( size_t i = 0U; i < m_config.inputBufferIds.size(); ++i )
+        {
+            m_config.inputs.push_back(
+                    { "input" + std::to_string( i ), QC_BUFFER_TYPE_RAW,
+                      Memory::BufferProps_t( m_config.params.maxInputBufferSize ) } );
+        }
+        for ( size_t i = 0U; i < m_config.outputBufferIds.size(); ++i )
+        {
+            m_config.outputs.push_back(
+                    { "output" + std::to_string( i ), QC_BUFFER_TYPE_TENSOR,
+                      Memory::TensorProps_t( QC_TENSOR_TYPE_UINT_8,
+                                             { m_config.params.maxOutputBufferSize } ) } );
+        }
     }
     else
     {
@@ -147,7 +168,7 @@ QCStatus_e RadarConfigIfs::VerifyAndSet( const std::string config, std::string &
 {
     QCStatus_e status = QC_STATUS_OK;
 
-    status = NodeConfigIfs::VerifyAndSet( config, errors );
+    status = NodeConfigBase::VerifyAndSet( config, errors );
     if ( QC_STATUS_OK == status )
     {
         DataTree dt;

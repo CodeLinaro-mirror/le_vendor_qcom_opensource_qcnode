@@ -122,60 +122,60 @@ typedef enum
 typedef struct QCNodeTraceArg
 {
     // Constructors for each supported argument type
-    QCNodeTraceArg( std::string name, std::string strV )
+    QCNodeTraceArg( std::string argumentName, std::string stringValue )
         : type( QCNODE_TRACE_ARG_TYPE_STRING ),
-          name( name ),
-          strV( strV )
+          name( argumentName ),
+          strV( stringValue )
     {}
-    QCNodeTraceArg( std::string name, double doubleV )
+    QCNodeTraceArg( std::string argumentName, double doubleValue )
         : type( QCNODE_TRACE_ARG_TYPE_DOUBLE ),
-          name( name ),
-          doubleV( doubleV )
+          name( argumentName ),
+          doubleV( doubleValue )
     {}
-    QCNodeTraceArg( std::string name, float floatV )
+    QCNodeTraceArg( std::string argumentName, float floatValue )
         : type( QCNODE_TRACE_ARG_TYPE_FLOAT ),
-          name( name ),
-          floatV( floatV )
+          name( argumentName ),
+          floatV( floatValue )
     {}
-    QCNodeTraceArg( std::string name, uint64_t u64V )
+    QCNodeTraceArg( std::string argumentName, uint64_t u64Value )
         : type( QCNODE_TRACE_ARG_TYPE_UINT64 ),
-          name( name ),
-          u64V( u64V )
+          name( argumentName ),
+          u64V( u64Value )
     {}
-    QCNodeTraceArg( std::string name, uint32_t u32V )
+    QCNodeTraceArg( std::string argumentName, uint32_t u32Value )
         : type( QCNODE_TRACE_ARG_TYPE_UINT32 ),
-          name( name ),
-          u32V( u32V )
+          name( argumentName ),
+          u32V( u32Value )
     {}
-    QCNodeTraceArg( std::string name, uint16_t u16V )
+    QCNodeTraceArg( std::string argumentName, uint16_t u16Value )
         : type( QCNODE_TRACE_ARG_TYPE_UINT16 ),
-          name( name ),
-          u16V( u16V )
+          name( argumentName ),
+          u16V( u16Value )
     {}
-    QCNodeTraceArg( std::string name, uint8_t u8V )
+    QCNodeTraceArg( std::string argumentName, uint8_t u8Value )
         : type( QCNODE_TRACE_ARG_TYPE_UINT8 ),
-          name( name ),
-          u8V( u8V )
+          name( argumentName ),
+          u8V( u8Value )
     {}
-    QCNodeTraceArg( std::string name, int64_t i64V )
+    QCNodeTraceArg( std::string argumentName, int64_t i64Value )
         : type( QCNODE_TRACE_ARG_TYPE_INT64 ),
-          name( name ),
-          i64V( i64V )
+          name( argumentName ),
+          i64V( i64Value )
     {}
-    QCNodeTraceArg( std::string name, int32_t i32V )
+    QCNodeTraceArg( std::string argumentName, int32_t i32Value )
         : type( QCNODE_TRACE_ARG_TYPE_INT32 ),
-          name( name ),
-          i32V( i32V )
+          name( argumentName ),
+          i32V( i32Value )
     {}
-    QCNodeTraceArg( std::string name, int16_t i16V )
+    QCNodeTraceArg( std::string argumentName, int16_t i16Value )
         : type( QCNODE_TRACE_ARG_TYPE_INT16 ),
-          name( name ),
-          i16V( i16V )
+          name( argumentName ),
+          i16V( i16Value )
     {}
-    QCNodeTraceArg( std::string name, int8_t i8V )
+    QCNodeTraceArg( std::string argumentName, int8_t i8Value )
         : type( QCNODE_TRACE_ARG_TYPE_INT8 ),
-          name( name ),
-          i8V( i8V )
+          name( argumentName ),
+          i8V( i8Value )
     {}
 
     QCNodeTraceArg( const QCNodeTraceArg & ) = default;

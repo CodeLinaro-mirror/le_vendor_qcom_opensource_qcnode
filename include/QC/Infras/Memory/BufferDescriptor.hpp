@@ -35,7 +35,19 @@ public:
      * @brief Constructor for BufferProps.
      * @return None.
      */
-    BufferProps() : QCBufferPropBase(), allocatorType( QC_MEMORY_ALLOCATOR_DMA ) {}
+    BufferProps() noexcept : QCBufferPropBase(), allocatorType( QC_MEMORY_ALLOCATOR_DMA ) {}
+
+    ~BufferProps() override = default;
+
+    BufferProps( const BufferProps & ) = default;
+    BufferProps &operator=( const BufferProps & ) = default;
+    BufferProps( BufferProps &&other ) noexcept
+        : BufferProps( static_cast<const BufferProps &>( other ) )
+    {}
+    BufferProps &operator=( BufferProps &&other ) noexcept
+    {
+        return operator=( static_cast<const BufferProps &>( other ) );
+    }
 
 
     /**
@@ -47,13 +59,14 @@ public:
      * @note This constructor sets up the properties of the buffer with the given parameters, while
      * most other properties are set to their default suggested values.
      */
-    BufferProps( size_t size, QCMemoryAllocator_e allocatorType = QC_MEMORY_ALLOCATOR_DMA,
-                 QCAllocationCache_e cache = QC_CACHEABLE )
+    explicit BufferProps( size_t requestedSize,
+                          QCMemoryAllocator_e requestedAllocatorType = QC_MEMORY_ALLOCATOR_DMA,
+                          QCAllocationCache_e requestedCache = QC_CACHEABLE )
         : QCBufferPropBase(),
-          allocatorType( allocatorType )
+          allocatorType( requestedAllocatorType )
     {
-        this->size = size;
-        this->cache = cache;
+        this->size = requestedSize;
+        this->cache = requestedCache;
     }
 
     QCMemoryAllocator_e allocatorType;
@@ -96,15 +109,21 @@ public:
 
     ~BufferDescriptor() override = default;
 
-    BufferDescriptor( const BufferDescriptor &other ) = default;
+    // BufferDescriptor is non-owning: copy the descriptor metadata and retain
+    // the reference to the externally managed buffer.
+    BufferDescriptor( const BufferDescriptor &other ) noexcept;
+    BufferDescriptor( BufferDescriptor &&other ) noexcept;
 
     /**
      * @brief Sets up the buffer descriptor from another buffer descriptor object.
      * @param[in] other The buffer descriptor object from which buffer members are copied.
      * @return The updated buffer descriptor object.
      */
-    BufferDescriptor &operator=( const BufferDescriptor &other );
-    BufferDescriptor &operator=( const QCBufferDescriptorBase_t &other );
+    using QCBufferDescriptorBase_t::operator=;
+
+    virtual BufferDescriptor &operator=( const BufferDescriptor &other ) noexcept;
+    BufferDescriptor &operator=( BufferDescriptor &&other ) noexcept;
+    BufferDescriptor &operator=( const QCBufferDescriptorBase_t &other ) noexcept override;
 
     size_t validSize;
     size_t offset;
@@ -119,7 +138,10 @@ public:
      *
      * @return void* Pointer to the valid data in the buffer.
      */
-    virtual void *GetDataPtr() const { return (void *) ( (uint8_t *) pBuf + offset ); }
+    void *GetDataPtr() const override
+    {
+        return static_cast<void *>( static_cast<uint8_t *>( pBuf ) + offset );
+    }
 
     /**
      * @brief Returns the size of valid data in the buffer.
@@ -130,7 +152,7 @@ public:
      *
      * @return size_t Size of valid data in bytes.
      */
-    virtual size_t GetDataSize() const { return validSize; }
+    size_t GetDataSize() const override { return validSize; }
 
 } BufferDescriptor_t;
 

@@ -4,23 +4,24 @@ set( NODEBASE_HEADERS
     ${HEADERS_DIR}/QC/Node/NodeBase.hpp
     ${HEADERS_DIR}/QC/Node/NodeConfigBase.hpp
     ${HEADERS_DIR}/QC/Node/NodeFrameDescriptor.hpp
-    ${HEADERS_DIR}/QC/Node/NodeFrameDescriptorPool.hpp
 )
 
 set( NODEBASE_IFS_HEADERS
+    ${HEADERS_DIR}/QC/Node/Ifs/QCNodeDefs.hpp
     ${HEADERS_DIR}/QC/Node/Ifs/QCNodeFactory.hpp
+    ${HEADERS_DIR}/QC/Node/Ifs/QCNodeFrameDescriptorFactory.hpp
 )
 
 set( NODEBASE_SOURCES
     NodeBase.cpp
     DataTree.cpp
     NodeFrameDescriptor.cpp
-    NodeFrameDescriptorPool.cpp
     QCNodeFactory.cpp
+    QCNodeFrameDescriptorFactory.cpp
 )
 
-# For on-target build, include QCNodeCommon and QCNodeVideoCodec
-set( TARGET_LIBRARIES QCNodeCommon QCNodeVideoCodec )
+# For on-target build, include QCNodeLogger and QCNodeVideoCodec
+set( TARGET_LIBRARIES QCNodeLogger QCNodeVideoCodec )
 
 if ( ENABLE_TRACE )
     list( APPEND TARGET_LIBRARIES QCNodeTrace )

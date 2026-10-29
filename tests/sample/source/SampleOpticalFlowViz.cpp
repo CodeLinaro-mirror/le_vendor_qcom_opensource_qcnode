@@ -79,7 +79,7 @@ static const char *s_pSourceMvColor = KernelCode(
             }
         } );
 
-SampleOpticalFlowViz::SampleOpticalFlowViz() {}
+SampleOpticalFlowViz::SampleOpticalFlowViz() : m_openclSrvObj( m_logger ) {}
 SampleOpticalFlowViz::~SampleOpticalFlowViz() {}
 
 #ifdef QC_ENABLE_HS
@@ -273,7 +273,7 @@ QCStatus_e SampleOpticalFlowViz::Init( std::string name, SampleConfig_t &config 
         MvMakeColorWheel();
         if ( QC_PROCESSOR_GPU == m_processor )
         {
-            ret = m_openclSrvObj.Init( name.c_str(), LOGGER_LEVEL_ERROR );
+            ret = m_openclSrvObj.Init();
 
             if ( QC_STATUS_OK == ret )
             {

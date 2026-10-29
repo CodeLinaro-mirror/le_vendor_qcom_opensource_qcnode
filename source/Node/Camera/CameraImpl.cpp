@@ -7,6 +7,7 @@
 #include <thread>
 
 #include "CameraImpl.hpp"
+#include "QC/Node/NodeFrameDescriptor.hpp"
 
 namespace QC
 {
@@ -628,6 +629,10 @@ CameraImpl::Initialize( QCNodeEventCallBack_t callback,
 
             if ( CAMERA_METADATA_TYPE_TUNING_FEATURE_MODE == metaDataConfig.metaDataType )
             {
+                // QCarCamIspSettings_t / QCARCAM_STREAM_CONFIG_PARAM_ISP_SETTINGS
+                // requires ENABLE_CAMERA_ISP_SETTINGS=ON (set by CMake when the target
+                // platform supports it, e.g. QNX SDP8 / SOC 8797); skipped otherwise.
+            #ifdef ENABLE_CAMERA_ISP_SETTINGS
                 QCarCamIspSettings_t ispSettings = { 0 };
                 ispSettings.settingsId = (uint32_t) i;
                 ispSettings.inputCommonMetadata.bufferlistId = metaDataConfig.bufferListId;
@@ -649,6 +654,12 @@ CameraImpl::Initialize( QCNodeEventCallBack_t callback,
                              "metaDataType=%d, bufferlistId=%u",
                              (int) metaDataConfig.metaDataType, metaDataConfig.bufferListId );
                 }
+            #else
+                QC_ERROR( "QCARCAM_STREAM_CONFIG_PARAM_ISP_SETTINGS is not supported "
+                         "(ENABLE_CAMERA_ISP_SETTINGS=OFF); skipping ISP settings for "
+                         "metaDataIdx=%u, bufferlistId=%u",
+                         (uint32_t) i, metaDataConfig.bufferListId );
+            #endif
             }
         }
     }
@@ -2239,7 +2250,7 @@ void CameraImpl::ReturnInvalidFrame( CameraFrameDescriptor_t &frame )
 void CameraImpl::FrameCallback( CameraFrameDescriptor_t *pFrame )
 {
     QCStatus_e ret = QC_STATUS_OK;
-    NodeFrameDescriptor frameDesc( 1 );
+    NodeFrameDescriptorFlat<1> frameDesc;
 
     if ( nullptr == m_callback )
     {
@@ -2276,7 +2287,7 @@ void CameraImpl::FrameCallback( CameraFrameDescriptor_t *pFrame )
 void CameraImpl::EventCallback( const uint32_t eventId, const QCarCamEventPayload_t *pPayLoad )
 {
     QCStatus_e ret = QC_STATUS_OK;
-    NodeFrameDescriptor frameDesc( 1 );
+    NodeFrameDescriptorFlat<1> frameDesc;
     QCBufferDescriptorBase_t eventDesc;
     QCarCamEventPayload_t payload;
 
@@ -2307,7 +2318,7 @@ void CameraImpl::EventCallback( const uint32_t eventId, const QCarCamEventPayloa
     if ( QC_STATUS_OK == ret )
     {
         payload = *pPayLoad;
-        eventDesc.name = "Camera Event";
+        (void) eventDesc.name.Assign( "Camera Event" );
         eventDesc.pBuf = &payload;
         eventDesc.size = sizeof( QCarCamEventPayload_t );
         frameDesc.SetBuffer( 0, eventDesc );

@@ -24,7 +24,7 @@ namespace QC
 #endif
 
 /** @brief QC Computing Processor Type*/
-typedef enum
+typedef enum QCProcessorType
 {
     QC_PROCESSOR_HTP0, /**< do computing on the processor HTP0 */
     QC_PROCESSOR_HTP1, /**< do computing on the processor HTP1 */
@@ -36,7 +36,7 @@ typedef enum
 } QCProcessorType_e;
 
 /** @brief The image format. */
-typedef enum
+typedef enum QCImageFormat
 {
     /**< Below formats for an image without compression */
     QC_IMAGE_FORMAT_RGB888 = 0,
@@ -55,7 +55,7 @@ typedef enum
 } QCImageFormat_e;
 
 /** @brief The QC tensor data type. */
-typedef enum
+typedef enum QCTensorType
 {
 
     QC_TENSOR_TYPE_INT_8,  /**< 8-bit integer type */

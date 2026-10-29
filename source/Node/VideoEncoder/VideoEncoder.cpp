@@ -5,14 +5,17 @@
 #include <unistd.h>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
+#include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/Node/VideoEncoder.hpp"
+#include <cstdio>
 
 namespace QC
 {
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_VENC, VideoEncoder )
+const NodeRegistrar<VideoEncoder> g_registerVideoEncoder{ QC_NODE_TYPE_VENC };
 
 #define ARRAY_SIZE( a ) ( sizeof( ( a ) ) / sizeof( ( a )[0] ) )
 
@@ -190,7 +193,7 @@ QCStatus_e VideoEncoder::Initialize( QCNodeInit_t &config )
 
     if ( QC_STATUS_OK == status )
     {
-        m_drvClient.Init( m_name.c_str(), m_logger.GetLevel(), VIDEO_ENC, *m_pConfig );
+        m_drvClient.Init( VIDEO_ENC, *m_pConfig );
         status = m_drvClient.OpenDriver( InFrameCallback, OutFrameCallback, EventCallback, this );
     }
     else
@@ -811,7 +814,7 @@ void VideoEncoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 {
     if ( m_callback )
     {
-        NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID + 1 );
+        NodeFrameDescriptorFlat<QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID + 1> frameDesc;
         (void) frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_INPUT_BUFF_ID, inFrameDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_configIfs.Get().nodeId, QC_STATUS_OK, GetState() );
@@ -823,7 +826,7 @@ void VideoEncoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
 {
     if ( m_callback )
     {
-        NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID + 1 );
+        NodeFrameDescriptorFlat<QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID + 1> frameDesc;
         (void) frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, outFrameDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_configIfs.Get().nodeId, QC_STATUS_OK, GetState() );
@@ -837,13 +840,15 @@ void VideoEncoder::EventCallback( VideoEncoder_EventType_e eventId, void *pEvent
 
     if ( m_callback )
     {
-        NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_ENCODER_EVENT_BUFF_ID + 1 );
+        NodeFrameDescriptorFlat<QC_NODE_VIDEO_ENCODER_EVENT_BUFF_ID + 1> frameDesc;
 
         QCBufferDescriptorBase_t errDesc;
-        errDesc.name = std::to_string( eventId );
-        errDesc.pBuf = pEvent;
-        errDesc.size = sizeof( vidc_drv_msg_info_type );
-        frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, errDesc );
+        VideoEncoderErrorInfo_t errInfo = { eventId, pEvent, sizeof( vidc_drv_msg_info_type ) };
+
+        (void) errDesc.name.Assign( "ERROR" );
+        errDesc.pBuf = &errInfo;
+        errDesc.size = sizeof( errInfo );
+        (void) frameDesc.SetBuffer( QC_NODE_VIDEO_ENCODER_OUTPUT_BUFF_ID, errDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );
         m_callback( evtInfo );
@@ -914,6 +919,30 @@ QCStatus_e VideoEncoderConfigIfs::ParseStaticConfig( DataTree &dt, std::string &
     if ( QC_STATUS_OK != status )
     {
         QC_ERROR( "errors: %s", errors.c_str() );
+    }
+    else
+    {
+        m_config.executeMode = QC_EXECUTE_MODE_ASYNC;
+        m_config.processor = QC_PROCESSOR_MAX;
+        m_config.coreIds.clear();
+        Memory::ImageBasicProps_t inputBasicProps( m_config.width, m_config.height,
+                                                    m_config.inFormat );
+        Memory::UtilsBase memoryUtils;
+        Memory::ImageProps_t inputProps;
+        status = memoryUtils.SetImagePropsFromImageBasicProp( inputBasicProps, inputProps );
+        if ( QC_STATUS_OK != status )
+        {
+            errors += "failed to derive encoder input buffer properties, ";
+            return status;
+        }
+        const uint32_t outputBufferSize = 2U * m_config.width * m_config.height;
+        Memory::ImageProps_t outputProps(
+                1U, m_config.width, m_config.height, m_config.outFormat,
+                std::vector<uint32_t>( { 0U } ), std::vector<uint32_t>( { 0U } ),
+                std::vector<uint32_t>( { outputBufferSize } ), QC_MEMORY_ALLOCATOR_DMA_VPU);
+        outputProps.size = outputBufferSize;
+        m_config.inputs = { { "input", QC_BUFFER_TYPE_IMAGE, inputProps } };
+        m_config.outputs = { { "output", QC_BUFFER_TYPE_IMAGE, outputProps } };
     }
 
     QC_INFO( "enc-init: w:%u, h:%u, fps:%u, bitRate:%u, gop:%u, inbuf: dynamicMode:%d, num:%u; "

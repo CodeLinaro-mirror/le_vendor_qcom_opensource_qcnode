@@ -59,7 +59,9 @@ public:
     CL2DFlexImpl( QCNodeID_t &nodeId, Logger &logger )
         : m_nodeId( nodeId ),
           m_logger( logger ),
-          m_state( QC_OBJECT_STATE_INITIAL ) {};
+          m_state( QC_OBJECT_STATE_INITIAL ),
+          m_OpenclSrvObj( logger ) {};
+    ~CL2DFlexImpl();
     CL2DFlexImplConfig_t &GetConifg() { return m_config; }
 
     QCStatus_e Initialize( std::vector<std::reference_wrapper<QCBufferDescriptorBase>> &buffers );
@@ -70,6 +72,7 @@ public:
     QCObjectState_e GetState();
 
 private:
+    QCStatus_e Cleanup();
     QCStatus_e SetupGlobalBufferIdMap();
 
 private:
@@ -79,8 +82,9 @@ private:
     QCObjectState_e m_state;
 
     OpenclSrv m_OpenclSrvObj;
+    bool m_openclInitialized = false;
     CL2DPipelineBase *m_pCL2DPipeline[QC_MAX_INPUTS] = { nullptr };
-    cl_kernel m_kernel[QC_MAX_INPUTS];
+    cl_kernel m_kernel[QC_MAX_INPUTS] = { nullptr };
 
     uint32_t m_inputNum;
     uint32_t m_outputNum = 1;

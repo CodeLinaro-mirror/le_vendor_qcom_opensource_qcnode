@@ -14,8 +14,8 @@ namespace Node
 
 /** @brief The QCNode CL2DFLEX Version */
 #define QCNODE_CL2DFLEX_VERSION_MAJOR 2U
-#define QCNODE_CL2DFLEX_VERSION_MINOR 2U
-#define QCNODE_CL2DFLEX_VERSION_PATCH 1U
+#define QCNODE_CL2DFLEX_VERSION_MINOR 3U
+#define QCNODE_CL2DFLEX_VERSION_PATCH 0U
 
 #define QCNODE_CL2DFLEX_VERSION                                                                    \
     ( ( QCNODE_CL2DFLEX_VERSION_MAJOR << 16U ) | ( QCNODE_CL2DFLEX_VERSION_MINOR << 8U ) |         \
@@ -121,7 +121,7 @@ typedef struct
  */
 class CL2DFlexImpl;
 
-class CL2DFlexConfig : public NodeConfigIfs
+class CL2DFlexConfig : public NodeConfigBase
 {
 public:
     /**
@@ -131,7 +131,7 @@ public:
      * @return None
      */
     CL2DFlexConfig( Logger &logger, CL2DFlexImpl *pCL2DFlexImpl )
-        : NodeConfigIfs( logger ),
+        : NodeConfigBase( logger ),
           m_pCL2DFlexImpl( pCL2DFlexImpl )
     {}
 

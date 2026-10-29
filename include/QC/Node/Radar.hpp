@@ -68,7 +68,7 @@ typedef struct RadarConfig : public QCNodeConfigBase_t
     bool bDeRegisterAllBuffersWhenStop;
 } RadarConfig_t;
 
-class RadarConfigIfs : public NodeConfigIfs
+class RadarConfigIfs : public NodeConfigBase
 {
 public:
     /**
@@ -77,7 +77,7 @@ public:
      * @param[in] radar A reference to the QC Radar component to be used by RadarConfigIfs.
      * @return None
      */
-    RadarConfigIfs( Logger &logger ) : NodeConfigIfs( logger ) {}
+    RadarConfigIfs( Logger &logger ) : NodeConfigBase( logger ) {}
 
     /**
      * @brief RadarConfigIfs Destructor

@@ -41,8 +41,6 @@ TEST_F( Test_HeapAllocator, SANITY )
         ASSERT_EQ( response.cache, QC_CACHEABLE );
         status = allocatorIfs.Free( response );
         ASSERT_EQ( QC_STATUS_OK, status );
-
-        allocatorIfs.~HeapAllocator();
     }
 
     {
@@ -62,8 +60,6 @@ TEST_F( Test_HeapAllocator, SANITY )
         ASSERT_EQ( response.cache, QC_CACHEABLE );
         status = allocatorIfs.Free( response );
         ASSERT_EQ( QC_STATUS_OK, status );
-
-        allocatorIfs.~HeapAllocator();
     }
 
     {
@@ -173,8 +169,6 @@ TEST_F( Test_HeapAllocator, SANITY_multiple_allocations )
         response[0].pBuf = nullptr;
         status = allocatorIfs.Free( response[0] );
         ASSERT_EQ( QC_STATUS_NULL_PTR, status );
-
-        allocatorIfs.~HeapAllocator();
     }
 
 
@@ -258,6 +252,167 @@ TEST_F( Test_HeapAllocator, SANITY_multiple_allocations )
     }
 }
 
+// ---------------------------------------------------------------------------
+// Additional negative / boundary coverage for HeapAllocator::Allocate & Free
+// ---------------------------------------------------------------------------
+
+/**
+ * @test SANITY_alignment_below_minimum
+ * @brief Cover the "request.alignment < QC_MEMORY_HEAP_MINIMAL_ALLIGNMENT" decision.
+ */
+TEST_F( Test_HeapAllocator, SANITY_alignment_below_minimum )
+{
+    HeapAllocator allocatorIfs;
+
+    QCBufferPropBase_t request;
+    request.size = 64;
+    request.cache = QC_CACHEABLE;
+    request.alignment = QC_MEMORY_HEAP_MINIMAL_ALLIGNMENT - 1;
+
+    QCBufferDescriptorBase_t response;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs.Allocate( request, response ) );
+
+    request.alignment = 1;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs.Allocate( request, response ) );
+
+    request.alignment = 0;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs.Allocate( request, response ) );
+}
+
+/**
+ * @test SANITY_alignment_not_power_of_two
+ * @brief posix_memalign() rejects an alignment that is not a power of two multiple of
+ *        sizeof(void*), covering the "0 != ret" failure branch of Allocate().
+ */
+TEST_F( Test_HeapAllocator, SANITY_alignment_not_power_of_two )
+{
+    HeapAllocator allocatorIfs;
+
+    QCBufferPropBase_t request;
+    request.size = 64;
+    request.cache = QC_CACHEABLE;
+    /* >= QC_MEMORY_HEAP_MINIMAL_ALLIGNMENT (16) but not a power of two */
+    request.alignment = QC_MEMORY_HEAP_MINIMAL_ALLIGNMENT + 8;
+
+    QCBufferDescriptorBase_t response;
+    ASSERT_EQ( QC_STATUS_FAIL, allocatorIfs.Allocate( request, response ) );
+
+    request.alignment = 100;
+    ASSERT_EQ( QC_STATUS_FAIL, allocatorIfs.Allocate( request, response ) );
+}
+
+/**
+ * @test SANITY_allocate_size_zero
+ * @brief Cover the "0 == request.size" decision of Allocate().
+ */
+TEST_F( Test_HeapAllocator, SANITY_allocate_size_zero )
+{
+    HeapAllocator allocatorIfs;
+
+    QCBufferPropBase_t request;
+    request.size = 0;
+    request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+    request.cache = QC_CACHEABLE;
+
+    QCBufferDescriptorBase_t response;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs.Allocate( request, response ) );
+}
+
+/**
+ * @test SANITY_allocate_unsupported_cache_types
+ * @brief Cover all non QC_CACHEABLE cache attribute values of Allocate().
+ */
+TEST_F( Test_HeapAllocator, SANITY_allocate_unsupported_cache_types )
+{
+    HeapAllocator allocatorIfs;
+
+    const QCAllocationCache_e caches[] = { QC_CACHEABLE_NON, QC_CACHEABLE_WRITE_THROUGH,
+                                           QC_CACHEABLE_WRITE_BACK, QC_CACHEABLE_LAST };
+
+    for ( QCAllocationCache_e cache : caches )
+    {
+        QCBufferPropBase_t request;
+        request.size = 32;
+        request.alignment = QC_MEMORY_DEFAULT_ALLIGNMENT;
+        request.cache = cache;
+
+        QCBufferDescriptorBase_t response;
+        ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs.Allocate( request, response ) )
+                << "cache=" << static_cast<int>( cache );
+    }
+}
+
+/**
+ * @test SANITY_free_invalid_descriptors
+ * @brief Cover every rejection decision of HeapAllocator::Free().
+ */
+TEST_F( Test_HeapAllocator, SANITY_free_invalid_descriptors )
+{
+    HeapAllocator allocatorIfs;
+
+    /* wrong allocator type */
+    QCBufferDescriptorBase_t buff;
+    buff.allocatorType = QC_MEMORY_ALLOCATOR_DMA;
+    buff.size = 16;
+    buff.pBuf = reinterpret_cast<void *>( 0x1000 );
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs.Free( buff ) );
+
+    buff.allocatorType = QC_MEMORY_ALLOCATOR_LAST;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs.Free( buff ) );
+
+    /* zero size */
+    buff.allocatorType = QC_MEMORY_ALLOCATOR_HEAP;
+    buff.size = 0;
+    ASSERT_EQ( QC_STATUS_BAD_ARGUMENTS, allocatorIfs.Free( buff ) );
+
+    /* null pointer */
+    buff.size = 16;
+    buff.pBuf = nullptr;
+    ASSERT_EQ( QC_STATUS_NULL_PTR, allocatorIfs.Free( buff ) );
+}
+
+/**
+ * @test SANITY_allocate_various_valid_sizes
+ * @brief Exercise the successful Allocate()/Free() path with several sizes and
+ *        both supported alignment boundaries.
+ */
+TEST_F( Test_HeapAllocator, SANITY_allocate_various_valid_sizes )
+{
+    HeapAllocator allocatorIfs;
+
+    const size_t sizes[] = { 1, 15, 16, 17, 4095, 4096, 4097, 1024 * 1024 };
+    const QCAlignment_t alignments[] = { QC_MEMORY_HEAP_MINIMAL_ALLIGNMENT,
+                                         QC_MEMORY_DEFAULT_ALLIGNMENT };
+
+    for ( size_t size : sizes )
+    {
+        for ( QCAlignment_t alignment : alignments )
+        {
+            QCBufferPropBase_t request;
+            request.size = size;
+            request.alignment = alignment;
+            request.cache = QC_CACHEABLE;
+
+            QCBufferDescriptorBase_t response;
+            ASSERT_EQ( QC_STATUS_OK, allocatorIfs.Allocate( request, response ) )
+                    << "size=" << size << " alignment=" << alignment;
+            ASSERT_NE( nullptr, response.pBuf );
+            ASSERT_EQ( size, response.size );
+            ASSERT_EQ( alignment, response.alignment );
+            ASSERT_EQ( QC_CACHEABLE, response.cache );
+            ASSERT_EQ( QC_MEMORY_ALLOCATOR_HEAP, response.allocatorType );
+            /* NOTE: response.name is deliberately not asserted here.
+             * HeapAllocator::Allocate() does not populate the descriptor name,
+             * so it legitimately stays empty and asserting on it would only
+             * lock in behaviour the allocator does not promise. */
+            ASSERT_EQ( reinterpret_cast<unsigned long long>( response.pBuf ),
+                       reinterpret_cast<unsigned long long>( response.pBuf ) & ~( alignment - 1 ) );
+
+            ASSERT_EQ( QC_STATUS_OK, allocatorIfs.Free( response ) );
+        }
+    }
+}
+
 class Test_MemoryIfs : public testing::Test
 {
 
@@ -281,7 +436,7 @@ TEST_F( Test_MemoryIfs, SANITY_QCBufferDescriptorBase_default_constructor )
     ASSERT_EQ( desc.type, QC_BUFFER_TYPE_LAST );
     ASSERT_EQ( desc.dmaHandle, 0 );
     ASSERT_EQ( desc.pid, 0 );
-    ASSERT_TRUE( desc.name.empty() );   // std::string defaults to empty
+    ASSERT_TRUE( desc.name.IsEmpty() );   // QCString defaults to empty
 }
 
 TEST_F( Test_MemoryIfs, SANITY_QCBufferDescriptorBase_VirtualDestructorDoesNotCrash )
@@ -400,7 +555,7 @@ TEST_F( Test_MemoryIfs, SANITY_QCMemoryAllocatorIfs_default_constructor )
     ASSERT_EQ( desc.type, QC_BUFFER_TYPE_LAST );
     ASSERT_EQ( desc.dmaHandle, 0 );
     ASSERT_EQ( desc.pid, 0 );
-    ASSERT_TRUE( desc.name.empty() );   // std::string defaults to empty
+    ASSERT_TRUE( desc.name.IsEmpty() );   // QCString defaults to empty
 }
 
 // Test case for constructor initialization

@@ -48,9 +48,10 @@ TEST( QCNodeFactory, CreateNode_LastType )
 // ---------------------------------------------------------------------------
 // Test GetSupportedNodeTypes
 // ---------------------------------------------------------------------------
-TEST( QCNodeFactory, GetSupportedNodeTypes_ReturnsVector )
+TEST( QCNodeFactory, GetSupportedNodeTypes_ReturnsOk )
 {
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     // The vector should be valid (may be empty if no nodes are registered in unit tests)
     ASSERT_TRUE( types.size() >= 0 );
@@ -59,7 +60,8 @@ TEST( QCNodeFactory, GetSupportedNodeTypes_ReturnsVector )
 TEST( QCNodeFactory, GetSupportedNodeTypes_Consistency )
 {
     // Verify that all returned types can be created successfully
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     for ( QCNodeType_e type : types )
     {
@@ -73,7 +75,8 @@ TEST( QCNodeFactory, GetSupportedNodeTypes_Consistency )
 
 TEST( QCNodeFactory, GetSupportedNodeTypes_NoDuplicates )
 {
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     // Check for duplicates
     for ( size_t i = 0; i < types.size(); ++i )
@@ -89,8 +92,10 @@ TEST( QCNodeFactory, GetSupportedNodeTypes_NoDuplicates )
 TEST( QCNodeFactory, GetSupportedNodeTypes_ConsistentAcrossCalls )
 {
     // Verify that multiple calls return the same result
-    const std::vector<QCNodeType_e> &types1 = QCNodeFactory::GetSupportedNodeTypes();
-    const std::vector<QCNodeType_e> &types2 = QCNodeFactory::GetSupportedNodeTypes();
+    std::vector<QCNodeType_e> types1;
+    std::vector<QCNodeType_e> types2;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types1 ), QC_STATUS_OK );
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types2 ), QC_STATUS_OK );
 
     ASSERT_EQ( types1.size(), types2.size() );
     ASSERT_EQ( types1, types2 );
@@ -101,7 +106,8 @@ TEST( QCNodeFactory, GetSupportedNodeTypes_ConsistentAcrossCalls )
 // ---------------------------------------------------------------------------
 TEST( QCNodeFactory, GetSupportedNodeTypesJson_ValidFormat )
 {
-    std::string json = QCNodeFactory::GetSupportedNodeTypesJson();
+    std::string json;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypesJson( json ), QC_STATUS_OK );
 
     // Should start with { and end with }
     ASSERT_EQ( '{', json.front() );
@@ -110,8 +116,10 @@ TEST( QCNodeFactory, GetSupportedNodeTypesJson_ValidFormat )
 
 TEST( QCNodeFactory, GetSupportedNodeTypesJson_EmptyWhenNoNodes )
 {
-    std::string json = QCNodeFactory::GetSupportedNodeTypesJson();
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::string json;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypesJson( json ), QC_STATUS_OK );
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     if ( types.empty() )
     {
@@ -127,8 +135,10 @@ TEST( QCNodeFactory, GetSupportedNodeTypesJson_EmptyWhenNoNodes )
 
 TEST( QCNodeFactory, GetSupportedNodeTypesJson_MatchesVector )
 {
-    std::string json = QCNodeFactory::GetSupportedNodeTypesJson();
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::string json;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypesJson( json ), QC_STATUS_OK );
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     if ( types.empty() )
     {
@@ -144,7 +154,8 @@ TEST( QCNodeFactory, GetSupportedNodeTypesJson_MatchesVector )
 
 TEST( QCNodeFactory, GetSupportedNodeTypesJson_ContainsValidJson )
 {
-    std::string json = QCNodeFactory::GetSupportedNodeTypesJson();
+    std::string json;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypesJson( json ), QC_STATUS_OK );
 
     // Basic JSON validation
     size_t openBraces = std::count( json.begin(), json.end(), '{' );
@@ -159,16 +170,20 @@ TEST( QCNodeFactory, GetSupportedNodeTypesJson_ContainsValidJson )
 TEST( QCNodeFactory, GetSupportedNodeTypesJson_ConsistentAcrossCalls )
 {
     // Verify that multiple calls return the same result
-    std::string json1 = QCNodeFactory::GetSupportedNodeTypesJson();
-    std::string json2 = QCNodeFactory::GetSupportedNodeTypesJson();
+    std::string json1;
+    std::string json2;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypesJson( json1 ), QC_STATUS_OK );
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypesJson( json2 ), QC_STATUS_OK );
 
     ASSERT_EQ( json1, json2 );
 }
 
 TEST( QCNodeFactory, GetSupportedNodeTypesJson_ContainsColons )
 {
-    std::string json = QCNodeFactory::GetSupportedNodeTypesJson();
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::string json;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypesJson( json ), QC_STATUS_OK );
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     if ( !types.empty() )
     {
@@ -183,7 +198,8 @@ TEST( QCNodeFactory, GetSupportedNodeTypesJson_ContainsColons )
 // ---------------------------------------------------------------------------
 TEST( QCNodeFactory, CreateNode_SupportedTypes )
 {
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     // Test creating nodes for all supported types
     for ( QCNodeType_e type : types )
@@ -203,7 +219,8 @@ TEST( QCNodeFactory, CreateNode_SupportedTypes )
 // ---------------------------------------------------------------------------
 TEST( QCNodeFactory, CreateNode_MultipleCreations )
 {
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     if ( !types.empty() )
     {
@@ -227,7 +244,8 @@ TEST( QCNodeFactory, CreateNode_MultipleCreations )
 TEST( QCNodeFactory, CreateNode_OutParameterReset )
 {
     std::unique_ptr<QCNodeIfs> node;
-    const std::vector<QCNodeType_e> &types = QCNodeFactory::GetSupportedNodeTypes();
+    std::vector<QCNodeType_e> types;
+    ASSERT_EQ( QCNodeFactory::GetSupportedNodeTypes( types ), QC_STATUS_OK );
 
     if ( !types.empty() )
     {

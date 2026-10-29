@@ -43,6 +43,33 @@ TEST( QCMemoryFactory, CreateAllocator_DMA )
 #endif
 }
 
+TEST( QCMemoryFactory, CreateAllocator_AllDMAVariants )
+{
+    QCMemoryAllocator_e dmaTypes[] = {
+        QC_MEMORY_ALLOCATOR_DMA,
+        QC_MEMORY_ALLOCATOR_DMA_CAMERA,
+        QC_MEMORY_ALLOCATOR_DMA_GPU,
+        QC_MEMORY_ALLOCATOR_DMA_VPU,
+        QC_MEMORY_ALLOCATOR_DMA_EVA,
+        QC_MEMORY_ALLOCATOR_DMA_HTP
+    };
+
+    for ( auto type : dmaTypes )
+    {
+        std::unique_ptr<QCMemoryAllocatorIfs> allocator;
+        QCMemoryAllocatorConfigInit_t config = {};
+        QCStatus_e status = QCMemoryFactory::CreateAllocator( type, config, allocator );
+
+#if defined( __linux__ ) || defined( __QNX__ )
+        ASSERT_EQ( QC_STATUS_OK, status ) << "Failed for type " << static_cast<int>( type );
+        ASSERT_NE( nullptr, allocator );
+#else
+        ASSERT_EQ( QC_STATUS_UNSUPPORTED, status );
+        ASSERT_EQ( nullptr, allocator );
+#endif
+    }
+}
+
 TEST( QCMemoryFactory, CreateAllocator_UnsupportedType )
 {
     std::unique_ptr<QCMemoryAllocatorIfs> allocator;

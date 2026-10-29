@@ -12,7 +12,7 @@ endif()
 set( QCNODE_SOURCES ${CMAKE_BINARY_DIR}/null.cpp )
 
 set( TARGET_LIBRARIES
-    QCNodeCommon
+    QCNodeLogger
     QCNodeMemory
     QCNodeBase
 )

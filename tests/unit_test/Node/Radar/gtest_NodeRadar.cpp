@@ -130,7 +130,10 @@ public:
     TBuffer( TBufferAllocator &allocator, std::string name, size_t size )
         : TBuffer( allocator, size )
     {
-        tensor.name = name;
+        if ( QC_STATUS_OK == m_allocationStatus )
+        {
+            m_allocationStatus = tensor.name.Assign( name.c_str() );
+        }
     }
 
     ~TBuffer() { auto ret = m_allocator.free( tensor ); }
@@ -608,6 +611,45 @@ TEST_F( RadarNodeTest, ConfigVerifyAndSet_ValidConfig )
     QCStatus_e ret = radarNode.GetConfigurationIfs().VerifyAndSet( dt.Dump(), errors );
     EXPECT_EQ( QCStatus_e::QC_STATUS_OK, ret );
     EXPECT_TRUE( errors.empty() );
+}
+
+TEST_F( RadarNodeTest, ConfigurationDescribesRawPortsAndExecution )
+{
+    Radar radarNode;
+    std::string errors;
+    QC::DataTree dt;
+    dt.Set<std::string>( "static.name", "RadarConfigDescriptor" );
+    dt.Set<uint32_t>( "static.id", 703U );
+    SetConfigRadarEx( &m_config, &dt );
+    std::vector<uint32_t> inputBufferIds{ 0U };
+    std::vector<uint32_t> outputBufferIds{ 1U };
+    dt.Set( "static.inputs", inputBufferIds );
+    dt.Set( "static.outputs", outputBufferIds );
+
+    ASSERT_EQ( QC_STATUS_OK, radarNode.GetConfigurationIfs().VerifyAndSet( dt.Dump(), errors ) );
+
+    const QCNodeConfigBase_t &config = radarNode.GetConfigurationIfs().Get();
+    const RadarConfig_t &radarConfig = static_cast<const RadarConfig_t &>( config );
+    EXPECT_EQ( QC_EXECUTE_MODE_SYNC, config.executeMode );
+    EXPECT_EQ( QC_PROCESSOR_MAX, config.processor );
+    EXPECT_TRUE( config.coreIds.empty() );
+    ASSERT_EQ( radarConfig.inputBufferIds.size(), config.inputs.size() );
+    ASSERT_EQ( radarConfig.outputBufferIds.size(), config.outputs.size() );
+    ASSERT_FALSE( config.inputs.empty() );
+    ASSERT_FALSE( config.outputs.empty() );
+    EXPECT_EQ( "input0", config.inputs[0].name );
+    EXPECT_EQ( QC_BUFFER_TYPE_RAW, config.inputs[0].bufferType );
+    ASSERT_TRUE( std::holds_alternative<Memory::BufferProps_t>( config.inputs[0].bufProps ) );
+    EXPECT_EQ( m_config.maxInputBufferSize,
+               std::get<Memory::BufferProps_t>( config.inputs[0].bufProps ).size );
+    EXPECT_EQ( "output0", config.outputs[0].name );
+    EXPECT_EQ( QC_BUFFER_TYPE_TENSOR, config.outputs[0].bufferType );
+    ASSERT_TRUE( std::holds_alternative<Memory::TensorProps_t>( config.outputs[0].bufProps ) );
+    const auto &outputProps = std::get<Memory::TensorProps_t>( config.outputs[0].bufProps );
+    EXPECT_EQ( QC_TENSOR_TYPE_UINT_8, outputProps.tensorType );
+    ASSERT_EQ( 1U, outputProps.numDims );
+    EXPECT_EQ( m_config.maxOutputBufferSize,
+               outputProps.dims[0] );
 }
 
 /**

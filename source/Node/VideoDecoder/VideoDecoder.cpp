@@ -7,7 +7,10 @@
 #include <unistd.h>
 
 #include "QC/Common/Types.hpp"
+#include "QC/Infras/Memory/UtilsBase.hpp"
+#include "QC/Node/NodeFrameDescriptor.hpp"
 #include "QC/Node/VideoDecoder.hpp"
+#include <cstdio>
 
 #define VIDEO_DECODER_MAX_BUFFER_REQ 64
 #define VIDEO_DECODER_MIN_BUFFER_REQ 4
@@ -20,7 +23,7 @@ namespace QC
 namespace Node
 {
 
-REGISTER_NODE( QC_NODE_TYPE_VDEC, VideoDecoder )
+const NodeRegistrar<VideoDecoder> g_registerVideoDecoder{ QC_NODE_TYPE_VDEC };
 
 QCStatus_e VideoDecoder::Initialize( QCNodeInit_t &config )
 {
@@ -74,7 +77,7 @@ QCStatus_e VideoDecoder::Initialize( QCNodeInit_t &config )
 
     if ( QC_STATUS_OK == status )
     {
-        m_drvClient.Init( m_name, m_logger.GetLevel(), VIDEO_DEC, *m_pConfig );
+        m_drvClient.Init( VIDEO_DEC, *m_pConfig );
         status = m_drvClient.OpenDriver( InFrameCallback, OutFrameCallback, EventCallback, this );
     }
 
@@ -519,7 +522,7 @@ QCStatus_e VideoDecoder::SubmitOutputFrame( VideoFrameDescriptor_t &outFrameDesc
 
 void VideoDecoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 {
-    NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1 );
+    NodeFrameDescriptorFlat<QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID + 1> frameDesc;
 
     (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_INPUT_BUFF_ID, inFrameDesc );
 
@@ -532,7 +535,7 @@ void VideoDecoder::InFrameCallback( VideoFrameDescriptor_t &inFrameDesc )
 
 void VideoDecoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
 {
-    NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1 );
+    NodeFrameDescriptorFlat<QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID + 1> frameDesc;
 
     (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, outFrameDesc );
 
@@ -545,7 +548,7 @@ void VideoDecoder::OutFrameCallback( VideoFrameDescriptor_t &outFrameDesc )
 
 void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, void *pEvent )
 {
-    NodeFrameDescriptor frameDesc( QC_NODE_VIDEO_DECODER_EVENT_BUFF_ID + 1 );
+    NodeFrameDescriptorFlat<QC_NODE_VIDEO_DECODER_EVENT_BUFF_ID + 1> frameDesc;
 
     switch ( eventId )
     {
@@ -572,10 +575,11 @@ void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, void *pEvent
     if ( m_callback )
     {
         QCBufferDescriptorBase_t errDesc;
+        VideoDecoderErrorInfo_t errInfo = { eventId, pEvent, sizeof( vidc_drv_msg_info_type ) };
 
-        errDesc.name = std::to_string( eventId );
-        errDesc.pBuf = pEvent;
-        errDesc.size = sizeof( vidc_drv_msg_info_type );
+        (void) errDesc.name.Assign( "ERROR" );
+        errDesc.pBuf = &errInfo;
+        errDesc.size = sizeof( errInfo );
         (void) frameDesc.SetBuffer( QC_NODE_VIDEO_DECODER_OUTPUT_BUFF_ID, errDesc );
 
         QCNodeEventInfo_t evtInfo( frameDesc, m_nodeId, QC_STATUS_OK, GetState() );
@@ -585,6 +589,32 @@ void VideoDecoder::EventCallback( VideoDecoder_EventType_e eventId, void *pEvent
 
 QCStatus_e VideoDecoderConfigIfs::ParseStaticConfig( DataTree &dt, std::string &errors )
 {
+    (void) dt;
+    Memory::ImageBasicProps_t outputBasicProps( m_config.width, m_config.height,
+                                                 m_config.outFormat,
+                                                 QC_MEMORY_ALLOCATOR_DMA_GPU );
+    Memory::UtilsBase memoryUtils;
+    Memory::ImageProps_t outputProps;
+    QCStatus_e status =
+            memoryUtils.SetImagePropsFromImageBasicProp( outputBasicProps, outputProps );
+    if ( QC_STATUS_OK != status )
+    {
+        errors += "failed to derive decoded output buffer properties, ";
+        return status;
+    }
+    m_config.executeMode = QC_EXECUTE_MODE_ASYNC;
+    m_config.processor = QC_PROCESSOR_MAX;
+    m_config.coreIds.clear();
+    Memory::ImageBasicProps_t inputBasicProps( m_config.width, m_config.height,
+                                                m_config.inFormat );
+    const uint32_t inputBufferSize = m_config.width * m_config.height;
+    Memory::ImageProps_t inputProps(
+            inputBasicProps.batchSize, inputBasicProps.width, inputBasicProps.height,
+            inputBasicProps.format, std::vector<uint32_t>( { 0U } ),
+            std::vector<uint32_t>( { 0U } ), std::vector<uint32_t>( { inputBufferSize } ));
+    inputProps.size = inputBufferSize;
+    m_config.inputs = { { "input", QC_BUFFER_TYPE_IMAGE, inputProps } };
+    m_config.outputs = { { "output", QC_BUFFER_TYPE_IMAGE, outputProps } };
     return QC_STATUS_OK;
 }
 

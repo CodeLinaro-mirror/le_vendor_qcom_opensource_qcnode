@@ -661,8 +661,6 @@ QCStatus_e SampleCamera::Init( std::string name, SampleConfig_t &config )
         metaDataNum = (uint32_t) m_metaDataConfigs.size();
 
         // Allocate buffer pools for camera stream and metadata.
-        uint32_t maxPoolNum = streamNum + metaDataNum + ( m_bEnableInjection ? 4U : 0U );
-        m_bufferPools.reserve( maxPoolNum );
         m_bufferPools.resize( streamNum + metaDataNum );
 
         // Allocate buffers for camera stream

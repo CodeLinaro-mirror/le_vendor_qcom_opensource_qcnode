@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cmath>
 #include <condition_variable>
+#include <memory>
 #include <stdio.h>
 #include <string>
 
@@ -44,6 +45,24 @@ extern "C" void MockOpenCL_ControlReleaseMemObject( int mode, int count )
     g_mock_release_mode.store( mode );
     g_mock_release_count.store( count );
 }
+
+void CleanupCL2DFlexNode( QCNodeIfs *pNode )
+{
+    if ( nullptr != pNode )
+    {
+        if ( QC_OBJECT_STATE_RUNNING == pNode->GetState() )
+        {
+            (void)pNode->Stop();
+        }
+        if ( QC_OBJECT_STATE_READY == pNode->GetState() )
+        {
+            (void)pNode->DeInitialize();
+        }
+        delete pNode;
+    }
+}
+
+using CL2DFlexNodePtr = std::unique_ptr<QCNodeIfs, decltype( &CleanupCL2DFlexNode )>;
 
 extern "C" cl_int clReleaseMemObject( cl_mem memobj )
 {
@@ -438,8 +457,8 @@ void Sanity()
 {
     QCStatus_e ret;
     std::string errors;
-    QCNodeIfs *pCL2DFlex = new QC::Node::CL2DFlex();
     BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_CL_2D_FLEX, 0 } );
+    CL2DFlexNodePtr pCL2DFlex( new QC::Node::CL2DFlex(), CleanupCL2DFlexNode );
 
     CL2DFlex_Config_t CL2DFlexConfig;
     CL2DFlexConfig.numOfInputs = 2;
@@ -572,7 +591,6 @@ void Sanity()
         ASSERT_EQ( QC_STATUS_OK, ret );
     }
 
-    reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex )->~CL2DFlex();
 }
 
 void Accuracy( uint32_t inputNumberTest, CL2DFlex_Work_Mode_e modeTest,
@@ -583,8 +601,8 @@ void Accuracy( uint32_t inputNumberTest, CL2DFlex_Work_Mode_e modeTest,
 {
     QCStatus_e ret;
     std::string errors;
-    QCNodeIfs *pCL2DFlex = new QC::Node::CL2DFlex();
     BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_CL_2D_FLEX, 0 } );
+    CL2DFlexNodePtr pCL2DFlex( new QC::Node::CL2DFlex(), CleanupCL2DFlexNode );
     uint32_t globalIdx = 0;
     std::vector<uint32_t> bufferIds;
     QCNodeInit_t config;
@@ -845,7 +863,6 @@ void Accuracy( uint32_t inputNumberTest, CL2DFlex_Work_Mode_e modeTest,
     (void) bufMgr.Free( mapYBufferDesc );
     (void) bufMgr.Free( golden );
 
-    reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex )->~CL2DFlex();
 }
 
 void MultipleROI( CL2DFlex_Work_Mode_e modeTest, QCImageFormat_e inputFormatTest,
@@ -855,8 +872,8 @@ void MultipleROI( CL2DFlex_Work_Mode_e modeTest, QCImageFormat_e inputFormatTest
 {
     QCStatus_e ret;
     std::string errors;
-    QCNodeIfs *pCL2DFlex = new QC::Node::CL2DFlex();
     BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_CL_2D_FLEX, 0 } );
+    CL2DFlexNodePtr pCL2DFlex( new QC::Node::CL2DFlex(), CleanupCL2DFlexNode );
     uint32_t globalIdx = 0;
     std::vector<uint32_t> bufferIds;
     QCNodeInit_t config;
@@ -986,8 +1003,7 @@ void MultipleROI( CL2DFlex_Work_Mode_e modeTest, QCImageFormat_e inputFormatTest
     dt.Set<uint32_t>( "static.numOfROIs", roiNumber );
     dt.Set<uint32_t>( "static.ROIsBufferId", CL2DFlexConfig.numOfInputs + 1 );
     TensorDescriptor_t ROIsBufferDesc;
-    TensorProps_t ROIProp;
-    ROIProp = { QC_TENSOR_TYPE_UINT_32, { roiNumber, 4 } };
+    TensorProps_t ROIProp( QC_TENSOR_TYPE_UINT_32, { roiNumber, 4 } );
     ret = bufMgr.Allocate( ROIProp, ROIsBufferDesc );
     if ( nullptr != ROIsBufferDesc.pBuf )
     {
@@ -1048,7 +1064,6 @@ void MultipleROI( CL2DFlex_Work_Mode_e modeTest, QCImageFormat_e inputFormatTest
 
     (void) bufMgr.Free( ROIsBufferDesc );
 
-    reinterpret_cast<QC::Node::CL2DFlex *>( pCL2DFlex )->~CL2DFlex();
 }
 
 void Coverage1()
@@ -1531,25 +1546,22 @@ void Coverage3()
     QCStatus_e ret;
     BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_CL_2D_FLEX, 0 } );
 
-    OpenclSrv OpenclSrvObj;
-    char pName[20] = "CL2DFlex";
+    Logger logger;
+    OpenclSrv OpenclSrvObj( logger );
 
-    ret = OpenclSrvObj.Init( pName, LOGGER_LEVEL_ERROR, OPENCLIFACE_PERF_NORMAL,
-                             100 );   // init with invalid device id
+    ret = OpenclSrvObj.Init( OPENCLIFACE_PERF_NORMAL, 100 );   // init with invalid device id
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 
-    ret = OpenclSrvObj.Init( pName, LOGGER_LEVEL_ERROR, (OpenclIfcae_Perf_e) 100,
-                             0 );   // init with invalid performance level
+    ret = OpenclSrvObj.Init( (OpenclIfcae_Perf_e) 100, 0 );   // init with invalid performance level
     EXPECT_EQ( QC_STATUS_BAD_ARGUMENTS, ret );
 
-    ret = OpenclSrvObj.Init( pName, LOGGER_LEVEL_MAX,
-                             OPENCLIFACE_PERF_LOW );   // success init OpenclSrv with low priority
+    ret = OpenclSrvObj.Init( OPENCLIFACE_PERF_LOW );   // success init OpenclSrv with low priority
     EXPECT_EQ( QC_STATUS_OK, ret );
 
     ret = OpenclSrvObj.LoadFromSource( nullptr );   // create program with null source
     EXPECT_EQ( QC_STATUS_FAIL, ret );
 
-    cl_kernel kernel;
+    cl_kernel kernel = nullptr;
     ret = OpenclSrvObj.CreateKernel( &kernel,
                                      "" );   // create kernel with null name
     EXPECT_EQ( QC_STATUS_FAIL, ret );
@@ -1762,11 +1774,9 @@ void Coverage3()
                                 &OpenclWorkParams );   // execute without init
     EXPECT_EQ( QC_STATUS_BAD_STATE, ret );
 
-    ret = OpenclSrvObj.Init( pName, LOGGER_LEVEL_MAX,
-                             OPENCLIFACE_PERF_LOW );   // success init OpenclSrv
+    ret = OpenclSrvObj.Init( OPENCLIFACE_PERF_LOW );   // success init OpenclSrv
     EXPECT_EQ( QC_STATUS_OK, ret );
-    ret = OpenclSrvObj.Init( pName, LOGGER_LEVEL_MAX,
-                             OPENCLIFACE_PERF_LOW );   // init twice
+    ret = OpenclSrvObj.Init( OPENCLIFACE_PERF_LOW );   // init twice
     EXPECT_EQ( QC_STATUS_BAD_STATE, ret );
 
     (void) bufMgr.Free( imageDesc );
@@ -1813,9 +1823,10 @@ void Coverage4()
     pCL2DPipelineConvert->InitLogger( "Convert", LOGGER_LEVEL_MAX );   // invalid logger init
     pCL2DPipelineConvert->DeinitLogger();                              // invalid logger deinit
 
-    OpenclSrv openclSrvObj;
+    Logger logger;
+    OpenclSrv openclSrvObj( logger );
     cl_kernel kernel;
-    ret = openclSrvObj.Init( "Opencl", LOGGER_LEVEL_ERROR, OPENCLIFACE_PERF_NORMAL, 0 );
+    ret = openclSrvObj.Init( OPENCLIFACE_PERF_NORMAL, 0 );
     EXPECT_EQ( QC_STATUS_OK, ret );
     ret = openclSrvObj.LoadFromSource( s_pSourceCL2DFlex );
     EXPECT_EQ( QC_STATUS_OK, ret );
@@ -2042,8 +2053,9 @@ void CoverageOpenCLReleaseMock_DeregAllBuffers()
     QCStatus_e ret;
     BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_CL_2D_FLEX, 0 } );
 
-    OpenclSrv openclSrvObj;
-    ret = openclSrvObj.Init( "Opencl", LOGGER_LEVEL_MAX, OPENCLIFACE_PERF_NORMAL, 0 );
+    Logger logger;
+    OpenclSrv openclSrvObj( logger );
+    ret = openclSrvObj.Init( OPENCLIFACE_PERF_NORMAL, 0 );
     EXPECT_EQ( QC_STATUS_OK, ret );
 
     // Prepare a registered buffer, image and plane to populate internal maps
@@ -2103,8 +2115,9 @@ void CoverageOpenCLReleaseMock_Deinit()
     QCStatus_e ret;
     BufferManager bufMgr( { "MANAGER", QC_NODE_TYPE_CL_2D_FLEX, 0 } );
 
-    OpenclSrv openclSrvObj;
-    ret = openclSrvObj.Init( "Opencl", LOGGER_LEVEL_MAX, OPENCLIFACE_PERF_NORMAL, 0 );
+    Logger logger;
+    OpenclSrv openclSrvObj( logger );
+    ret = openclSrvObj.Init( OPENCLIFACE_PERF_NORMAL, 0 );
     EXPECT_EQ( QC_STATUS_OK, ret );
     ret = openclSrvObj.LoadFromSource( s_pSourceCL2DFlex );
     EXPECT_EQ( QC_STATUS_OK, ret );
@@ -2189,6 +2202,55 @@ void CoverageOpenCLReleaseMock_Deinit()
 TEST( NodeCL2D, Sanity )
 {
     Sanity();
+}
+
+TEST( NodeCL2D, ConfigurationDescribesImagePortsAndExecution)
+{
+    CL2DFlex_Config_t cl2dConfig{};
+    cl2dConfig.numOfInputs = 2;
+    for ( uint32_t i = 0U; i < cl2dConfig.numOfInputs; ++i )
+    {
+        cl2dConfig.workModes[i] = CL2DFLEX_WORK_MODE_RESIZE_NEAREST;
+        cl2dConfig.inputWidths[i] = 128U;
+        cl2dConfig.inputHeights[i] = 64U;
+        cl2dConfig.inputFormats[i] = QC_IMAGE_FORMAT_NV12;
+        cl2dConfig.ROIs[i] = { 0, 0, 128, 64 };
+    }
+    cl2dConfig.outputWidth = 64U;
+    cl2dConfig.outputHeight = 32U;
+    cl2dConfig.outputFormat = QC_IMAGE_FORMAT_RGB888;
+    cl2dConfig.deviceId = 0U;
+
+    DataTree dt;
+    dt.Set<std::string>( "static.name", "CL2DConfigDescriptor" );
+    dt.Set<uint32_t>( "static.id", 1U );
+    SetConfigCL2D( &cl2dConfig, &dt );
+    dt.Set<uint32_t>( "static.deviceId", cl2dConfig.deviceId );
+
+    QC::Node::CL2DFlex node;
+    std::string errors;
+    ASSERT_EQ( QC_STATUS_OK, node.GetConfigurationIfs().VerifyAndSet( dt.Dump(), errors ) );
+
+    const QCNodeConfigBase_t &config = node.GetConfigurationIfs().Get();
+    ASSERT_EQ( QC_EXECUTE_MODE_SYNC, config.executeMode );
+    ASSERT_EQ( QC_PROCESSOR_GPU, config.processor );
+    ASSERT_EQ( 1U, config.coreIds.size() );
+    EXPECT_EQ( cl2dConfig.deviceId, config.coreIds[0] );
+    ASSERT_EQ( 2U, config.inputs.size() );
+    ASSERT_EQ( 1U, config.outputs.size() );
+    EXPECT_EQ( "input0", config.inputs[0].name );
+    EXPECT_EQ( QC_BUFFER_TYPE_IMAGE, config.inputs[0].bufferType );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageBasicProps_t>( config.inputs[0].bufProps ) );
+    const auto &inputProps = std::get<Memory::ImageBasicProps_t>( config.inputs[0].bufProps );
+    EXPECT_EQ( 128U, inputProps.width );
+    EXPECT_EQ( 64U, inputProps.height );
+    EXPECT_EQ( QC_IMAGE_FORMAT_NV12, inputProps.format );
+    EXPECT_EQ( "output", config.outputs[0].name );
+    ASSERT_TRUE( std::holds_alternative<Memory::ImageProps_t>( config.outputs[0].bufProps ) );
+    const auto &outputProps = std::get<Memory::ImageProps_t>( config.outputs[0].bufProps );
+    EXPECT_EQ( 64U, outputProps.width );
+    EXPECT_EQ( 32U, outputProps.height );
+    EXPECT_EQ( QC_IMAGE_FORMAT_RGB888, outputProps.format );
 }
 
 TEST( NodeCL2D, Stress )
