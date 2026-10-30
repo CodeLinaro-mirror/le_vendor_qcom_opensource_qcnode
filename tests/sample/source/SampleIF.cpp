@@ -107,7 +107,6 @@ void SampleIF::SetupCompResSchedCmd( compressched_acquire_cmd &cmd )
     cmd.timeout_us = m_rsmTimeoutUs;
     if ( ( m_processor == QC_PROCESSOR_HTP0 ) && ( m_coreIds.size() > 1 ) )
     {
-        cmd.priority = QUEUE_PRIORITY_REALTIME;
         cmd.res_details.req_type = COMPRESSCHED_SUPER_RESOURCE_REQUEST;
     }
 }
