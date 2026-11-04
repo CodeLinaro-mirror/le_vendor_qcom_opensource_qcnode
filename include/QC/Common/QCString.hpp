@@ -1,8 +1,6 @@
-/* ===========================================================================
- * Copyright (c) Qualcomm Technologies, Inc.
- * All Rights Reserved.
- * Confidential and Proprietary - Qualcomm Technologies, Inc.
-=========================================================================== */
+// Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+// SPDX-License-Identifier: BSD-3-Clause-Clear
+
 #ifndef QC_STRING_HPP
 #define QC_STRING_HPP
 
